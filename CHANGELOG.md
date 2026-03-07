@@ -97,9 +97,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.1.0] — 2025
-
-### Added
+## Added [0.1.0] — 2025
 
 - Initial `stracectl` TUI: real-time syscall aggregation via `strace`, BubbleTea
   interface with per-syscall counts, latencies, error rates, and category breakdown.
