@@ -110,7 +110,7 @@ sudo stracectl attach --serve :8080 42
 Available endpoints:
 
 | Endpoint | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `GET /healthz` | Liveness probe — always returns `ok` |
 | `GET /api/stats` | JSON snapshot of all syscall stats, sorted by count |
 | `GET /api/categories` | JSON breakdown by category |
@@ -294,7 +294,7 @@ spec:
 When running in sidecar mode, `/metrics` exposes:
 
 | Metric | Type | Description |
-|--------|------|-------------|
+| -------- | ------ | ------------- |
 | `stracectl_syscall_calls_total` | Counter | Total invocations per syscall/category |
 | `stracectl_syscall_errors_total` | Counter | Failed invocations per syscall/category |
 | `stracectl_syscall_duration_seconds_total` | Counter | Cumulative kernel time per syscall |
