@@ -152,9 +152,20 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.helpOverlay = false
 		return m, nil
 	}
-	// any key closes the detail overlay
+	// in the detail overlay: navigate or close
 	if m.detailOverlay {
-		m.detailOverlay = false
+		switch msg.String() {
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			m.cursor++ // clamped in renderDetail
+		case "q", "Q", "ctrl+c":
+			return m, tea.Quit
+		default:
+			m.detailOverlay = false
+		}
 		return m, nil
 	}
 	switch msg.String() {
@@ -188,7 +199,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "down", "j":
 		m.cursor++ // clamped in View() after slice is built
-	case "d", "D":
+	case "d", "D", "enter", " ":
 		m.detailOverlay = true
 	}
 	return m, nil
@@ -248,7 +259,7 @@ func (m model) View() string {
 	if m.editing {
 		footer = filterStyle.Render(fmt.Sprintf(" filter: %s█", m.filter))
 	} else {
-		hint := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  d:details  ?:help  esc:clear"
+		hint := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  ?:help  esc:clear"
 		if m.filter != "" {
 			hint += fmt.Sprintf("   [filter: %q]", m.filter)
 		}
@@ -258,8 +269,8 @@ func (m model) View() string {
 	// anomaly alerts
 	alerts := m.renderAlerts()
 
-	// fixed UI lines: title+stats, cat, div, hdr, div, footer
-	fixedLines := 6
+	// fixed UI lines: title+stats, cat, div, hdr, div, bottom-div, footer
+	fixedLines := 7
 	if alerts != "" {
 		fixedLines += strings.Count(alerts, "\n") + 1
 	}
@@ -498,7 +509,7 @@ func (m model) renderDetail() string {
 	div := divStyle.Render(strings.Repeat("─", w))
 
 	var sb strings.Builder
-	titleText := fmt.Sprintf(" stracectl  details: %s  (press any key to close) ", s.Name)
+	titleText := fmt.Sprintf(" stracectl  details: %s ", s.Name)
 	sb.WriteString(detailTitleStyle.Width(w).Render(titleText) + "\n")
 	sb.WriteString(div + "\n")
 
@@ -579,7 +590,7 @@ func (m model) renderDetail() string {
 
 	sb.WriteString("\n")
 	sb.WriteString(div + "\n")
-	sb.WriteString(footerStyle.Render(" press any key to return  │  ↑↓/jk to move between syscalls "))
+	sb.WriteString(footerStyle.Render(" any key to return  │  ↑↓/jk:navigate syscalls  │  q:quit "))
 	return sb.String()
 }
 
@@ -1043,7 +1054,7 @@ func (m model) renderHelp() string {
 	section("KEYBOARD SHORTCUTS")
 	row("↑ / k", "move selection up")
 	row("↓ / j", "move selection down")
-	row("d / D", "open detail overlay for selected syscall")
+	row("enter / d", "open detail page for selected syscall")
 	row("c", "sort by COUNT (most called first)")
 	row("t", "sort by TOTAL time (most CPU in kernel)")
 	row("a", "sort by AVG latency")

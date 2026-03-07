@@ -297,14 +297,36 @@ func TestDetailOverlay_UpperDOpens(t *testing.T) {
 	}
 }
 
-func TestDetailOverlay_AnyKeyCloses(t *testing.T) {
-	for _, key := range []string{"d", "q", "j", "esc"} {
+func TestDetailOverlay_NavigationKeys(t *testing.T) {
+	// j/k navigate within the detail view, not close it
+	for _, key := range []string{"j", "k", "up", "down"} {
+		m := newTestModel()
+		m.detailOverlay = true
+		m = pressKey(m, key)
+		if !m.detailOverlay {
+			t.Errorf("detailOverlay should remain open after pressing %q (navigation key)", key)
+		}
+	}
+}
+
+func TestDetailOverlay_OtherKeyCloses(t *testing.T) {
+	// any non-navigation key closes the detail view (except q which quits)
+	for _, key := range []string{"d", "esc", "a", "c", " "} {
 		m := newTestModel()
 		m.detailOverlay = true
 		m = pressKey(m, key)
 		if m.detailOverlay {
-			t.Errorf("detailOverlay should be false after pressing %q to close, got true", key)
+			t.Errorf("detailOverlay should be false after pressing %q, got true", key)
 		}
+	}
+}
+
+func TestDetailOverlay_EnterOpens(t *testing.T) {
+	m := newTestModel()
+	addEvent(m.agg, "read", 1*time.Millisecond, "")
+	m = pressKey(m, "enter")
+	if !m.detailOverlay {
+		t.Error("pressing Enter should open detail overlay")
 	}
 }
 
