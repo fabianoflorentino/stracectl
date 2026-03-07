@@ -186,6 +186,30 @@ Currently the first line is discarded; the second line is reconstructed but lose
 
 ---
 
+### HTML report export
+
+**Goal:** generate a self-contained, detailed HTML file with the full trace results at the end of a session (or on demand), suitable for sharing, archiving, and offline analysis.
+
+**Why:** the TUI is ephemeral — once the process exits the data is gone. A `--report <file.html>` flag would produce a portable snapshot that teams can attach to incident reports, share with colleagues, or store as audit artefacts without needing `stracectl` installed.
+
+**Approach:**
+
+- Add `--report <path>` flag to `run` and `attach`; when set, write the HTML file on clean exit (SIGINT / process end) using `os.WriteFile`
+- Use Go's `html/template` from the standard library — no external dependencies
+- The report contains:
+  - **Header:** command or PID traced, start time, total duration, host info
+  - **Summary bar:** total syscalls, rate, unique names, overall error %
+  - **Category breakdown:** horizontal bar chart rendered with inline SVG
+  - **Syscall table:** all columns (NAME, CAT, COUNT, FREQ %, AVG, MIN, MAX, TOTAL, ERR%) sortable via plain JavaScript
+  - **Anomaly section:** same alerts that appear in the TUI banner, listed with explanations
+  - **Timeline sparkline:** per-second call rate rendered as an inline SVG path (reuses the ring buffer from the timeline feature)
+- The file is fully self-contained (no external CSS/JS CDN links) — safe for air-gapped environments
+- Template lives in `internal/report/report.go` with the HTML embedded via `//go:embed`
+
+**Files:** `internal/report/report.go` (new), `internal/report/template.html` (new), `cmd/attach.go`, `cmd/run.go`
+
+---
+
 ## Hardening (sidecar security posture)
 
 Even before the eBPF backend lands, the sidecar manifest can be tightened:
