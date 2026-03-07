@@ -31,15 +31,20 @@ var attachCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 
+		// tracerCtx is cancelled either by a signal (via ctx) or explicitly
+		// by runTrace once the UI/server exits, killing the strace subprocess.
+		tracerCtx, cancelTracer := context.WithCancel(ctx)
+		defer cancelTracer()
+
 		agg := aggregator.New()
 		t := tracer.NewStraceTracer()
 
-		events, err := t.Attach(ctx, pid)
+		events, err := t.Attach(tracerCtx, pid)
 		if err != nil {
 			return err
 		}
 
-		return runTrace(ctx, events, agg, attachServeAddr, fmt.Sprintf("PID %d", pid))
+		return runTrace(ctx, cancelTracer, events, agg, attachServeAddr, fmt.Sprintf("PID %d", pid))
 	},
 }
 
