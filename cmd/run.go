@@ -1,20 +1,27 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
+	"github.com/fabianoflorentino/stracectl/internal/server"
 	"github.com/fabianoflorentino/stracectl/internal/tracer"
 	"github.com/fabianoflorentino/stracectl/internal/ui"
 )
 
+var runServeAddr string
+
 var runCmd = &cobra.Command{
-	Use:                "run <command> [args...]",
-	Short:              "Run a command and trace it",
-	Args:               cobra.MinimumNArgs(1),
-	DisableFlagParsing: true,
+	Use:   "run [--serve :8080] <command> [args...]",
+	Short: "Run a command and trace it",
+	Args:  cobra.MinimumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		agg := aggregator.New()
 		t := tracer.NewStraceTracer()
@@ -30,10 +37,20 @@ var runCmd = &cobra.Command{
 			}
 		}()
 
+		if runServeAddr != "" {
+			fmt.Fprintf(os.Stderr, "serving on %s\n", runServeAddr)
+			srv := server.New(runServeAddr, agg)
+			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+			defer stop()
+			return srv.Start(ctx)
+		}
+
 		return ui.Run(agg, strings.Join(args, " "))
 	},
 }
 
 func init() {
+	runCmd.Flags().StringVar(&runServeAddr, "serve", "",
+		`expose HTTP API instead of TUI (e.g. --serve :8080)`)
 	rootCmd.AddCommand(runCmd)
 }

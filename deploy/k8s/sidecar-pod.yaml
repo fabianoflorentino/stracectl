@@ -1,0 +1,69 @@
+# Example: inject stracectl as a sidecar into any Pod.
+#
+# Requirements:
+#   - shareProcessNamespace: true        so the sidecar sees the app's PIDs
+#   - CAP_SYS_PTRACE on the sidecar      so strace can attach
+#
+# Usage:
+#   kubectl apply -f sidecar-patch.yaml
+#   kubectl port-forward pod/<pod-name> 8080
+#   curl http://localhost:8080/api/stats | jq .
+#   curl http://localhost:8080/metrics
+#
+# To stream live events:
+#   wscat -c ws://localhost:8080/stream
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-stracectl
+  labels:
+    app: myapp
+spec:
+  # Required: makes all containers share a single PID namespace.
+  # Without this the sidecar cannot see the app container's processes.
+  shareProcessNamespace: true
+
+  containers:
+    # ── Target application ────────────────────────────────────────────────────
+    - name: app
+      image: myapp:latest
+      # Replace with your actual image and command.
+
+    # ── stracectl sidecar ─────────────────────────────────────────────────────
+    - name: stracectl
+      image: ghcr.io/fabianoflorentino/stracectl:latest
+      args:
+        - attach
+        - --serve
+        - ":8080"
+        # Find the app PID with:  kubectl exec <pod> -c stracectl -- stracectl discover app
+        - "1"   # replace with actual PID or use discover subcommand
+      ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+      securityContext:
+        capabilities:
+          add:
+            - SYS_PTRACE      # required for strace
+        runAsNonRoot: false   # strace requires root or ptrace_scope=0
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "32Mi"
+        limits:
+          cpu: "200m"
+          memory: "64Mi"
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 10
+      readinessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        initialDelaySeconds: 2
+        periodSeconds: 5

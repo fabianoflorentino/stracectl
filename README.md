@@ -1,10 +1,17 @@
 # stracectl
 
-A modern `strace` with a real-time, htop-style TUI.
+[![CI](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml)
+
+A modern `strace` with a real-time, htop-style TUI — and an HTTP sidecar mode
+for Kubernetes troubleshooting.
 
 Instead of scrolling through a wall of syscall output, `stracectl` aggregates
 everything live and presents it in an interactive dashboard: per-syscall counts,
 latencies, error rates, and category breakdown — all updated while the process runs.
+
+In **sidecar mode** (`--serve`) the TUI is replaced by an HTTP API that exposes
+the same data over JSON, WebSocket, and Prometheus endpoints, so you can
+troubleshoot a running Pod without attaching a terminal.
 
 ```text
  stracectl  curl google.com                   elapsed: 4s
@@ -39,6 +46,9 @@ connect        NET        6  █░░░░░░░░░░░    41.3µs   2
 - **Interactive filter** — press `/` and type to narrow down syscalls in real time
 - **Help overlay** — press `?` for a full in-app reference of every column, colour, and pattern
 - **Multiple sort keys** — count, total time, avg latency, peak latency, errors, name
+- **Sidecar mode** — `--serve :8080` replaces the TUI with an HTTP API (JSON, WebSocket, Prometheus)
+- **PID auto-discovery** — `stracectl discover <container-name>` finds the target PID inside a shared-PID-namespace Pod
+- **Kubernetes-ready** — ships with a Dockerfile, raw manifests, and a Helm chart
 
 ## Requirements
 
@@ -63,6 +73,12 @@ go build -o stracectl .
 sudo mv stracectl /usr/local/bin/
 ```
 
+Or use the pre-built container image:
+
+```bash
+docker pull ghcr.io/fabianoflorentino/stracectl:latest
+```
+
 ## Usage
 
 ### Trace a command from the start
@@ -77,6 +93,44 @@ sudo stracectl run -- python3 app.py --port 8080
 ```bash
 sudo stracectl attach 1234
 sudo stracectl attach "$(pgrep nginx | head -1)"
+```
+
+### Sidecar / HTTP API mode
+
+Pass `--serve <addr>` to any command to replace the TUI with an HTTP server:
+
+```bash
+# trace a command and expose results over HTTP
+sudo stracectl run --serve :8080 curl https://example.com
+
+# attach to PID 42 and stream metrics to Prometheus
+sudo stracectl attach --serve :8080 42
+```
+
+Available endpoints:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /healthz` | Liveness probe — always returns `ok` |
+| `GET /api/stats` | JSON snapshot of all syscall stats, sorted by count |
+| `GET /api/categories` | JSON breakdown by category |
+| `WS /stream` | WebSocket push — fresh snapshot every second |
+| `GET /metrics` | Prometheus exposition format |
+
+### Discover a container PID (Kubernetes sidecar)
+
+When `shareProcessNamespace: true` is set on a Pod, all container processes
+are visible from the sidecar. Use `discover` to find the right PID:
+
+```bash
+stracectl discover myapp
+# prints the lowest PID whose cgroup path matches "myapp"
+```
+
+Then attach:
+
+```bash
+stracectl attach --serve :8080 "$(stracectl discover myapp)"
 ```
 
 > **Permissions:** `strace` requires `CAP_SYS_PTRACE`.
@@ -182,15 +236,88 @@ When a row crosses a threshold, a banner with an explanation appears above the d
 Press `?` at any time to open a full in-app reference covering every column,
 colour, category, common pattern, and keyboard shortcut. Press any key to return.
 
+## Deploying as a Kubernetes sidecar
+
+### Prerequisites
+
+- Kubernetes 1.19+
+- `strace` available in the sidecar image (included in the published image)
+- `shareProcessNamespace: true` on the Pod spec
+
+> **Security note:** `CAP_SYS_PTRACE` is a powerful capability. Only use this
+> in debug/staging namespaces, or protect it with `PodSecurityAdmission`.
+
+### Quick start with raw manifests
+
+```bash
+# 1. Edit the target PID in deploy/k8s/sidecar-pod.yaml
+#    (or use `stracectl discover <container-name>` at runtime)
+kubectl apply -f deploy/k8s/sidecar-pod.yaml
+
+# 2. Forward the port
+kubectl port-forward pod/myapp-stracectl 8080
+
+# 3. Query
+curl http://localhost:8080/api/stats | jq .
+curl http://localhost:8080/metrics
+# wscat -c ws://localhost:8080/stream
+```
+
+### Helm chart
+
+The Helm chart provides a `stracectl.sidecar` template you can include in
+your existing Deployment:
+
+```bash
+# Install the chart (creates a ServiceMonitor if serviceMonitor.enabled=true)
+helm install stracectl ./deploy/helm/stracectl \
+  --set targetPID=1 \
+  --set targetContainer=myapp \
+  --set serviceMonitor.enabled=true
+```
+
+In your Deployment template, add the sidecar container:
+
+```yaml
+spec:
+  shareProcessNamespace: true
+  template:
+    spec:
+      containers:
+        - name: myapp
+          image: myapp:latest
+        {{- include "stracectl.sidecar" . | nindent 8 }}
+```
+
+### Prometheus metrics
+
+When running in sidecar mode, `/metrics` exposes:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `stracectl_syscall_calls_total` | Counter | Total invocations per syscall/category |
+| `stracectl_syscall_errors_total` | Counter | Failed invocations per syscall/category |
+| `stracectl_syscall_duration_seconds_total` | Counter | Cumulative kernel time per syscall |
+| `stracectl_syscall_duration_avg_seconds` | Gauge | Average kernel time per syscall |
+| `stracectl_syscall_duration_max_seconds` | Gauge | Peak kernel time per syscall |
+| `stracectl_syscalls_per_second` | Gauge | Recent call rate |
+
 ## Project structure
 
 ```text
 stracectl/
 ├── main.go
+├── Dockerfile
 ├── cmd/
 │   ├── root.go              # Cobra root command
-│   ├── attach.go            # stracectl attach <pid>
-│   └── run.go               # stracectl run <cmd>
+│   ├── attach.go            # stracectl attach [--serve] <pid>
+│   ├── run.go               # stracectl run [--serve] <cmd>
+│   └── discover.go          # stracectl discover <container-name>
+├── deploy/
+│   ├── k8s/
+│   │   ├── sidecar-pod.yaml # example Pod with sidecar
+│   │   └── servicemonitor.yaml
+│   └── helm/stracectl/      # Helm chart
 └── internal/
     ├── models/
     │   └── event.go         # SyscallEvent struct
@@ -200,6 +327,10 @@ stracectl/
     │   └── aggregator.go    # thread-safe stats, categories, sorting
     ├── tracer/
     │   └── strace.go        # spawns strace subprocess, emits events on a channel
+    ├── discover/
+    │   └── discover.go      # PID discovery via /proc/<pid>/cgroup
+    ├── server/
+    │   └── server.go        # HTTP API (JSON + WebSocket + Prometheus)
     └── ui/
         ├── tui.go           # BubbleTea full-screen TUI
         └── syscall_help.go  # syscall descriptions and errno explanations
@@ -234,6 +365,12 @@ go test ./internal/... -v
 
 ## Roadmap
 
+- [x] HTTP API server with JSON endpoints (`--serve` flag)
+- [x] WebSocket stream for live event consumers
+- [x] Prometheus metrics endpoint (`/metrics`)
+- [x] PID auto-discovery for Kubernetes sidecar mode
+- [x] Multi-stage Dockerfile with `strace` included
+- [x] Kubernetes raw manifests and Helm chart
 - [ ] Direct `ptrace` backend (remove dependency on the `strace` binary)
 - [ ] eBPF backend via `cilium/ebpf` (zero overhead, suitable for production)
 - [ ] Per-file view — which paths are opened most often
@@ -249,6 +386,8 @@ go test ./internal/... -v
 | [charmbracelet/bubbletea](https://github.com/charmbracelet/bubbletea) | TUI framework |
 | [charmbracelet/lipgloss](https://github.com/charmbracelet/lipgloss) | terminal styling |
 | [spf13/cobra](https://github.com/spf13/cobra) | CLI commands |
+| [prometheus/client_golang](https://github.com/prometheus/client_golang) | Prometheus metrics |
+| [gorilla/websocket](https://github.com/gorilla/websocket) | WebSocket stream |
 
 ## License
 

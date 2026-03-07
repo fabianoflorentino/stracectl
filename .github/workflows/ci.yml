@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Lint ────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  # ── Test + Coverage ─────────────────────────────────────────────────────────
+  test:
+    name: Test & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests with race detector
+        run: |
+          go test -race -timeout 120s \
+            -coverprofile=coverage.out -covermode=atomic \
+            -coverpkg=./internal/aggregator/...,./internal/discover/...,./internal/models/...,./internal/parser/...,./internal/server/... \
+            ./...
+
+      - name: Check coverage ≥ 80%
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out \
+            | grep '^total:' \
+            | awk '{print $3}' \
+            | tr -d '%')
+          echo "Total coverage: ${COVERAGE}%"
+          if awk "BEGIN {exit !($COVERAGE < 80)}"; then
+            echo "❌ Coverage ${COVERAGE}% is below the required 80%"
+            exit 1
+          fi
+          echo "✅ Coverage ${COVERAGE}% meets the 80% threshold"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+
+  # ── Vulnerability scan ──────────────────────────────────────────────────────
+  vuln:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  # ── Build ───────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test, vuln]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binary
+        run: go build -v -o stracectl .
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: stracectl-linux-amd64
+          path: stracectl
