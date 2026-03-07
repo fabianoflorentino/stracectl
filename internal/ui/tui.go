@@ -269,8 +269,8 @@ func (m model) View() string {
 	// anomaly alerts
 	alerts := m.renderAlerts()
 
-	// fixed UI lines: title+stats, cat, div, hdr, div, bottom-div, footer
-	fixedLines := 7
+	// fixed UI lines: title+stats, div, cat, div, hdr, div, bottom-div, footer
+	fixedLines := 8
 	if alerts != "" {
 		fixedLines += strings.Count(alerts, "\n") + 2 // alert lines + separator div
 	}
@@ -318,6 +318,7 @@ func (m model) View() string {
 
 	var sb strings.Builder
 	sb.WriteString(titleLine + "\n")
+	sb.WriteString(div + "\n")
 	sb.WriteString(catLine + "\n")
 	sb.WriteString(div + "\n")
 	sb.WriteString(hdr + "\n")
