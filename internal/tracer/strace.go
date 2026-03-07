@@ -4,6 +4,7 @@ package tracer
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os/exec"
@@ -67,6 +68,12 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 		defer close(ch)
 		defer func() {
 			if err := cmd.Wait(); err != nil {
+				// A killed-by-signal exit is expected when the context is
+				// cancelled (normal quit). Only log genuine unexpected errors.
+				var exitErr *exec.ExitError
+				if errors.As(err, &exitErr) && exitErr.ExitCode() == -1 {
+					return // killed by signal — context cancellation, not an error
+				}
 				log.Printf("strace exited with error: %v", err)
 			}
 		}()
