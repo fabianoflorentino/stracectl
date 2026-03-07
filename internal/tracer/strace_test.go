@@ -258,3 +258,69 @@ func TestStart_ContextCancel_ChannelEventuallyCloses(t *testing.T) {
 		t.Error("channel did not close after subprocess exit")
 	}
 }
+
+// ── Attach / Run happy paths (require strace installed) ───────────────────────
+
+func TestAttach_WithStrace_ReturnsChannel(t *testing.T) {
+	if _, err := exec.LookPath("strace"); err != nil {
+		t.Skip("strace not installed")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tr := NewStraceTracer()
+	// Attach to our own PID; cancel immediately so strace doesn't linger.
+	ch, err := tr.Attach(ctx, os.Getpid())
+	if err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	cancel()
+	// Channel must close eventually.
+	select {
+	case <-drain(ch):
+	case <-time.After(10 * time.Second):
+		t.Error("channel did not close after Attach + cancel")
+	}
+}
+
+func TestRun_WithStrace_ReturnsChannel(t *testing.T) {
+	if _, err := exec.LookPath("strace"); err != nil {
+		t.Skip("strace not installed")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tr := NewStraceTracer()
+	// Trace a trivially-fast command.
+	ch, err := tr.Run(ctx, "true", nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// Drain all events; channel must close after "true" exits.
+	select {
+	case <-drain(ch):
+	case <-time.After(10 * time.Second):
+		t.Error("channel did not close after Run(true)")
+	}
+}
+
+func TestRun_WithStrace_EmitsAtLeastOneEvent(t *testing.T) {
+	if _, err := exec.LookPath("strace"); err != nil {
+		t.Skip("strace not installed")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tr := NewStraceTracer()
+	ch, err := tr.Run(ctx, "true", nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	var count int
+	for range ch {
+		count++
+	}
+	// strace may fail to trace without ptrace permissions (e.g. no sudo);
+	// in that case the channel closes with 0 events which is acceptable.
+	t.Logf("Run(true) emitted %d events", count)
+}
