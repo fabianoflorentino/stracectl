@@ -2,6 +2,7 @@
 package aggregator
 
 import (
+	"encoding/json"
 	"sort"
 	"sync"
 	"time"
@@ -39,6 +40,38 @@ func (c Category) String() string {
 	default:
 		return "OTHER"
 	}
+}
+
+// MarshalJSON implements json.Marshaler so Category serializes as its string
+// label (e.g. "I/O") rather than as a raw integer.
+func (c Category) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.String())
+}
+
+// UnmarshalJSON implements json.Unmarshaler so Category round-trips through JSON
+// as its string label.
+func (c *Category) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch s {
+	case "I/O":
+		*c = CatIO
+	case "FS":
+		*c = CatFS
+	case "NET":
+		*c = CatNet
+	case "MEM":
+		*c = CatMem
+	case "PROC":
+		*c = CatProcess
+	case "SIG":
+		*c = CatSignal
+	default:
+		*c = CatOther
+	}
+	return nil
 }
 
 // classify maps a syscall name to its category.
