@@ -16,6 +16,7 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/ui"
 )
 
+// runServeAddr is the address to serve the HTTP API on. If empty, the TUI will be used instead.
 var runServeAddr string
 
 var runCmd = &cobra.Command{
