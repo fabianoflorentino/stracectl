@@ -41,6 +41,8 @@ func New(addr string, agg *aggregator.Aggregator) *Server {
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/api/stats", s.handleStats)
 	s.mux.HandleFunc("/api/categories", s.handleCategories)
+	s.mux.HandleFunc("/api/syscall/{name}", s.handleSyscallStat)
+	s.mux.HandleFunc("/syscall/{name}", s.handleSyscallDetail)
 	s.mux.HandleFunc("/stream", s.handleStream)
 	s.mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 
@@ -107,6 +109,23 @@ func (s *Server) handleCategories(w http.ResponseWriter, _ *http.Request) {
 		out[cat.String()] = cs
 	}
 	writeJSON(w, out)
+}
+
+// handleSyscallStat returns JSON stats for a single syscall by name.
+func (s *Server) handleSyscallStat(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	stat, ok := s.agg.Get(name)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	writeJSON(w, stat)
+}
+
+// handleSyscallDetail serves the per-syscall detail SPA.
+func (s *Server) handleSyscallDetail(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(syscallDetailHTML))
 }
 
 // handleStream upgrades to WebSocket and pushes a JSON stats snapshot every second.
@@ -223,6 +242,162 @@ func writeJSON(w http.ResponseWriter, v any) {
 	_, _ = w.Write(data)
 }
 
+// syscallDetailHTML is the single-page detail view served at /syscall/{name}.
+// The JS reads the syscall name from location.pathname at runtime.
+const syscallDetailHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>stracectl · syscall</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+  header{background:#161b22;border-bottom:1px solid #30363d;padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  a.back{color:#58a6ff;text-decoration:none;font-size:.82rem;padding:3px 10px;border:1px solid #30363d;border-radius:6px;background:transparent}
+  a.back:hover{background:#21262d}
+  .hname{font-size:1.15rem;font-weight:700;font-family:monospace;color:#79c0ff}
+  .cat-pill{font-size:.75rem;padding:2px 8px;border-radius:10px;background:#21262d;font-weight:500}
+  .cat-IO{color:#79c0ff}.cat-FS{color:#56d364}.cat-NET{color:#f0883e}.cat-MEM{color:#d2a8ff}
+  .cat-PROC{color:#ff7b72}.cat-SIG{color:#8b949e}.cat-OTHER{color:#6e7681}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;padding:24px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:18px 20px}
+  .card .lbl{font-size:.68rem;color:#8b949e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+  .card .val{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .card .sub{font-size:.72rem;color:#8b949e;margin-top:6px}
+  .card.c-err .val{color:#f85149}
+  .card.c-slow .val{color:#e3b341}
+  #not-found{display:none;padding:48px 24px;text-align:center;color:#8b949e;font-size:1rem}
+  #not-found code{font-size:1.2rem;color:#e6edf3;font-family:monospace}
+  #status{padding:8px 24px;font-size:.75rem;color:#8b949e;border-top:1px solid #30363d;
+          position:fixed;bottom:0;width:100%;background:#0d1117}
+  #status.err{color:#f85149}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="/">← Dashboard</a>
+  <span class="hname" id="h-name"></span>
+  <span id="cat-pill"></span>
+</header>
+
+<div id="not-found">
+  Syscall <code id="nf-name"></code> not found in the current trace.
+</div>
+<div class="grid" id="grid">
+  <div class="card">
+    <div class="lbl">Calls</div>
+    <div class="val" id="v-calls">—</div>
+  </div>
+  <div class="card c-slow" id="c-avg">
+    <div class="lbl">Avg Latency</div>
+    <div class="val" id="v-avg">—</div>
+  </div>
+  <div class="card">
+    <div class="lbl">Min Latency</div>
+    <div class="val" id="v-min">—</div>
+  </div>
+  <div class="card">
+    <div class="lbl">Max Latency</div>
+    <div class="val" id="v-max">—</div>
+  </div>
+  <div class="card">
+    <div class="lbl">Total Time</div>
+    <div class="val" id="v-total">—</div>
+  </div>
+  <div class="card c-err">
+    <div class="lbl">Errors</div>
+    <div class="val" id="v-errors">—</div>
+  </div>
+  <div class="card c-err">
+    <div class="lbl">Error Rate</div>
+    <div class="val" id="v-errpct">—</div>
+  </div>
+</div>
+<div id="status">Connecting…</div>
+
+<script>
+const NAME = decodeURIComponent(location.pathname.replace(/^\/syscall\//, ''));
+document.title = 'stracectl · ' + NAME;
+document.getElementById('h-name').textContent = NAME;
+document.getElementById('nf-name').textContent = NAME;
+
+const fmtDur = ns => {
+  if (!ns) return '—';
+  if (ns < 1e3) return ns + 'ns';
+  if (ns < 1e6) return (ns/1e3).toFixed(1) + 'µs';
+  if (ns < 1e9) return (ns/1e6).toFixed(1) + 'ms';
+  return (ns/1e9).toFixed(2) + 's';
+};
+const fmtN = n => {
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'k';
+  return '' + n;
+};
+const catClass = c => 'cat-' + c.replace('/','');
+
+function update(r) {
+  const grid = document.getElementById('grid');
+  const notFound = document.getElementById('not-found');
+  if (!r) {
+    notFound.style.display = 'block';
+    grid.style.display = 'none';
+    return;
+  }
+  notFound.style.display = 'none';
+  grid.style.display = 'grid';
+
+  const avgNs  = r.Count ? Math.round(r.TotalTime / r.Count) : 0;
+  const errPct = r.Count ? (r.Errors / r.Count * 100) : 0;
+
+  const pill = document.getElementById('cat-pill');
+  pill.textContent = r.Category;
+  pill.className = 'cat-pill ' + catClass(r.Category);
+
+  document.getElementById('v-calls').textContent  = fmtN(r.Count);
+  document.getElementById('v-avg').textContent    = fmtDur(avgNs);
+  document.getElementById('v-min').textContent    = fmtDur(r.MinTime);
+  document.getElementById('v-max').textContent    = fmtDur(r.MaxTime);
+  document.getElementById('v-total').textContent  = fmtDur(r.TotalTime);
+  document.getElementById('v-errors').textContent = r.Errors ? fmtN(r.Errors) : '—';
+  document.getElementById('v-errpct').textContent = r.Errors ? errPct.toFixed(1) + '%' : '—';
+
+  // colour avg card only when slow (≥5 ms)
+  document.getElementById('c-avg').className = 'card' + (avgNs >= 5e6 ? ' c-slow' : '');
+}
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(proto + '://' + location.host + '/stream');
+
+  ws.onopen = () => {
+    document.getElementById('status').textContent = 'Connected — live updates every second';
+    document.getElementById('status').classList.remove('err');
+  };
+
+  ws.onmessage = e => {
+    const rows = JSON.parse(e.data) || [];
+    const row = rows.find(r => r.Name === NAME) || null;
+    update(row);
+  };
+
+  ws.onerror = () => {
+    document.getElementById('status').textContent = 'WebSocket error — retrying…';
+    document.getElementById('status').classList.add('err');
+  };
+
+  ws.onclose = () => {
+    document.getElementById('status').textContent = 'Disconnected — reconnecting in 2 s…';
+    document.getElementById('status').classList.add('err');
+    setTimeout(connect, 2000);
+  };
+}
+
+connect();
+</script>
+</body>
+</html>`
+
 // dashboardHTML is the single-page live dashboard served at /.
 const dashboardHTML = `<!DOCTYPE html>
 <html lang="en">
@@ -247,7 +422,7 @@ const dashboardHTML = `<!DOCTYPE html>
   thead th:hover{color:#e6edf3}
   thead th.asc::after{content:" ▲"}
   thead th.desc::after{content:" ▼"}
-  tbody tr{border-bottom:1px solid #161b22;transition:background .1s}
+  tbody tr{border-bottom:1px solid #161b22;transition:background .1s;cursor:pointer}
   tbody tr:hover{background:#161b22}
   td{padding:5px 10px;white-space:nowrap}
   td.name{font-family:monospace;color:#79c0ff}
@@ -332,7 +507,7 @@ function render(rows) {
     const avgNs  = r.Count ? Math.round(r.TotalTime / r.Count) : 0;
     const pct    = maxCount ? Math.round(r.Count / maxCount * 100) : 0;
     const slow   = avgNs >= 5e6;
-    return '<tr>' +
+    return '<tr data-name="' + r.Name + '">' +
       '<td class="name">' + r.Name + '</td>' +
       '<td><span class="cat-pill ' + catClass(r.Category) + '">' + r.Category + '</span></td>' +
       '<td class="num">' + fmtN(r.Count) + '</td>' +
@@ -375,6 +550,12 @@ document.querySelector('thead').addEventListener('click', e => {
   document.querySelectorAll('thead th').forEach(t => t.classList.remove('asc','desc'));
   th.classList.add(sortDir === -1 ? 'desc' : 'asc');
   render(lastData);
+});
+
+// row click → detail page
+document.getElementById('tbody').addEventListener('click', e => {
+  const tr = e.target.closest('tr');
+  if (tr && tr.dataset.name) location.href = '/syscall/' + encodeURIComponent(tr.dataset.name);
 });
 
 // rate from successive snapshots

@@ -273,6 +273,18 @@ func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 	return out
 }
 
+// Get returns the aggregated stat for a single syscall by name.
+// Returns false if no events have been recorded for that name.
+func (a *Aggregator) Get(name string) (SyscallStat, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	s, ok := a.stats[name]
+	if !ok {
+		return SyscallStat{}, false
+	}
+	return *s, true
+}
+
 // CategoryBreakdown returns counts grouped by category.
 func (a *Aggregator) CategoryBreakdown() map[Category]CategoryStats {
 	a.mu.RLock()

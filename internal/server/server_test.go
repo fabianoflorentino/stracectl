@@ -184,3 +184,66 @@ func TestStart_Shutdown(t *testing.T) {
 		t.Fatalf("unexpected start error: %v", err)
 	}
 }
+
+func TestSyscallStat_Found(t *testing.T) {
+	agg := newPopulatedAgg()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/syscall/read", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("expected JSON content-type, got %q", ct)
+	}
+
+	var stat aggregator.SyscallStat
+	if err := json.NewDecoder(rr.Body).Decode(&stat); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if stat.Name != "read" {
+		t.Fatalf("expected stat.Name=read, got %q", stat.Name)
+	}
+	if stat.Count != 2 {
+		t.Fatalf("expected Count=2, got %d", stat.Count)
+	}
+}
+
+func TestSyscallStat_NotFound(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/syscall/nonexistent", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rr.Code)
+	}
+}
+
+func TestSyscallDetail(t *testing.T) {
+	agg := newPopulatedAgg()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/syscall/read", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
+		t.Fatalf("expected HTML content-type, got %q", ct)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "stracectl") {
+		t.Fatal("expected detail HTML to contain 'stracectl'")
+	}
+	if !strings.Contains(body, "/stream") {
+		t.Fatal("expected detail HTML to reference /stream WebSocket endpoint")
+	}
+}
