@@ -476,9 +476,6 @@ document.title = 'stracectl · ' + NAME;
 document.getElementById('h-name').textContent = NAME;
 document.getElementById('nf-name').textContent = NAME;
 
-// render static reference panel immediately
-renderRef(NAME);
-
 // ── formatting helpers ────────────────────────────────────────────────────────
 const fmtDur = ns => {
   if (!ns) return '—';
@@ -494,6 +491,9 @@ const fmtN = n => {
 };
 const catClass = c => 'cat-' + c.replace('/','');
 const esc = s => s.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// render static reference panel (must be after esc/row helpers are defined)
+renderRef(NAME);
 
 // ── reference panel renderer ──────────────────────────────────────────────────
 function renderRef(name) {
