@@ -7,7 +7,7 @@
 #   Environment: GITHUB
 #     GIT_HUB_TOKEN  GitHub personal access token with contents:write scope
 
-name: Build, Publish, Tag and Release
+name: Docker Build, Publish, Tag and Release
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ permissions:
   packages: write
 
 jobs:
-  # ── Build & push Docker image to Docker Hub and GHCR ────────────────────────
+  # ── Build & push Docker image to Docker Hub ────────────────────────────────
   build_and_push:
     name: Build and Push to Docker Hub
     environment: DOCKERHUB
@@ -51,7 +51,6 @@ jobs:
         run: |
           docker build --no-cache --rm \
             -t ${{ github.repository }}:v1.0.${{ github.run_number }} \
-            -t ghcr.io/${{ github.repository }}:v1.0.${{ github.run_number }} \
             -f ./Dockerfile .
 
       - name: Push Docker image to Docker Hub
