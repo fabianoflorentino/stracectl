@@ -1,0 +1,17 @@
+# ServiceMonitor for Prometheus Operator.
+# Apply this if you use kube-prometheus-stack or the Prometheus Operator.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: stracectl
+  labels:
+    app: stracectl
+spec:
+  selector:
+    matchLabels:
+      app: stracectl
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
