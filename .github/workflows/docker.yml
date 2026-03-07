@@ -108,7 +108,7 @@ jobs:
           name: ${{ needs.tag.outputs.tag_name }}
           generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GIT_HUB_TOKEN }}
+          GIT_HUB_TOKEN: ${{ secrets.GIT_HUB_TOKEN }}
 
   # ── Trigger pkg.go.dev to index the new version ──────────────────────────────
   go_proxy:
