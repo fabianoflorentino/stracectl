@@ -54,7 +54,7 @@ RUN apt-get update \
 
 # ── Stage 4: production ───────────────────────────────────────────────────────
 # distroless/base (not static) is required because strace is glibc-linked.
-FROM gcr.io/distroless/static:nonroot AS production
+FROM gcr.io/distroless/base:nonroot AS production
 
 COPY --from=strace-src /usr/bin/strace /usr/bin/strace
 COPY --from=base /usr/local/bin/stracectl /usr/local/bin/stracectl
