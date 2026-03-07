@@ -23,12 +23,12 @@ func LowestPIDInContainer(containerName string) (int, error) {
 	return ScanProcLowest("/proc", containerName)
 }
 
-// ScanProc scans procRoot for the first PID whose cgroup path contains
-// containerName. Accepting procRoot makes this function unit-testable.
-func ScanProc(procRoot, containerName string) (int, error) {
+// scanCgroup iterates procRoot and calls yield for each PID whose cgroup path
+// contains containerName. It skips PID 1 and the calling process's own PID.
+func scanCgroup(procRoot, containerName string, yield func(pid int) bool) error {
 	entries, err := os.ReadDir(procRoot)
 	if err != nil {
-		return 0, fmt.Errorf("cannot read %s: %w", procRoot, err)
+		return fmt.Errorf("cannot read %s: %w", procRoot, err)
 	}
 
 	self := os.Getpid()
@@ -44,41 +44,44 @@ func ScanProc(procRoot, containerName string) (int, error) {
 		}
 
 		if strings.Contains(string(cgroup), containerName) {
-			return pid, nil
+			if !yield(pid) {
+				return nil
+			}
 		}
 	}
+	return nil
+}
 
-	return 0, fmt.Errorf("no process found for container %q", containerName)
+// ScanProc scans procRoot for the first PID whose cgroup path contains
+// containerName. Accepting procRoot makes this function unit-testable.
+func ScanProc(procRoot, containerName string) (int, error) {
+	found := 0
+	err := scanCgroup(procRoot, containerName, func(pid int) bool {
+		found = pid
+		return false // stop after the first match
+	})
+	if err != nil {
+		return 0, err
+	}
+	if found == 0 {
+		return 0, fmt.Errorf("no process found for container %q", containerName)
+	}
+	return found, nil
 }
 
 // ScanProcLowest scans procRoot and returns the smallest PID whose cgroup path
 // contains containerName. Accepting procRoot makes this function unit-testable.
 func ScanProcLowest(procRoot, containerName string) (int, error) {
-	entries, err := os.ReadDir(procRoot)
-	if err != nil {
-		return 0, fmt.Errorf("cannot read %s: %w", procRoot, err)
-	}
-
-	self := os.Getpid()
 	lowest := 0
-	for _, e := range entries {
-		pid, err := strconv.Atoi(e.Name())
-		if err != nil || pid == 1 || pid == self {
-			continue
+	err := scanCgroup(procRoot, containerName, func(pid int) bool {
+		if lowest == 0 || pid < lowest {
+			lowest = pid
 		}
-
-		cgroup, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "cgroup")) //nolint:gosec // G304: path is constructed from /proc + numeric PID dir
-		if err != nil {
-			continue
-		}
-
-		if strings.Contains(string(cgroup), containerName) {
-			if lowest == 0 || pid < lowest {
-				lowest = pid
-			}
-		}
+		return true // keep scanning for a smaller PID
+	})
+	if err != nil {
+		return 0, err
 	}
-
 	if lowest == 0 {
 		return 0, fmt.Errorf("no process found for container %q", containerName)
 	}
