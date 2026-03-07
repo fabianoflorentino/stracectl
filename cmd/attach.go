@@ -55,6 +55,7 @@ var attachCmd = &cobra.Command{
 	},
 }
 
+// init initializes the attach command and adds it to the root command.
 func init() {
 	attachCmd.Flags().StringVar(&attachServeAddr, "serve", "",
 		`expose HTTP API instead of TUI (e.g. --serve :8080)`)
