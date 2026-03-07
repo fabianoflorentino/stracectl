@@ -204,10 +204,11 @@ func (c *promCollector) Collect(ch chan<- prometheus.Metric) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func writeJSON(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(v); err != nil {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
 		http.Error(w, "encoding error", http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data)
 }
