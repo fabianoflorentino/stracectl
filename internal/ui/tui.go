@@ -75,27 +75,27 @@ var (
 			Foreground(lipgloss.Color("196"))
 
 	selectedRowStyle = lipgloss.NewStyle().
-		Bold(true).
-		Background(lipgloss.Color("237")).
-		Foreground(lipgloss.Color("255"))
+				Bold(true).
+				Background(lipgloss.Color("237")).
+				Foreground(lipgloss.Color("255"))
 
 	detailTitleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("255")).
-		Background(lipgloss.Color("25"))
+				Bold(true).
+				Foreground(lipgloss.Color("255")).
+				Background(lipgloss.Color("25"))
 
 	detailLabelStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("220"))
+				Bold(true).
+				Foreground(lipgloss.Color("220"))
 
 	detailValueStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
+				Foreground(lipgloss.Color("252"))
 
 	detailDimStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("244"))
+			Foreground(lipgloss.Color("244"))
 
 	detailCodeStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("149"))
+			Foreground(lipgloss.Color("149"))
 )
 
 // ── Thresholds for visual anomaly detection ───────────────────────────────────
@@ -121,7 +121,7 @@ type model struct {
 	detailOverlay bool
 	cursor        int
 	width         int
-	height         int
+	height        int
 	started       time.Time
 }
 
@@ -646,7 +646,7 @@ type syscallDetail struct {
 	description string
 	signature   string
 	args        [][2]string // [name, description]
-	returnValue  string
+	returnValue string
 	errorHint   string
 	notes       string
 }
