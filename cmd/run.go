@@ -23,10 +23,13 @@ var runCmd = &cobra.Command{
 	Short: "Run a command and trace it",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+
 		agg := aggregator.New()
 		t := tracer.NewStraceTracer()
 
-		events, err := t.Run(args[0], args[1:])
+		events, err := t.Run(ctx, args[0], args[1:])
 		if err != nil {
 			return err
 		}
@@ -40,8 +43,6 @@ var runCmd = &cobra.Command{
 		if runServeAddr != "" {
 			fmt.Fprintf(os.Stderr, "serving on %s\n", runServeAddr)
 			srv := server.New(runServeAddr, agg)
-			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-			defer stop()
 			return srv.Start(ctx)
 		}
 

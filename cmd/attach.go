@@ -28,10 +28,13 @@ var attachCmd = &cobra.Command{
 			return fmt.Errorf("invalid PID %q: must be a number", args[0])
 		}
 
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+
 		agg := aggregator.New()
 		t := tracer.NewStraceTracer()
 
-		events, err := t.Attach(pid)
+		events, err := t.Attach(ctx, pid)
 		if err != nil {
 			return err
 		}
@@ -45,8 +48,6 @@ var attachCmd = &cobra.Command{
 		if attachServeAddr != "" {
 			fmt.Fprintf(os.Stderr, "serving on %s\n", attachServeAddr)
 			srv := server.New(attachServeAddr, agg)
-			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-			defer stop()
 			return srv.Start(ctx)
 		}
 

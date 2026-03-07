@@ -29,7 +29,7 @@ func TestHealthz(t *testing.T) {
 	agg := aggregator.New()
 	srv := server.New(":0", agg)
 
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/healthz", nil)
 	rr := httptest.NewRecorder()
 	srv.ServeHTTP(rr, req)
 
@@ -45,7 +45,7 @@ func TestStats(t *testing.T) {
 	agg := newPopulatedAgg()
 	srv := server.New(":0", agg)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/stats", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/stats", nil)
 	rr := httptest.NewRecorder()
 	srv.ServeHTTP(rr, req)
 
@@ -73,7 +73,7 @@ func TestCategories(t *testing.T) {
 	agg := newPopulatedAgg()
 	srv := server.New(":0", agg)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/categories", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/categories", nil)
 	rr := httptest.NewRecorder()
 	srv.ServeHTTP(rr, req)
 
@@ -94,7 +94,7 @@ func TestMetrics(t *testing.T) {
 	agg := newPopulatedAgg()
 	srv := server.New(":0", agg)
 
-	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/metrics", nil)
 	rr := httptest.NewRecorder()
 	srv.ServeHTTP(rr, req)
 
@@ -121,9 +121,12 @@ func TestStream_WebSocket(t *testing.T) {
 	defer ts.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/stream"
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
+	}
+	if resp != nil {
+		defer resp.Body.Close()
 	}
 	defer conn.Close()
 

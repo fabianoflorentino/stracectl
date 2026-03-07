@@ -5,17 +5,17 @@
 package server
 
 import (
-"context"
-"encoding/json"
-"errors"
-"net/http"
-"time"
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"time"
 
-"github.com/gorilla/websocket"
-"github.com/prometheus/client_golang/prometheus"
-"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-"github.com/fabianoflorentino/stracectl/internal/aggregator"
+	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 )
 
 var upgrader = websocket.Upgrader{
@@ -103,7 +103,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -137,35 +137,35 @@ func (s *Server) registerMetrics(reg *prometheus.Registry) {
 	c := &promCollector{
 		agg: s.agg,
 		descCount: prometheus.NewDesc(
-"stracectl_syscall_calls_total",
-"Total number of syscall invocations.",
-[]string{"syscall", "category"}, nil,
-),
+			"stracectl_syscall_calls_total",
+			"Total number of syscall invocations.",
+			[]string{"syscall", "category"}, nil,
+		),
 		descErrors: prometheus.NewDesc(
-"stracectl_syscall_errors_total",
-"Total number of failed syscall invocations.",
-[]string{"syscall", "category"}, nil,
-),
+			"stracectl_syscall_errors_total",
+			"Total number of failed syscall invocations.",
+			[]string{"syscall", "category"}, nil,
+		),
 		descTotal: prometheus.NewDesc(
-"stracectl_syscall_duration_seconds_total",
-"Total time spent in kernel for this syscall.",
-[]string{"syscall", "category"}, nil,
-),
+			"stracectl_syscall_duration_seconds_total",
+			"Total time spent in kernel for this syscall.",
+			[]string{"syscall", "category"}, nil,
+		),
 		descAvg: prometheus.NewDesc(
-"stracectl_syscall_duration_avg_seconds",
-"Average time spent in kernel per call.",
-[]string{"syscall", "category"}, nil,
-),
+			"stracectl_syscall_duration_avg_seconds",
+			"Average time spent in kernel per call.",
+			[]string{"syscall", "category"}, nil,
+		),
 		descMax: prometheus.NewDesc(
-"stracectl_syscall_duration_max_seconds",
-"Maximum observed kernel time per call.",
-[]string{"syscall", "category"}, nil,
-),
+			"stracectl_syscall_duration_max_seconds",
+			"Maximum observed kernel time per call.",
+			[]string{"syscall", "category"}, nil,
+		),
 		descRate: prometheus.NewDesc(
-"stracectl_syscalls_per_second",
-"Recent syscall rate (syscalls/s).",
-nil, nil,
-),
+			"stracectl_syscalls_per_second",
+			"Recent syscall rate (syscalls/s).",
+			nil, nil,
+		),
 	}
 	reg.MustRegister(c)
 }
@@ -185,18 +185,18 @@ func (c *promCollector) Collect(ch chan<- prometheus.Metric) {
 		s := &stats[i]
 		cat := s.Category.String()
 		ch <- prometheus.MustNewConstMetric(c.descCount, prometheus.CounterValue,
-float64(s.Count), s.Name, cat)
+			float64(s.Count), s.Name, cat)
 		ch <- prometheus.MustNewConstMetric(c.descErrors, prometheus.CounterValue,
-float64(s.Errors), s.Name, cat)
+			float64(s.Errors), s.Name, cat)
 		ch <- prometheus.MustNewConstMetric(c.descTotal, prometheus.CounterValue,
-s.TotalTime.Seconds(), s.Name, cat)
+			s.TotalTime.Seconds(), s.Name, cat)
 		ch <- prometheus.MustNewConstMetric(c.descAvg, prometheus.GaugeValue,
-s.AvgTime().Seconds(), s.Name, cat)
+			s.AvgTime().Seconds(), s.Name, cat)
 		ch <- prometheus.MustNewConstMetric(c.descMax, prometheus.GaugeValue,
-s.MaxTime.Seconds(), s.Name, cat)
+			s.MaxTime.Seconds(), s.Name, cat)
 	}
 	ch <- prometheus.MustNewConstMetric(c.descRate, prometheus.GaugeValue,
-c.agg.Rate())
+		c.agg.Rate())
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
