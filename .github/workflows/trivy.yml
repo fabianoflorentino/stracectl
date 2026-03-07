@@ -1,0 +1,32 @@
+name: Trivy vulnerability scan
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - development
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - '.github/**'
+
+jobs:
+  scan:
+    name: Trivy vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: 'CRITICAL,HIGH'
