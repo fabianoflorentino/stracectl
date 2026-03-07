@@ -1,0 +1,23 @@
+pre-commit:
+  parallel: true
+  commands:
+    vet:
+      glob: "**/*.go"
+      run: go vet ./...
+
+    lint:
+      glob: "**/*.go"
+      run: golangci-lint run --fix
+
+    test:
+      glob: "**/*.go"
+      run: go test -race ./...
+
+pre-push:
+  parallel: true
+  commands:
+    build:
+      run: go build ./...
+
+    test-cover:
+      run: go test -coverprofile=/tmp/stracectl-coverage.out ./... && go tool cover -func=/tmp/stracectl-coverage.out
