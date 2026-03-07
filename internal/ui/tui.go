@@ -322,10 +322,6 @@ func (m model) View() string {
 	sb.WriteString(div + "\n")
 	sb.WriteString(hdr + "\n")
 	sb.WriteString(div + "\n")
-	if alerts != "" {
-		sb.WriteString(alerts + "\n")
-		sb.WriteString(div + "\n")
-	}
 
 	for i, s := range stats {
 		bar := sparkBar(s.Count, maxCount, cw.bar)
@@ -388,6 +384,9 @@ func (m model) View() string {
 	}
 
 	sb.WriteString(div + "\n")
+	if alerts != "" {
+		sb.WriteString(alerts + "\n")
+	}
 	sb.WriteString(footer)
 
 	return sb.String()
