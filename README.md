@@ -94,6 +94,8 @@ LIVE STATISTICS
 - **Help overlay** — press `?` for a full in-app reference of every column, colour, and pattern
 - **Multiple sort keys** — count, total time, avg latency, peak latency, errors, name, category
 - **Sidecar mode** — `--serve :8080` replaces the TUI with an HTTP API (JSON, WebSocket, Prometheus) and a live HTML dashboard at `/`
+- **Clickable dashboard rows** — click any syscall row in the web dashboard to navigate to its dedicated detail page
+- **Web detail page** — `/syscall/<name>` shows 7 live stat cards (calls, avg/min/max latency, total time, errors, error rate) plus a reference panel (description, C signature, arguments, return values, common errno codes, notes) for ~80 well-known Linux syscalls; unknown syscalls fall back to a `man 2 <name>` hint
 - **PID auto-discovery** — `stracectl discover <container-name>` finds the target PID inside a shared-PID-namespace Pod
 - **Kubernetes-ready** — ships with a Dockerfile, raw manifests, and a Helm chart
 
@@ -158,25 +160,20 @@ Opening `http://localhost:8080` in any browser shows the **live web dashboard** 
 self-contained single-page app that connects to the server over WebSocket and updates
 the table in real time, with no page reload needed:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│  stracectl           syscalls: 119.5k  rate: 9637/s  errors: 20.9k  unique: 83 │
-├────────────────────┬────────────────────────────────────────────────────────────┤
-│  I/O 36%  FS 37%  │  NET 1%  MEM 7%  PROC 4%  SIG 13%  OTHER 3%               │
-├──────────┬───┬──────┬────────┬──────────┬──────────┬───────────┬────────┬──────┤
-│ SYSCALL▾ │CAT│CALLS │  FREQ  │   AVG    │   MAX    │   TOTAL   │ ERRORS │ ERR% │
-├──────────┼───┼──────┼────────┼──────────┼──────────┼───────────┼────────┼──────┤
-│ newfstat │FS │ 21.1k│████▌   │  44.2µs  │   2.8ms  │  933.0ms  │    578 │  3%  │
-│ openat   │I/O│ 16.7k│████    │  32.0µs  │   3.0ms  │  533.2ms  │  6.8k  │ 41%  │
-│ read     │I/O│ 15.2k│███▊    │ 565.2µs  │ 731.9ms  │    8.57s  │     76 │  1%  │
-│ readlink │FS │ 13.1k│███▌    │  31.5µs  │ 999.0µs  │  405.9ms  │ 13.1k  │100%  │
-│ close    │I/O│ 13.0k│███▌    │  30.8µs  │ 212.0µs  │  408.9ms  │    123 │  1%  │
-│ …        │   │      │        │          │          │           │        │      │
-└──────────┴───┴──────┴────────┴──────────┴──────────┴───────────┴────────┴──────┘
-  Connected — live updates every second
-```
+---
+
+### DASHBOARD
+
+[![Web dashboard screenshot](docs/img/dashboard.png)](docs/img/dashboard.png)
+
+### DETAIL
+
+[![Detail overlay screenshot](docs/img/detail.png)](docs/img/detail.png)
+
+---
 
 **Dashboard features:**
+
 - All columns are **clickable to sort** (ascending / descending toggle, with `▲`/`▼` indicator)
 - Category pills use the same colour coding as the TUI (blue = I/O, green = FS, orange = NET, purple = MEM, red = PROC)
 - Syscall names shown in blue; error counts and ERR% highlighted in red; slow AVG in yellow (≥ 5 ms)
@@ -189,11 +186,44 @@ Available endpoints:
 | Endpoint | Description |
 | ---------- | ------------- |
 | `GET /` | Live HTML dashboard with WebSocket-powered table and category pills |
+| `GET /syscall/{name}` | Per-syscall detail page: 7 live stat cards + full reference panel |
 | `GET /healthz` | Liveness probe — always returns `ok` |
 | `GET /api/stats` | JSON snapshot of all syscall stats, sorted by count |
 | `GET /api/categories` | JSON breakdown by category |
+| `GET /api/syscall/{name}` | JSON stats for a single syscall by name (404 if not yet seen) |
 | `WS /stream` | WebSocket push — fresh snapshot every second |
 | `GET /metrics` | Prometheus exposition format |
+
+### Per-syscall detail page
+
+Click any row in the web dashboard to open a dedicated detail page at
+`/syscall/<name>` (e.g. `/syscall/openat`). The page has two sections:
+
+**Live stat cards** (updated via the WebSocket stream every second):
+
+| Card | Description |
+| ---- | ----------- |
+| Calls | Total number of times this syscall was called |
+| Avg Latency | Mean kernel time per call (yellow when ≥ 5 ms) |
+| Min Latency | Lowest observed kernel time |
+| Max Latency | Peak observed kernel time |
+| Total Time | Cumulative kernel time across all calls |
+| Errors | Absolute count of failed calls (red) |
+| Error Rate | Percentage of calls that returned an error (red) |
+
+**Syscall reference panel** (static, rendered immediately from an embedded table):
+
+| Section | Contents |
+| ------- | -------- |
+| **SYSCALL REFERENCE** | plain-English description, C signature (blue monospace) |
+| **ARGUMENTS** | each parameter name and what it controls |
+| **RETURN VALUE** | on-success value, `-1, errno set`, common errno codes (amber) |
+| **NOTES** | real-world patterns, caveats, and diagnostic tips |
+
+The embedded knowledge base covers ~80 common Linux syscalls. Unknown syscalls
+receive a generic entry with a `man 2 <name>` hint.
+
+A **← Dashboard** button in the header returns to the main view.
 
 ### Discover a container PID (Kubernetes sidecar)
 
@@ -335,7 +365,7 @@ The overlay is divided into sections:
 | **LIVE STATISTICS** | calls, errors, avg / max / min latency, total kernel time |
 | **ANOMALY EXPLANATION** | appears when `ERR% ≥ 50 %`; explains why the error is expected or alarming |
 
-The knowledge base covers ~40 common Linux syscalls. Unknown syscalls receive a generic entry pointing to `man 2 <name>`.
+The knowledge base covers ~80 common Linux syscalls. Unknown syscalls receive a generic entry pointing to `man 2 <name>`.
 
 ### Help overlay
 
@@ -467,7 +497,7 @@ flowchart TD
 | **Hardcoded PID `"1"` in the sidecar manifest** — `deploy/k8s/sidecar-pod.yaml` uses `"1"` as a placeholder | Replace it at deploy time or use `stracectl discover <container-name>` inside the sidecar to get the real PID before attaching |
 | **Sidecar must run as root** — `ptrace` is a kernel-level capability; `runAsNonRoot: false` is required | Limit exposure by deploying only in debug/staging namespaces and protecting the Pod with `PodSecurityAdmission` |
 | **WebSocket `/stream` has no authentication** — `CheckOrigin` accepts any origin unconditionally | Safe for in-cluster / port-forward usage; do not expose the port externally without an auth proxy or network policy |
-| **`MinTime` not in the API** — the aggregator tracks minimum syscall latency but the HTTP/WebSocket API does not expose it | The value is visible in the TUI detail overlay (`d` key); not yet returned by `/api/stats` |
+| **`MinTime` not in `/api/stats`** — the aggregator tracks minimum syscall latency but the bulk stats endpoint does not expose it | The value is visible in the TUI detail overlay (`d` key) and in the web detail page (`/syscall/{name}`) |
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the implementation plan addressing each of these items.
 
@@ -496,4 +526,4 @@ go test ./internal/... -v
 
 ## License
 
-MIT
+Apache 2.0
