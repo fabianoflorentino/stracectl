@@ -338,17 +338,32 @@ stracectl/
 
 ### Architecture
 
-```text
-strace (subprocess)
-    │  stderr — one line per syscall
-    ▼
-parser.Parse()
-    │  chan SyscallEvent  (buffered 4096)
-    ▼
-aggregator.Add()     ← dedicated goroutine, mutex-protected
-    │
-    └─► ui.Run()     ← BubbleTea, redraws every 200 ms
+```mermaid
+flowchart TD
+    A["strace (subprocess)\nstderr — one line per syscall"]
+    B["parser.Parse()"]
+    C["aggregator.Add()\ndedicated goroutine · mutex-protected"]
+    D["ui.Run()\nBubbleTea · redraws every 200 ms"]
+    E["server.Start()\nHTTP API · JSON · WebSocket · Prometheus"]
+
+    A -->|"chan SyscallEvent (buffered 4096)"| B
+    B --> C
+    C -->|"default mode"| D
+    C -->|"--serve flag"| E
 ```
+
+## Known Limitations
+
+| Limitation | Impact |
+| --- | --- |
+| **`strace` binary dependency** — not eBPF; shells out to the system `strace` at runtime | Must be installed on the host (`apt install strace`) or use the container image |
+| **`<unfinished ...>` lines not merged** — when `-f` (follow threads) splits a syscall across two output lines, the args from the first half are lost | Call counts and latency are unaffected; only `Args` for those calls is incomplete |
+| **Hardcoded PID `"1"` in the sidecar manifest** — `deploy/k8s/sidecar-pod.yaml` uses `"1"` as a placeholder | Replace it at deploy time or use `stracectl discover <container-name>` inside the sidecar to get the real PID before attaching |
+| **Sidecar must run as root** — `ptrace` is a kernel-level capability; `runAsNonRoot: false` is required | Limit exposure by deploying only in debug/staging namespaces and protecting the Pod with `PodSecurityAdmission` |
+| **WebSocket `/stream` has no authentication** — `CheckOrigin` accepts any origin unconditionally | Safe for in-cluster / port-forward usage; do not expose the port externally without an auth proxy or network policy |
+| **`MinTime` not exposed** — the aggregator tracks minimum syscall latency but neither the TUI nor the API surface it | The value is tracked internally but not yet returned |
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the implementation plan addressing each of these items.
 
 ## Running the tests
 
@@ -362,22 +377,6 @@ go test ./internal/... -race
 # verbose output
 go test ./internal/... -v
 ```
-
-## Roadmap
-
-- [x] HTTP API server with JSON endpoints (`--serve` flag)
-- [x] WebSocket stream for live event consumers
-- [x] Prometheus metrics endpoint (`/metrics`)
-- [x] PID auto-discovery for Kubernetes sidecar mode
-- [x] Multi-stage Dockerfile with `strace` included
-- [x] Kubernetes raw manifests and Helm chart
-- [ ] Direct `ptrace` backend (remove dependency on the `strace` binary)
-- [ ] eBPF backend via `cilium/ebpf` (zero overhead, suitable for production)
-- [ ] Per-file view — which paths are opened most often
-- [ ] Per-socket view — connections, bytes sent and received
-- [ ] Flamegraph-style syscall timeline
-- [ ] `stracectl stats <file>` — post-mortem analysis of a saved trace
-- [ ] Process tree view for multi-process tracing (`-f`)
 
 ## Dependencies
 
