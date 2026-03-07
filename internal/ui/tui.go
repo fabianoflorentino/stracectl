@@ -17,88 +17,34 @@ const refreshInterval = 200 * time.Millisecond
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("255")).
-			Background(lipgloss.Color("63"))
-
-	statsStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("248")).
-			Background(lipgloss.Color("235"))
-
-	catIOStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
-	catFSStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("149"))
-	catNetStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
-	catMemStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("183"))
-	catProcStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("210"))
-	catSigStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	catOthStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-
-	headerStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("220"))
-
-	activeSortStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("118"))
-
-	rowStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252"))
-
-	// row with >0 errors but error rate below the warning threshold
-	errRowStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("203"))
-
-	// row with very high error rate (>= 50 %)
-	hotRowStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("196"))
-
-	// row whose avg latency exceeds the warning threshold
-	slowRowStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("227"))
-
-	barFillStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
-
-	errNumStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
-	slowAvgStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("227"))
-
-	divStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241"))
-
-	footerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("242"))
-
-	filterStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("229"))
-
-	alertStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("196"))
-
-	selectedRowStyle = lipgloss.NewStyle().
-				Bold(true).
-				Background(lipgloss.Color("237")).
-				Foreground(lipgloss.Color("255"))
-
-	detailTitleStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("255")).
-				Background(lipgloss.Color("25"))
-
-	detailLabelStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("220"))
-
-	detailValueStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("252"))
-
-	detailDimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("244"))
-
-	detailCodeStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("149"))
+	titleStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Background(lipgloss.Color("63")).Bold(true)
+	statsStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("248")).Background(lipgloss.Color("235"))
+	catIOStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
+	catFSStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("149"))
+	catNetStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	catMemStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("183"))
+	catProcStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("210"))
+	catSigStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	catOthStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	headerStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true)
+	activeSortStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("118")).Bold(true)
+	rowStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	errRowStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))            // row with >0 errors but error rate below the warning threshold
+	hotRowStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true) // row with very high error rate (>= 50 %)
+	slowRowStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("227")).Bold(true) // row whose avg latency exceeds the warning threshold
+	barFillStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
+	errNumStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
+	slowAvgStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("227"))
+	divStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	footerStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+	filterStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	alertStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+	selectedRowStyle = lipgloss.NewStyle().Background(lipgloss.Color("237")).Foreground(lipgloss.Color("255")).Bold(true)
+	detailTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Background(lipgloss.Color("25")).Bold(true)
+	detailLabelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true)
+	detailValueStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	detailDimStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	detailCodeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("149"))
 )
 
 // ── Thresholds for visual anomaly detection ───────────────────────────────────
