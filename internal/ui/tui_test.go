@@ -475,3 +475,264 @@ func TestUpdate_WindowSize(t *testing.T) {
 		t.Errorf("width=%d height=%d, want 160 50", got.width, got.height)
 	}
 }
+
+// ── renderSummary health indicators ──────────────────────────────────────────
+
+func TestRenderSummary_WaitingWhenEmpty(t *testing.T) {
+	m := newTestModel()
+	out := m.View()
+	if !strings.Contains(out, "Waiting") {
+		t.Errorf("View() with no events should contain 'Waiting', got:\n%s", out)
+	}
+}
+
+func TestRenderSummary_NoErrors(t *testing.T) {
+	m := newTestModel()
+	addEvent(m.agg, "read", 1*time.Millisecond, "")
+	out := m.View()
+	if !strings.Contains(out, "no errors") {
+		t.Errorf("expected 'no errors' indicator, got:\n%s", out)
+	}
+}
+
+func TestRenderSummary_LowErrorRate(t *testing.T) {
+	m := newTestModel()
+	// 1 error out of 10 = 10% → "likely normal"
+	for i := 0; i < 9; i++ {
+		addEvent(m.agg, "read", 1*time.Millisecond, "")
+	}
+	addEvent(m.agg, "read", 1*time.Millisecond, "ENOENT")
+	out := m.View()
+	if !strings.Contains(out, "likely normal") {
+		t.Errorf("expected 'likely normal' for 10%% error rate, got:\n%s", out)
+	}
+}
+
+func TestRenderSummary_MediumErrorRate(t *testing.T) {
+	m := newTestModel()
+	// 2 errors out of 8 = 25% → "worth investigating"
+	for i := 0; i < 6; i++ {
+		addEvent(m.agg, "read", 1*time.Millisecond, "")
+	}
+	addEvent(m.agg, "read", 1*time.Millisecond, "EIO")
+	addEvent(m.agg, "read", 1*time.Millisecond, "EIO")
+	out := m.View()
+	if !strings.Contains(out, "worth investigating") {
+		t.Errorf("expected 'worth investigating' for 25%% error rate, got:\n%s", out)
+	}
+}
+
+func TestRenderSummary_HighErrorRate(t *testing.T) {
+	m := newTestModel()
+	// 5 errors out of 6 = 83% → "high, check alerts"
+	addEvent(m.agg, "read", 1*time.Millisecond, "")
+	for i := 0; i < 5; i++ {
+		addEvent(m.agg, "read", 1*time.Millisecond, "EIO")
+	}
+	out := m.View()
+	if !strings.Contains(out, "high") {
+		t.Errorf("expected 'high' error indicator for 83%% error rate, got:\n%s", out)
+	}
+}
+
+func TestRenderSummary_TwoDominantCategories(t *testing.T) {
+	m := newTestModel()
+	// FS category: stat (many)
+	for i := 0; i < 20; i++ {
+		addEvent(m.agg, "stat", 1*time.Millisecond, "")
+	}
+	// NET category: connect (enough to show second category ≥10%)
+	for i := 0; i < 5; i++ {
+		addEvent(m.agg, "connect", 1*time.Millisecond, "")
+	}
+	out := m.View()
+	if !strings.Contains(out, "then") {
+		t.Errorf("expected 'then' second-category clause for two dominant categories, got:\n%s", out)
+	}
+}
+
+// ── renderAlerts ─────────────────────────────────────────────────────────────
+
+func TestRenderAlerts_SlowSyscall(t *testing.T) {
+	m := newTestModel()
+	// avg latency > slowAvgThreshold (5ms)
+	addEvent(m.agg, "futex", 10*time.Millisecond, "")
+	addEvent(m.agg, "futex", 10*time.Millisecond, "")
+	out := m.View()
+	if !strings.Contains(out, "futex") {
+		t.Errorf("expected slow-syscall alert for futex, got:\n%s", out)
+	}
+}
+
+func TestRenderAlerts_HotErrorRow(t *testing.T) {
+	m := newTestModel()
+	// ERR% >= 50: all calls fail
+	addEvent(m.agg, "ioctl", 1*time.Microsecond, "EINVAL")
+	addEvent(m.agg, "ioctl", 1*time.Microsecond, "EINVAL")
+	out := m.View()
+	if !strings.Contains(out, "ioctl") {
+		t.Errorf("expected hot-error alert for ioctl, got:\n%s", out)
+	}
+}
+
+// ── renderHelp ────────────────────────────────────────────────────────────────
+
+func TestRenderHelp_ContainsExpectedSections(t *testing.T) {
+	m := newTestModel()
+	m.helpOverlay = true
+	out := m.View()
+	for _, section := range []string{"COLUMNS", "ROW COLOURS", "CATEGORY BAR", "KEYBOARD SHORTCUTS"} {
+		if !strings.Contains(out, section) {
+			t.Errorf("renderHelp missing section %q", section)
+		}
+	}
+}
+
+func TestRenderHelp_ContainsKeyBindings(t *testing.T) {
+	m := newTestModel()
+	m.helpOverlay = true
+	out := m.View()
+	for _, key := range []string{"q", "?", "/"} {
+		if !strings.Contains(out, key) {
+			t.Errorf("renderHelp missing key %q", key)
+		}
+	}
+}
+
+// ── sparkBar ─────────────────────────────────────────────────────────────────
+
+func TestSparkBar_ZeroMax(t *testing.T) {
+	out := sparkBar(0, 0, 10)
+	if !strings.Contains(out, "░") || strings.Contains(out, "█") {
+		t.Errorf("sparkBar with maxCount=0 should be all empty, got %q", out)
+	}
+}
+
+func TestSparkBar_FullBar(t *testing.T) {
+	out := sparkBar(10, 10, 8)
+	if out != "████████" {
+		t.Errorf("sparkBar full fill = %q, want all █", out)
+	}
+}
+
+func TestSparkBar_HalfBar(t *testing.T) {
+	out := sparkBar(5, 10, 10)
+	// Half filled: 5 filled + 5 empty = 10 bar characters total
+	filled := strings.Count(out, "█")
+	empty := strings.Count(out, "░")
+	if filled != 5 || empty != 5 {
+		t.Errorf("sparkBar(5,10,10): filled=%d empty=%d, want filled=5 empty=5", filled, empty)
+	}
+}
+
+func TestSparkBar_ZeroWidth(t *testing.T) {
+	out := sparkBar(5, 10, 0)
+	if out != "" {
+		t.Errorf("sparkBar with width=0 should be empty, got %q", out)
+	}
+}
+
+// ── catStyle ─────────────────────────────────────────────────────────────────
+
+func TestCatStyle_AllCategories(t *testing.T) {
+	m := newTestModel()
+	// Add one syscall from each category and render — catStyle must not panic
+	syscalls := []string{
+		"read",         // IO
+		"stat",         // FS
+		"connect",      // Net
+		"mmap",         // Mem
+		"clone",        // Process
+		"rt_sigaction", // Signal
+		"ioctl",        // Other
+	}
+	for _, name := range syscalls {
+		addEvent(m.agg, name, 1*time.Microsecond, "")
+	}
+	// View must not panic and must contain all names
+	out := m.View()
+	for _, name := range syscalls {
+		if !strings.Contains(out, name) {
+			t.Errorf("View() missing syscall %q in output", name)
+		}
+	}
+}
+
+// ── padR / padL truncation ────────────────────────────────────────────────────
+
+func TestPadR_Truncates(t *testing.T) {
+	out := padR("toolongstring", 5)
+	if len(out) != 5 {
+		t.Errorf("padR truncated len = %d, want 5", len(out))
+	}
+}
+
+func TestPadR_Pads(t *testing.T) {
+	out := padR("hi", 6)
+	if len(out) != 6 {
+		t.Errorf("padR padded len = %d, want 6", len(out))
+	}
+}
+
+func TestPadL_Truncates(t *testing.T) {
+	out := padL("toolongstring", 5)
+	if len(out) != 5 {
+		t.Errorf("padL truncated len = %d, want 5", len(out))
+	}
+}
+
+func TestPadL_Pads(t *testing.T) {
+	out := padL("hi", 6)
+	if len(out) != 6 {
+		t.Errorf("padL padded len = %d, want 6", len(out))
+	}
+}
+
+// ── renderDetail with active filter ──────────────────────────────────────────
+
+func TestDetailOverlay_WithFilter(t *testing.T) {
+	m := newTestModel()
+	addEvent(m.agg, "read", 10*time.Microsecond, "")
+	addEvent(m.agg, "write", 5*time.Microsecond, "")
+	m.filter = "wr" // only "write" matches
+	m.detailOverlay = true
+	out := m.View()
+	if !strings.Contains(out, "write") {
+		t.Errorf("detail overlay with filter 'wr' should show 'write', got:\n%s", out)
+	}
+}
+
+func TestDetailOverlay_AnomalySection(t *testing.T) {
+	m := newTestModel()
+	// ERR% >= 50 → anomaly explanation block should appear
+	addEvent(m.agg, "connect", 1*time.Microsecond, "ECONNREFUSED")
+	addEvent(m.agg, "connect", 1*time.Microsecond, "ECONNREFUSED")
+	m.detailOverlay = true
+	out := m.View()
+	if !strings.Contains(out, "ANOMALY") {
+		t.Errorf("detail overlay should show ANOMALY EXPLANATION for 100%% error rate, got:\n%s", out)
+	}
+}
+
+// ── Update tickMsg ────────────────────────────────────────────────────────────
+
+func TestUpdate_TickMsg_ReturnsTick(t *testing.T) {
+	m := newTestModel()
+	_, cmd := m.Update(tickMsg(time.Now()))
+	if cmd == nil {
+		t.Error("Update(tickMsg) should return a non-nil tick command")
+	}
+}
+
+// ── View with helpOverlay width=0 ────────────────────────────────────────────
+
+func TestRenderHelp_ZeroWidthFallback(t *testing.T) {
+	m := newTestModel()
+	m.width = 0
+	m.helpOverlay = true
+	// Should not panic even with zero width
+	out := m.View()
+	if out == "" {
+		t.Error("renderHelp with width=0 returned empty string")
+	}
+}
