@@ -73,8 +73,6 @@ func TestDashboard_UnknownPath(t *testing.T) {
 	}
 }
 
-
-
 func TestStats(t *testing.T) {
 	agg := newPopulatedAgg()
 	srv := server.New(":0", agg)
