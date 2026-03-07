@@ -13,6 +13,8 @@ Thumbs.db
 
 # Editor
 .idea/
-.vscode/
+# Editor — track project settings but ignore personal preferences
+.vscode/*
+!.vscode/settings.json
 *.swp
 *.swo
