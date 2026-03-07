@@ -61,6 +61,10 @@ var (
 
 	barFillStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
 
+	nameStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
+	errNumStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
+	slowAvgStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("227"))
+
 	divStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("238"))
 
@@ -221,13 +225,22 @@ func (m model) View() string {
 	w := m.width
 	cw := colWidths(w)
 
+	// Single header bar: title + target on the left, live stats on the right.
+	total := m.agg.Total()
+	errs := m.agg.Errors()
+	rate := m.agg.Rate()
+	unique := m.agg.UniqueCount()
 	elapsed := time.Since(m.started).Round(time.Second)
-	titleText := fmt.Sprintf(" stracectl  %-30s elapsed: %s ", m.target, elapsed)
-	titleLine := titleStyle.Width(w).Render(titleText)
+	left := fmt.Sprintf(" stracectl  %s  +%s ", m.target, elapsed)
+	right := fmt.Sprintf(" syscalls: %s  rate: %.0f/s  errors: %s  unique: %d ",
+		formatCount(total), rate, formatCount(errs), unique)
+	gap := w - len(left) - len(right)
+	if gap < 0 {
+		gap = 0
+	}
+	titleLine := titleStyle.Render(left + strings.Repeat(" ", gap) + right)
 
-	statsLine := m.renderStatsBar(w)
 	catLine := m.renderCategoryBar(w)
-	summaryLine := m.renderSummary(w)
 
 	div := divStyle.Render(strings.Repeat("─", w))
 	hdr := renderHeader(cw, m.sortBy)
@@ -236,7 +249,7 @@ func (m model) View() string {
 	if m.editing {
 		footer = filterStyle.Render(fmt.Sprintf(" filter: %s█", m.filter))
 	} else {
-		hint := " q:quit  c:req▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  d:details  ?:help  esc:clear"
+		hint := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  d:details  ?:help  esc:clear"
 		if m.filter != "" {
 			hint += fmt.Sprintf("   [filter: %q]", m.filter)
 		}
@@ -246,8 +259,8 @@ func (m model) View() string {
 	// anomaly alerts
 	alerts := m.renderAlerts()
 
-	// fixed UI lines: title, stats, cat, summary, div, hdr, div, [alerts?], div, footer
-	fixedLines := 8
+	// fixed UI lines: title+stats, cat, div, hdr, div, footer
+	fixedLines := 6
 	if alerts != "" {
 		fixedLines += strings.Count(alerts, "\n") + 1
 	}
@@ -295,9 +308,7 @@ func (m model) View() string {
 
 	var sb strings.Builder
 	sb.WriteString(titleLine + "\n")
-	sb.WriteString(statsLine + "\n")
 	sb.WriteString(catLine + "\n")
-	sb.WriteString(summaryLine + "\n")
 	sb.WriteString(div + "\n")
 	sb.WriteString(hdr + "\n")
 	sb.WriteString(div + "\n")
@@ -307,13 +318,7 @@ func (m model) View() string {
 	}
 
 	for i, s := range stats {
-		errPctStr := "—"
-		if s.Errors > 0 {
-			errPctStr = fmt.Sprintf("%.0f%%", s.ErrPct())
-		}
-
 		bar := sparkBar(s.Count, maxCount, cw.bar)
-
 		catTag := catStyle(s.Category).Render(fmt.Sprintf("%-5s", s.Category.String()))
 
 		cursor := "  "
@@ -321,29 +326,52 @@ func (m model) View() string {
 			cursor = "► "
 		}
 
-		row := cursor + padR(s.Name, cw.name-2) +
+		// Per-cell colored parts: slow avg in yellow, errors in red.
+		avgDur := s.AvgTime()
+		var avgPart string
+		if avgDur >= slowAvgThreshold {
+			pad := max(0, cw.avg-len(formatDur(avgDur)))
+			avgPart = strings.Repeat(" ", pad) + slowAvgStyle.Render(formatDur(avgDur))
+		} else {
+			avgPart = padL(formatDur(avgDur), cw.avg)
+		}
+
+		var errCountPart, errPctPart string
+		if s.Errors > 0 {
+			cs := formatCount(s.Errors)
+			ps := fmt.Sprintf("%.0f%%", s.ErrPct())
+			errCountPart = strings.Repeat(" ", max(0, cw.errors-len(cs))) + errNumStyle.Render(cs)
+			errPctPart = strings.Repeat(" ", max(0, cw.errpct-len(ps))) + errNumStyle.Render(ps)
+		} else {
+			errCountPart = padL("—", cw.errors)
+			errPctPart = padL("—", cw.errpct)
+		}
+
+		row := cursor + nameStyle.Render(padR(s.Name, cw.name-2)) +
 			catTag +
 			padL(formatCount(s.Count), cw.count) +
 			" " + barFillStyle.Render(bar) + " " +
-			padL(formatDur(s.AvgTime()), cw.avg) +
+			avgPart +
 			padL(formatDur(s.MaxTime), cw.max) +
 			padL(formatDur(s.TotalTime), cw.total) +
-			padL(errPctStr, cw.errpct)
+			errCountPart +
+			errPctPart
 
-		var style lipgloss.Style
-		if i+scrollOffset == m.cursor {
-			style = selectedRowStyle
-		} else if s.ErrPct() >= hotErrPct {
-			style = hotRowStyle
-		} else if s.Errors > 0 {
-			style = errRowStyle
-		} else if s.AvgTime() >= slowAvgThreshold {
-			style = slowRowStyle
-		} else {
-			style = rowStyle
+		var rendered string
+		switch {
+		case i+scrollOffset == m.cursor:
+			rendered = selectedRowStyle.Render(row)
+		case s.ErrPct() >= hotErrPct:
+			rendered = hotRowStyle.Render(row)
+		case s.Errors > 0:
+			rendered = errRowStyle.Render(row)
+		case avgDur >= slowAvgThreshold:
+			rendered = slowRowStyle.Render(row)
+		default:
+			rendered = row // normal rows: per-cell colors, no outer style wrapper
 		}
 
-		sb.WriteString(style.Render(row) + "\n")
+		sb.WriteString(rendered + "\n")
 	}
 	for i := len(stats); i < maxRows; i++ {
 		sb.WriteString("\n")
@@ -353,31 +381,6 @@ func (m model) View() string {
 	sb.WriteString(footer)
 
 	return sb.String()
-}
-
-// ── Stats bar ─────────────────────────────────────────────────────────────────
-
-func (m model) renderStatsBar(w int) string {
-	total := m.agg.Total()
-	errs := m.agg.Errors()
-	rate := m.agg.Rate()
-	unique := m.agg.UniqueCount()
-
-	errPct := 0.0
-	if total > 0 {
-		errPct = float64(errs) / float64(total) * 100
-	}
-
-	var errPart string
-	if errs > 0 {
-		errPart = fmt.Sprintf("errors: %s (%.1f%%)  ", formatCount(errs), errPct)
-	} else {
-		errPart = "errors: 0  "
-	}
-
-	text := fmt.Sprintf("  syscalls: %-8s  rate: %5.0f/s  unique: %-4d  %s",
-		formatCount(total), rate, unique, errPart)
-	return statsStyle.Width(w).Render(text)
 }
 
 // ── Category bar ──────────────────────────────────────────────────────────────
@@ -403,79 +406,12 @@ func (m model) renderCategoryBar(w int) string {
 			continue
 		}
 		pct := float64(cs.Count) / float64(total) * 100
-		label := fmt.Sprintf("%s:%.0f%%", cat.String(), pct)
+		label := fmt.Sprintf("%s %.0f%%", cat.String(), pct)
 		parts = append(parts, catStyle(cat).Render(label))
 	}
 
-	line := "  " + strings.Join(parts, divStyle.Render("  │  "))
+	line := "  " + strings.Join(parts, "    ")
 	return statsStyle.Width(w).Render(line)
-}
-
-// ── Plain-language summary ────────────────────────────────────────────────────
-
-func (m model) renderSummary(w int) string {
-	bd := m.agg.CategoryBreakdown()
-	total := m.agg.Total()
-	if total == 0 {
-		return statsStyle.Width(w).Render("  Waiting for syscalls…")
-	}
-
-	// find the dominant category
-	type kv struct {
-		cat aggregator.Category
-		pct float64
-	}
-	var sorted []kv
-	for cat, cs := range bd {
-		if cs.Count == 0 {
-			continue
-		}
-		sorted = append(sorted, kv{cat, float64(cs.Count) / float64(total) * 100})
-	}
-	// simple selection sort for top-2 (small slice, no import needed)
-	for i := 0; i < len(sorted)-1; i++ {
-		max := i
-		for j := i + 1; j < len(sorted); j++ {
-			if sorted[j].pct > sorted[max].pct {
-				max = j
-			}
-		}
-		sorted[i], sorted[max] = sorted[max], sorted[i]
-	}
-
-	catSummary := map[aggregator.Category]string{
-		aggregator.CatIO:      "reading and writing data",
-		aggregator.CatFS:      "accessing the filesystem (stat, open, permissions)",
-		aggregator.CatNet:     "networking (connect, send, recv)",
-		aggregator.CatMem:     "managing memory (mmap, mprotect)",
-		aggregator.CatProcess: "managing processes and threads",
-		aggregator.CatSignal:  "handling signals",
-		aggregator.CatOther:   "miscellaneous kernel calls",
-	}
-
-	var desc string
-	if len(sorted) > 0 {
-		top := sorted[0]
-		desc = fmt.Sprintf("Process is mainly %s (%.0f%%)", catSummary[top.cat], top.pct)
-		if len(sorted) > 1 && sorted[1].pct >= 10 {
-			desc += fmt.Sprintf(", then %s (%.0f%%)", catSummary[sorted[1].cat], sorted[1].pct)
-		}
-	}
-
-	errPct := float64(m.agg.Errors()) / float64(total) * 100
-	var health string
-	switch {
-	case errPct == 0:
-		health = " — ✓ no errors"
-	case errPct < 15:
-		health = fmt.Sprintf(" — ✓ %.0f%% errors (likely normal)", errPct)
-	case errPct < 40:
-		health = fmt.Sprintf(" — ⚠ %.0f%% errors (worth investigating)", errPct)
-	default:
-		health = fmt.Sprintf(" — ✗ %.0f%% errors (high, check alerts above)", errPct)
-	}
-
-	return statsStyle.Width(w).Render("  " + desc + health)
 }
 
 // ── Anomaly alerts ────────────────────────────────────────────────────────────
@@ -1073,12 +1009,13 @@ func (m model) renderHelp() string {
 	section("COLUMNS")
 	row("SYSCALL", "name of the kernel function called by the process")
 	row("CAT", "category: I/O · FS · NET · MEM · PROC · SIG · OTHER")
-	row("COUNT", "total number of times this syscall was called")
+	row("CALLS", "total number of times this syscall was called")
 	row("FREQ", "bar showing count relative to the most-called syscall")
-	row("AVG", "average time the kernel spent executing this syscall")
+	row("AVG", "average time the kernel spent executing this syscall (yellow = slow ≥5ms)")
 	row("MAX", "peak (worst) latency — outliers that avg hides")
 	row("TOTAL", "cumulative CPU time spent inside this syscall")
-	row("ERR%", "percentage of calls that returned an error")
+	row("ERRORS", "number of calls that returned an error (red)")
+	row("ERR%", "percentage of calls that returned an error (red)")
 
 	section("ROW COLOURS")
 	row("white", "normal — no issues detected")
@@ -1129,17 +1066,17 @@ func (m model) renderHelp() string {
 // ── Column layout ─────────────────────────────────────────────────────────────
 
 type cols struct {
-	name, cat, count, bar, avg, max, total, errpct int
+	name, cat, count, bar, avg, max, total, errors, errpct int
 }
 
 func colWidths(w int) cols {
-	cat, count, avg, max, total, errpct := 6, 9, 10, 10, 11, 7
+	cat, count, avg, max, total, errors, errpct := 6, 9, 10, 10, 11, 8, 7
 	barW := 12
-	name := w - cat - count - barW - 2 - avg - max - total - errpct
+	name := w - cat - count - barW - 2 - avg - max - total - errors - errpct
 	if name < 14 {
 		name = 14
 	}
-	return cols{name, cat, count, barW, avg, max, total, errpct}
+	return cols{name, cat, count, barW, avg, max, total, errors, errpct}
 }
 
 func renderHeader(cw cols, sortBy aggregator.SortField) string {
@@ -1152,12 +1089,13 @@ func renderHeader(cw cols, sortBy aggregator.SortField) string {
 	return headerStyle.Render(
 		padR("SYSCALL", cw.name) +
 			padR(mark(aggregator.SortByCategory, "CAT"), cw.cat) +
-			padL(mark(aggregator.SortByCount, "REQ"), cw.count) +
+			padL(mark(aggregator.SortByCount, "CALLS"), cw.count) +
 			" " + padR("FREQ", cw.bar+1) +
 			padL(mark(aggregator.SortByAvg, "AVG"), cw.avg) +
 			padL(mark(aggregator.SortByMax, "MAX"), cw.max) +
 			padL(mark(aggregator.SortByTotal, "TOTAL"), cw.total) +
-			padL(mark(aggregator.SortByErrors, "ERR%"), cw.errpct),
+			padL(mark(aggregator.SortByErrors, "ERRORS"), cw.errors) +
+			padL("ERR% ", cw.errpct),
 	)
 }
 
