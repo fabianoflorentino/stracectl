@@ -1,0 +1,47 @@
+# air — live-reload configuration for stracectl development.
+# https://github.com/air-verse/air
+#
+# air watches .go files, rebuilds the binary, and restarts it.
+# The default command below runs stracectl in HTTP-server mode tracing a
+# lightweight workload (repeated HTTP requests) so the API and TUI paths
+# can both be exercised while iterating on the code.
+#
+# Override args_bin to trace a different workload, e.g.:
+#   args_bin = ["attach", "--serve", ":8080", "1"]
+
+root = "."
+tmp_dir = "/tmp/air"
+
+[build]
+  # Compile the binary into a temp location to keep the workspace clean.
+  cmd        = "go build -o /tmp/stracectl ."
+  bin        = "/tmp/stracectl"
+  # Default: run as HTTP server tracing a looping wget workload.
+  args_bin   = [
+    "run", "--serve", ":8080",
+    "--",
+    "sh", "-c",
+    "while true; do wget -q -O /dev/null https://httpbin.org/get 2>&1; sleep 3; done"
+  ]
+  # Only rebuild when Go source files change.
+  include_ext = ["go"]
+  exclude_dir = ["docs", "deploy", ".github", "vendor"]
+  # Milliseconds to wait for more changes before triggering a build.
+  delay      = 1000
+  # Give the previous process time to flush before killing it.
+  kill_delay = "500ms"
+  rerun      = false
+  send_interrupt = true
+
+[log]
+  time          = true
+  main_only     = false
+
+[color]
+  main    = "magenta"
+  watcher = "cyan"
+  build   = "yellow"
+  runner  = "green"
+
+[misc]
+  clean_on_exit = true
