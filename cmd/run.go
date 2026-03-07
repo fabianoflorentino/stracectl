@@ -23,15 +23,20 @@ var runCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 
+		// tracerCtx is cancelled either by a signal (via ctx) or explicitly
+		// by runTrace once the UI/server exits, killing the strace subprocess.
+		tracerCtx, cancelTracer := context.WithCancel(ctx)
+		defer cancelTracer()
+
 		agg := aggregator.New()
 		t := tracer.NewStraceTracer()
 
-		events, err := t.Run(ctx, args[0], args[1:])
+		events, err := t.Run(tracerCtx, args[0], args[1:])
 		if err != nil {
 			return err
 		}
 
-		return runTrace(ctx, events, agg, runServeAddr, strings.Join(args, " "))
+		return runTrace(ctx, cancelTracer, events, agg, runServeAddr, strings.Join(args, " "))
 	},
 }
 

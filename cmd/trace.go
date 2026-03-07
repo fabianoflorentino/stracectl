@@ -16,7 +16,11 @@ import (
 // starts the HTTP server (if serveAddr is non-empty) or the TUI. It blocks
 // until the context is cancelled or the UI/server returns, and it drains the
 // event channel before returning.
-func runTrace(ctx context.Context, events <-chan models.SyscallEvent, agg *aggregator.Aggregator, serveAddr, label string) error {
+//
+// cancelTracer must be the cancel function for the context that was passed to
+// Tracer.Attach / Tracer.Run. Calling it kills the strace subprocess so the
+// events channel closes promptly after the UI or server has exited.
+func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-chan models.SyscallEvent, agg *aggregator.Aggregator, serveAddr, label string) error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -35,8 +39,9 @@ func runTrace(ctx context.Context, events <-chan models.SyscallEvent, agg *aggre
 		runErr = ui.Run(agg, label)
 	}
 
-	// Wait for the consumer goroutine to finish draining the event channel
-	// before the caller returns and any deferred teardown runs.
+	// Kill the strace subprocess now that the UI/server has stopped.
+	// This closes the events channel so the consumer goroutine can finish.
+	cancelTracer()
 	wg.Wait()
 	return runErr
 }
