@@ -16,10 +16,11 @@ services:
   stracectl:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      target: development
     volumes:
       # Live source code — changes trigger a hot-reload via air
-      - .:/src
+      - .:/app
       # Persistent Go caches so rebuilds are fast across restarts
       - go-build-cache:/root/.cache/go-build
       - go-mod-cache:/go/pkg/mod
