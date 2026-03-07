@@ -21,3 +21,6 @@ pre-push:
 
     test-cover:
       run: go test -coverprofile=/tmp/stracectl-coverage.out ./... && go tool cover -func=/tmp/stracectl-coverage.out
+
+    vuln:
+      run: govulncheck ./...
