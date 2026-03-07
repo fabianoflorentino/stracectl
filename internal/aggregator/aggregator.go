@@ -154,12 +154,13 @@ func (s *SyscallStat) ErrPct() float64 {
 type SortField int
 
 const (
-	SortByCount  SortField = iota // default: most frequent first
-	SortByTotal                   // highest cumulative time first
-	SortByAvg                     // highest average latency first
-	SortByMax                     // highest peak latency first
-	SortByErrors                  // most errors first
-	SortByName                    // alphabetical
+	SortByCount    SortField = iota // default: most frequent first
+	SortByTotal                     // highest cumulative time first
+	SortByAvg                       // highest average latency first
+	SortByMax                       // highest peak latency first
+	SortByErrors                    // most errors first
+	SortByName                      // alphabetical
+	SortByCategory                  // grouped by category, then by count
 )
 
 // CategoryStats holds per-category totals for the summary bar.
@@ -259,6 +260,11 @@ func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 			return out[i].Errors > out[j].Errors
 		case SortByName:
 			return out[i].Name < out[j].Name
+		case SortByCategory:
+			if out[i].Category != out[j].Category {
+				return out[i].Category < out[j].Category
+			}
+			return out[i].Count > out[j].Count
 		default: // SortByCount
 			return out[i].Count > out[j].Count
 		}
