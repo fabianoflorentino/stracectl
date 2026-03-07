@@ -1,0 +1,34 @@
+# Default values for the stracectl sidecar.
+# Override with: helm install stracectl ./deploy/helm/stracectl -f my-values.yaml
+
+image:
+  repository: ghcr.io/fabianoflorentino/stracectl
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Port the HTTP API listens on inside the container.
+port: 8080
+
+# PID to trace inside the target container.
+# Set to 1 to attach to the container's init process, or use
+# `stracectl discover <container-name>` to find the correct PID first.
+targetPID: "1"
+
+# Target container name (used with the discover subcommand; informational here).
+targetContainer: "app"
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "32Mi"
+  limits:
+    cpu: "200m"
+    memory: "64Mi"
+
+# Enable Prometheus ServiceMonitor (requires prometheus-operator)
+serviceMonitor:
+  enabled: false
+  interval: "15s"
+
+# Labels added to all resources
+commonLabels: {}

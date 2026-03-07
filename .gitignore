@@ -1,5 +1,5 @@
-# binary
-stracectl
+# binary (the compiled executable at project root)
+/stracectl
 
 # Go
 *.test
