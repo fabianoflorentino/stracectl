@@ -51,7 +51,7 @@ func fakeCmd(t *testing.T, scenario string) *exec.Cmd {
 	if err != nil {
 		t.Fatalf("os.Executable: %v", err)
 	}
-	cmd := exec.Command(exe, "-test.run=^$") // run no real tests
+	cmd := exec.CommandContext(t.Context(), exe, "-test.run=^$") // run no real tests
 	cmd.Env = append(os.Environ(), "GO_FAKE_STRACE="+scenario)
 	return cmd
 }
