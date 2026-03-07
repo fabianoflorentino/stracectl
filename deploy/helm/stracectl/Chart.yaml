@@ -1,0 +1,20 @@
+apiVersion: v2
+name: stracectl
+description: >
+  Injects stracectl as a sidecar into an existing Deployment to expose
+  per-syscall metrics and a live WebSocket stream over HTTP.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - strace
+  - observability
+  - debugging
+  - linux
+  - syscalls
+home: https://github.com/fabianoflorentino/stracectl
+sources:
+  - https://github.com/fabianoflorentino/stracectl
+maintainers:
+  - name: fabianoflorentino
+    url: https://github.com/fabianoflorentino
