@@ -154,6 +154,36 @@ sudo stracectl run --serve :8080 curl https://example.com
 sudo stracectl attach --serve :8080 42
 ```
 
+Opening `http://localhost:8080` in any browser shows the **live web dashboard** — a
+self-contained single-page app that connects to the server over WebSocket and updates
+the table in real time, with no page reload needed:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  stracectl           syscalls: 119.5k  rate: 9637/s  errors: 20.9k  unique: 83 │
+├────────────────────┬────────────────────────────────────────────────────────────┤
+│  I/O 36%  FS 37%  │  NET 1%  MEM 7%  PROC 4%  SIG 13%  OTHER 3%               │
+├──────────┬───┬──────┬────────┬──────────┬──────────┬───────────┬────────┬──────┤
+│ SYSCALL▾ │CAT│CALLS │  FREQ  │   AVG    │   MAX    │   TOTAL   │ ERRORS │ ERR% │
+├──────────┼───┼──────┼────────┼──────────┼──────────┼───────────┼────────┼──────┤
+│ newfstat │FS │ 21.1k│████▌   │  44.2µs  │   2.8ms  │  933.0ms  │    578 │  3%  │
+│ openat   │I/O│ 16.7k│████    │  32.0µs  │   3.0ms  │  533.2ms  │  6.8k  │ 41%  │
+│ read     │I/O│ 15.2k│███▊    │ 565.2µs  │ 731.9ms  │    8.57s  │     76 │  1%  │
+│ readlink │FS │ 13.1k│███▌    │  31.5µs  │ 999.0µs  │  405.9ms  │ 13.1k  │100%  │
+│ close    │I/O│ 13.0k│███▌    │  30.8µs  │ 212.0µs  │  408.9ms  │    123 │  1%  │
+│ …        │   │      │        │          │          │           │        │      │
+└──────────┴───┴──────┴────────┴──────────┴──────────┴───────────┴────────┴──────┘
+  Connected — live updates every second
+```
+
+**Dashboard features:**
+- All columns are **clickable to sort** (ascending / descending toggle, with `▲`/`▼` indicator)
+- Category pills use the same colour coding as the TUI (blue = I/O, green = FS, orange = NET, purple = MEM, red = PROC)
+- Syscall names shown in blue; error counts and ERR% highlighted in red; slow AVG in yellow (≥ 5 ms)
+- The spark bar scales relative to the most-called syscall in the current snapshot
+- Auto-reconnects if the server restarts or the connection drops
+- Status bar at the bottom shows connection state
+
 Available endpoints:
 
 | Endpoint | Description |
