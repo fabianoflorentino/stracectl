@@ -41,6 +41,40 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestDashboard(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
+		t.Fatalf("expected HTML content-type, got %q", ct)
+	}
+	if !strings.Contains(rr.Body.String(), "stracectl") {
+		t.Fatal("expected dashboard HTML to contain 'stracectl'")
+	}
+}
+
+func TestDashboard_UnknownPath(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/no/such/path", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rr.Code)
+	}
+}
+
+
+
 func TestStats(t *testing.T) {
 	agg := newPopulatedAgg()
 	srv := server.New(":0", agg)
