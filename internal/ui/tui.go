@@ -282,8 +282,13 @@ func (m model) View() string {
 		m.cursor = 0
 	}
 
+	// compute scroll offset so the selected row is always visible
+	scrollOffset := 0
 	if len(stats) > maxRows {
-		stats = stats[:maxRows]
+		if m.cursor >= maxRows {
+			scrollOffset = m.cursor - maxRows + 1
+		}
+		stats = stats[scrollOffset : scrollOffset+maxRows]
 	}
 
 	var sb strings.Builder
@@ -310,7 +315,7 @@ func (m model) View() string {
 		catTag := catStyle(s.Category).Render(fmt.Sprintf("%-5s", s.Category.String()))
 
 		cursor := "  "
-		if i == m.cursor {
+		if i+scrollOffset == m.cursor {
 			cursor = "► "
 		}
 
@@ -324,7 +329,7 @@ func (m model) View() string {
 			padL(errPctStr, cw.errpct)
 
 		var style lipgloss.Style
-		if i == m.cursor {
+		if i+scrollOffset == m.cursor {
 			style = selectedRowStyle
 		} else if s.ErrPct() >= hotErrPct {
 			style = hotRowStyle
