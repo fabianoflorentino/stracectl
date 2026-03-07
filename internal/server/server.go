@@ -47,6 +47,8 @@ func New(addr string, agg *aggregator.Aggregator) *Server {
 		Addr:              addr,
 		Handler:           s.mux,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      30 * time.Second,
 	}
 	return s
 }
