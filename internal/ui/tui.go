@@ -177,6 +177,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.sortBy = aggregator.SortByErrors
 	case "n":
 		m.sortBy = aggregator.SortByName
+	case "g":
+		m.sortBy = aggregator.SortByCategory
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
@@ -234,7 +236,7 @@ func (m model) View() string {
 	if m.editing {
 		footer = filterStyle.Render(fmt.Sprintf(" filter: %s█", m.filter))
 	} else {
-		hint := " q:quit  c:req▼  t:total  a:avg  x:max  e:errors  n:name  /:filter  ↑↓/jk:move  d:details  ?:help  esc:clear"
+		hint := " q:quit  c:req▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  d:details  ?:help  esc:clear"
 		if m.filter != "" {
 			hint += fmt.Sprintf("   [filter: %q]", m.filter)
 		}
@@ -1112,6 +1114,7 @@ func (m model) renderHelp() string {
 	row("x", "sort by MAX latency (find worst outlier)")
 	row("e", "sort by error count")
 	row("n", "sort alphabetically")
+	row("g", "group by category (I/O, FS, NET, MEM, PROC, SIG, OTHER)")
 	row("/", "filter: type a syscall name to narrow the list")
 	row("esc", "clear filter / deselect")
 	row("?", "this help screen")
@@ -1148,7 +1151,7 @@ func renderHeader(cw cols, sortBy aggregator.SortField) string {
 	}
 	return headerStyle.Render(
 		padR("SYSCALL", cw.name) +
-			padR("CAT", cw.cat) +
+			padR(mark(aggregator.SortByCategory, "CAT"), cw.cat) +
 			padL(mark(aggregator.SortByCount, "REQ"), cw.count) +
 			" " + padR("FREQ", cw.bar+1) +
 			padL(mark(aggregator.SortByAvg, "AVG"), cw.avg) +

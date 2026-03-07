@@ -368,6 +368,7 @@ func TestSortKeys(t *testing.T) {
 		{"x", aggregator.SortByMax},
 		{"e", aggregator.SortByErrors},
 		{"n", aggregator.SortByName},
+		{"g", aggregator.SortByCategory},
 	}
 	for _, tc := range cases {
 		m := newTestModel()
