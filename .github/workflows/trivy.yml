@@ -11,6 +11,7 @@ on:
       - 'LICENSE'
       - 'docs/**'
       - '.github/**'
+      - '**/*.md'
 
 jobs:
   scan:

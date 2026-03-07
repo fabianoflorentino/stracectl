@@ -18,6 +18,7 @@ on:
       - 'LICENSE'
       - 'docs/**'
       - '.github/**'
+      - '**/*.md'
 
 permissions:
   contents: write
