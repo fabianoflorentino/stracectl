@@ -12,10 +12,10 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 )
 
+// refreshInterval is how often the UI updates with new data from the aggregator.
 const refreshInterval = 200 * time.Millisecond
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
