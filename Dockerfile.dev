@@ -1,0 +1,33 @@
+# Development image — hot-reload via air, strace available at runtime.
+#
+# Usage (via docker-compose):
+#   docker compose up
+#
+# Usage (standalone):
+#   docker build -f Dockerfile.dev -t stracectl-dev .
+#   docker run --rm -it \
+#     -v "$PWD":/src \
+#     -p 8080:8080 \
+#     --cap-add SYS_PTRACE \
+#     --security-opt seccomp=unconfined \
+#     stracectl-dev
+FROM golang:1.26-alpine
+
+WORKDIR /src
+
+# strace: required at runtime
+# wget:   sample workload used by .air.toml default command
+# git:    required by some go tooling (replace directives, etc.)
+RUN apk add --no-cache strace wget git
+
+# air: watches source files and rebuilds/restarts on changes
+RUN go install github.com/air-verse/air@latest
+
+# Pre-download dependencies so the first build is fast.
+# Source is bind-mounted at runtime, so only go.mod/go.sum are copied here.
+COPY go.mod go.sum ./
+RUN go mod download
+
+EXPOSE 8080
+
+ENTRYPOINT ["air"]

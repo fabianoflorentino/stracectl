@@ -1,0 +1,37 @@
+# docker compose up       — starts stracectl in HTTP server mode with live reload
+# docker compose up -d    — detached
+# docker compose logs -f  — follow logs
+#
+# After startup:
+#   curl http://localhost:8080/api/stats | jq .
+#   curl http://localhost:8080/api/categories | jq .
+#   curl http://localhost:8080/metrics
+#   wscat -c ws://localhost:8080/stream
+#
+# To trace a different workload, override the air args_bin in .air.toml
+# or pass a command directly:
+#   docker compose run --rm stracectl air -- run --serve :8080 -- curl https://example.com
+
+services:
+  stracectl:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      # Live source code — changes trigger a hot-reload via air
+      - .:/src
+      # Persistent Go caches so rebuilds are fast across restarts
+      - go-build-cache:/root/.cache/go-build
+      - go-mod-cache:/go/pkg/mod
+    ports:
+      - "8080:8080"
+    # ptrace requires SYS_PTRACE and a permissive seccomp profile.
+    # Never use these settings in a production deployment.
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+
+volumes:
+  go-build-cache:
+  go-mod-cache:
