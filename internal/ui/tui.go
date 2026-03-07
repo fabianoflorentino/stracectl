@@ -59,8 +59,7 @@ var (
 			Bold(true).
 			Foreground(lipgloss.Color("227"))
 
-	barFillStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
-	barEmptyStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("236"))
+	barFillStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
 
 	divStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("238"))

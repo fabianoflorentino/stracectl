@@ -3,6 +3,7 @@ package tracer
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -18,21 +19,21 @@ func NewStraceTracer() *StraceTracer { return &StraceTracer{} }
 
 // Attach attaches to a running process by PID.
 // The caller must have sufficient privileges (CAP_SYS_PTRACE or ptrace scope 0).
-func (t *StraceTracer) Attach(pid int) (<-chan models.SyscallEvent, error) {
+func (t *StraceTracer) Attach(ctx context.Context, pid int) (<-chan models.SyscallEvent, error) {
 	if err := checkStrace(); err != nil {
 		return nil, err
 	}
-	cmd := exec.Command("strace", "-f", "-T", "-q", "-p", strconv.Itoa(pid))
+	cmd := exec.CommandContext(ctx, "strace", "-f", "-T", "-q", "-p", strconv.Itoa(pid))
 	return t.start(cmd, pid)
 }
 
 // Run executes program with args under strace.
-func (t *StraceTracer) Run(program string, args []string) (<-chan models.SyscallEvent, error) {
+func (t *StraceTracer) Run(ctx context.Context, program string, args []string) (<-chan models.SyscallEvent, error) {
 	if err := checkStrace(); err != nil {
 		return nil, err
 	}
 	straceArgs := append([]string{"-f", "-T", "-q", "--", program}, args...)
-	cmd := exec.Command("strace", straceArgs...)
+	cmd := exec.CommandContext(ctx, "strace", straceArgs...)
 	return t.start(cmd, 0)
 }
 

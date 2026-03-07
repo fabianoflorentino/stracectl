@@ -38,7 +38,7 @@ func ScanProc(procRoot, containerName string) (int, error) {
 			continue
 		}
 
-		cgroup, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "cgroup"))
+		cgroup, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "cgroup")) //nolint:gosec // G304: path is constructed from /proc + numeric PID dir
 		if err != nil {
 			continue
 		}
@@ -67,7 +67,7 @@ func ScanProcLowest(procRoot, containerName string) (int, error) {
 			continue
 		}
 
-		cgroup, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "cgroup"))
+		cgroup, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "cgroup")) //nolint:gosec // G304: path is constructed from /proc + numeric PID dir
 		if err != nil {
 			continue
 		}
