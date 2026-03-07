@@ -28,6 +28,9 @@ var (
 	// retRe matches the tail of a completed syscall line:
 	//   ) = retval [ERRNAME (description)] [<latency>]
 	retRe = regexp.MustCompile(`\)\s+=\s+(-?\d+)(?:\s+(E\w+)[^<]*)?(?:\s+<([\d.]+)>)?$`)
+
+	// resumedRe matches a "<... syscall resumed>" line produced by strace -f.
+	resumedRe = regexp.MustCompile(`^<\.\.\.\s+(\w+)\s+resumed>(.*)$`)
 )
 
 // Parse parses a single line of strace output.
@@ -57,7 +60,6 @@ func Parse(line string, defaultPID int) (*models.SyscallEvent, error) {
 
 	// Handle "resumed" lines: <... syscall resumed> rest
 	if strings.HasPrefix(line, "<...") {
-		resumedRe := regexp.MustCompile(`^<\.\.\.\s+(\w+)\s+resumed>(.*)$`)
 		if m := resumedRe.FindStringSubmatch(line); m != nil {
 			line = m[1] + "(" + m[2] // reconstruct enough to match retRe
 		} else {
