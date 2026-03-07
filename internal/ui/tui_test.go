@@ -477,78 +477,30 @@ func TestUpdate_WindowSize(t *testing.T) {
 	}
 }
 
-// ── renderSummary health indicators ──────────────────────────────────────────
+// ── merged title + stats header ───────────────────────────────────────────────
 
-func TestRenderSummary_WaitingWhenEmpty(t *testing.T) {
-	m := newTestModel()
-	out := m.View()
-	if !strings.Contains(out, "Waiting") {
-		t.Errorf("View() with no events should contain 'Waiting', got:\n%s", out)
-	}
-}
-
-func TestRenderSummary_NoErrors(t *testing.T) {
+func TestTitleBar_ShowsStats(t *testing.T) {
 	m := newTestModel()
 	addEvent(m.agg, "read", 1*time.Millisecond, "")
-	out := m.View()
-	if !strings.Contains(out, "no errors") {
-		t.Errorf("expected 'no errors' indicator, got:\n%s", out)
-	}
-}
-
-func TestRenderSummary_LowErrorRate(t *testing.T) {
-	m := newTestModel()
-	// 1 error out of 10 = 10% → "likely normal"
-	for i := 0; i < 9; i++ {
-		addEvent(m.agg, "read", 1*time.Millisecond, "")
-	}
 	addEvent(m.agg, "read", 1*time.Millisecond, "ENOENT")
 	out := m.View()
-	if !strings.Contains(out, "likely normal") {
-		t.Errorf("expected 'likely normal' for 10%% error rate, got:\n%s", out)
+	// The single header line should contain both the brand name and live stats.
+	for _, want := range []string{"stracectl", "syscalls:", "rate:", "errors:", "unique:"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("title bar missing %q in:\n%s", want, out)
+		}
 	}
 }
 
-func TestRenderSummary_MediumErrorRate(t *testing.T) {
+func TestTitleBar_ErrorCountReflected(t *testing.T) {
 	m := newTestModel()
-	// 2 errors out of 8 = 25% → "worth investigating"
-	for i := 0; i < 6; i++ {
-		addEvent(m.agg, "read", 1*time.Millisecond, "")
-	}
-	addEvent(m.agg, "read", 1*time.Millisecond, "EIO")
-	addEvent(m.agg, "read", 1*time.Millisecond, "EIO")
-	out := m.View()
-	if !strings.Contains(out, "worth investigating") {
-		t.Errorf("expected 'worth investigating' for 25%% error rate, got:\n%s", out)
-	}
-}
-
-func TestRenderSummary_HighErrorRate(t *testing.T) {
-	m := newTestModel()
-	// 5 errors out of 6 = 83% → "high, check alerts"
-	addEvent(m.agg, "read", 1*time.Millisecond, "")
 	for i := 0; i < 5; i++ {
 		addEvent(m.agg, "read", 1*time.Millisecond, "EIO")
 	}
 	out := m.View()
-	if !strings.Contains(out, "high") {
-		t.Errorf("expected 'high' error indicator for 83%% error rate, got:\n%s", out)
-	}
-}
-
-func TestRenderSummary_TwoDominantCategories(t *testing.T) {
-	m := newTestModel()
-	// FS category: stat (many)
-	for i := 0; i < 20; i++ {
-		addEvent(m.agg, "stat", 1*time.Millisecond, "")
-	}
-	// NET category: connect (enough to show second category ≥10%)
-	for i := 0; i < 5; i++ {
-		addEvent(m.agg, "connect", 1*time.Millisecond, "")
-	}
-	out := m.View()
-	if !strings.Contains(out, "then") {
-		t.Errorf("expected 'then' second-category clause for two dominant categories, got:\n%s", out)
+	// errors count must appear in the header stats.
+	if !strings.Contains(out, "errors:") {
+		t.Errorf("expected 'errors:' in header, got:\n%s", out)
 	}
 }
 
