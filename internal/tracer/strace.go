@@ -5,12 +5,23 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"os/exec"
 	"strconv"
 
 	"github.com/fabianoflorentino/stracectl/internal/models"
 	"github.com/fabianoflorentino/stracectl/internal/parser"
 )
+
+// Tracer is the interface implemented by all tracing backends (strace, ptrace, eBPF).
+// Both methods return a channel that emits events until the traced target exits or
+// the context is cancelled, at which point the channel is closed.
+type Tracer interface {
+	// Attach attaches to an already-running process by its PID.
+	Attach(ctx context.Context, pid int) (<-chan models.SyscallEvent, error)
+	// Run launches program with the given args under the tracer.
+	Run(ctx context.Context, program string, args []string) (<-chan models.SyscallEvent, error)
+}
 
 // StraceTracer spawns a strace subprocess and emits parsed events on a channel.
 type StraceTracer struct{}
@@ -54,7 +65,11 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 
 	go func() {
 		defer close(ch)
-		defer cmd.Wait() //nolint:errcheck
+		defer func() {
+			if err := cmd.Wait(); err != nil {
+				log.Printf("strace exited with error: %v", err)
+			}
+		}()
 
 		scanner := bufio.NewScanner(stderr)
 		// Increase buffer for lines with large read/write buffers in args.
@@ -62,7 +77,11 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 
 		for scanner.Scan() {
 			event, err := parser.Parse(scanner.Text(), defaultPID)
-			if err != nil || event == nil {
+			if err != nil {
+				log.Printf("parse error: %v", err)
+				continue
+			}
+			if event == nil {
 				continue
 			}
 			ch <- *event
