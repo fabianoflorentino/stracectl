@@ -65,7 +65,7 @@ var (
 	slowAvgStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("227"))
 
 	divStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("238"))
+			Foreground(lipgloss.Color("241"))
 
 	footerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("242"))
