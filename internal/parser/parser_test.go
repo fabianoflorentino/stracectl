@@ -98,7 +98,9 @@ func TestParse(t *testing.T) {
 			name:       "mmap call",
 			line:       `mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f1234560000 <0.000008>`,
 			defaultPID: 1,
-			wantNil:    true, // retval is a hex address, not matched by retRe (-?\d+)
+			wantName:   "mmap",
+			wantRetVal: "0x7f1234560000",
+			wantMinLat: 7 * time.Microsecond,
 		},
 	}
 

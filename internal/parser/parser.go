@@ -27,7 +27,8 @@ var (
 
 	// retRe matches the tail of a completed syscall line:
 	//   ) = retval [ERRNAME (description)] [<latency>]
-	retRe = regexp.MustCompile(`\)\s+=\s+(-?\d+)(?:\s+(E\w+)[^<]*)?(?:\s+<([\d.]+)>)?$`)
+	// Retval may be a decimal integer or a hex address (e.g. mmap returns 0x7f...).
+	retRe = regexp.MustCompile(`\)\s+=\s+(-?\d+|0x[0-9a-fA-F]+)(?:\s+(E\w+)[^<]*)?(?:\s+<([\d.]+)>)?$`)
 
 	// resumedRe matches a "<... syscall resumed>" line produced by strace -f.
 	resumedRe = regexp.MustCompile(`^<\.\.\.\s+(\w+)\s+resumed>(.*)$`)
