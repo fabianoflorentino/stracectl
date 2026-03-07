@@ -246,4 +246,7 @@ func TestSyscallDetail(t *testing.T) {
 	if !strings.Contains(body, "/stream") {
 		t.Fatal("expected detail HTML to reference /stream WebSocket endpoint")
 	}
+	if !strings.Contains(body, "SYSCALL REFERENCE") {
+		t.Fatal("expected detail HTML to contain syscall reference section")
+	}
 }
