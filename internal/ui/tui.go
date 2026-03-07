@@ -61,7 +61,6 @@ var (
 
 	barFillStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
 
-	nameStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
 	errNumStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
 	slowAvgStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("227"))
 
@@ -347,7 +346,7 @@ func (m model) View() string {
 			errPctPart = padL("—", cw.errpct)
 		}
 
-		row := cursor + nameStyle.Render(padR(s.Name, cw.name-2)) +
+		row := cursor + padR(s.Name, cw.name-2) +
 			catTag +
 			padL(formatCount(s.Count), cw.count) +
 			" " + barFillStyle.Render(bar) + " " +
@@ -368,7 +367,7 @@ func (m model) View() string {
 		case avgDur >= slowAvgThreshold:
 			rendered = slowRowStyle.Render(row)
 		default:
-			rendered = row // normal rows: per-cell colors, no outer style wrapper
+			rendered = rowStyle.Render(row)
 		}
 
 		sb.WriteString(rendered + "\n")
