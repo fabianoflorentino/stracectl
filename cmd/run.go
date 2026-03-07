@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -11,9 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
-	"github.com/fabianoflorentino/stracectl/internal/server"
 	"github.com/fabianoflorentino/stracectl/internal/tracer"
-	"github.com/fabianoflorentino/stracectl/internal/ui"
 )
 
 // runServeAddr is the address to serve the HTTP API on. If empty, the TUI will be used instead.
@@ -35,19 +31,7 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		go func() {
-			for event := range events {
-				agg.Add(event)
-			}
-		}()
-
-		if runServeAddr != "" {
-			fmt.Fprintf(os.Stderr, "serving on %s\n", runServeAddr)
-			srv := server.New(runServeAddr, agg)
-			return srv.Start(ctx)
-		}
-
-		return ui.Run(agg, strings.Join(args, " "))
+		return runTrace(ctx, events, agg, runServeAddr, strings.Join(args, " "))
 	},
 }
 

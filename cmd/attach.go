@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
@@ -11,9 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
-	"github.com/fabianoflorentino/stracectl/internal/server"
 	"github.com/fabianoflorentino/stracectl/internal/tracer"
-	"github.com/fabianoflorentino/stracectl/internal/ui"
 )
 
 var attachServeAddr string
@@ -27,6 +24,9 @@ var attachCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("invalid PID %q: must be a number", args[0])
 		}
+		if pid <= 0 {
+			return fmt.Errorf("PID must be a positive integer, got %d", pid)
+		}
 
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
@@ -39,19 +39,7 @@ var attachCmd = &cobra.Command{
 			return err
 		}
 
-		go func() {
-			for event := range events {
-				agg.Add(event)
-			}
-		}()
-
-		if attachServeAddr != "" {
-			fmt.Fprintf(os.Stderr, "serving on %s\n", attachServeAddr)
-			srv := server.New(attachServeAddr, agg)
-			return srv.Start(ctx)
-		}
-
-		return ui.Run(agg, fmt.Sprintf("PID %d", pid))
+		return runTrace(ctx, events, agg, attachServeAddr, fmt.Sprintf("PID %d", pid))
 	},
 }
 
