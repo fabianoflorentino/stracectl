@@ -272,7 +272,7 @@ func (m model) View() string {
 	// fixed UI lines: title+stats, cat, div, hdr, div, bottom-div, footer
 	fixedLines := 7
 	if alerts != "" {
-		fixedLines += strings.Count(alerts, "\n") + 1
+		fixedLines += strings.Count(alerts, "\n") + 2 // alert lines + separator div
 	}
 	maxRows := m.height - fixedLines
 	if maxRows < 1 {
@@ -386,6 +386,7 @@ func (m model) View() string {
 	sb.WriteString(div + "\n")
 	if alerts != "" {
 		sb.WriteString(alerts + "\n")
+		sb.WriteString(div + "\n")
 	}
 	sb.WriteString(footer)
 
