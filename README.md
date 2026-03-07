@@ -18,22 +18,21 @@ the same data over JSON, WebSocket, and Prometheus endpoints, so you can
 troubleshoot a running Pod without attaching a terminal.
 
 ```text
- stracectl  curl google.com                   elapsed: 4s
-  syscalls: 472    rate:  892/s   unique: 40   errors: 35 (7.4%)
-  I/O:35%  │  FS:28%  │  NET:18%  │  MEM:9%  │  PROC:7%  │  OTHER:3%
-  Process is mainly reading and writing data (60%) — ✓ 7% errors (likely normal)
+ stracectl  /usr/local/bin/homebrew-update  +4s     syscalls: 472  rate: 892/s  errors: 35  unique: 40
 ──────────────────────────────────────────────────────────────────────────────────
-SYSCALL        CAT      REQ  FREQ              AVG      MAX      TOTAL    ERR%
+  I/O 35%    FS 28%    NET 18%    MEM 9%    PROC 7%    OTHER 3%
 ──────────────────────────────────────────────────────────────────────────────────
-⚠ connect: 45% error rate (5/11 calls) — Happy Eyeballs: IPv4/IPv6 race, loser fails
+SYSCALL        CAT    CALLS  FREQ              AVG      MAX      TOTAL  ERRORS  ERR%
 ──────────────────────────────────────────────────────────────────────────────────
-►  openat         I/O       77  ████████░░░░    36.8µs   2.8ms    2.8ms     23%
-   close          I/O       67  ███████░░░░░    31.9µs   595µs    2.1ms      —
-   fstat          FS        62  ██████░░░░░░    33.9µs   628µs    2.1ms      —
-   read           I/O       56  █████░░░░░░░    37.1µs   2.1ms    2.1ms      —
-   connect        NET        6  █░░░░░░░░░░░    41.3µs   248µs    248µs     50%
+►  openat       I/O     77   ████████░░░░    36.8µs   2.8ms    2.8ms      18   23%
+   close        I/O     67   ███████░░░░░    31.9µs   595µs    2.1ms       —    —
+   fstat        FS      62   ██████░░░░░░    33.9µs   628µs    2.1ms       —    —
+   read         I/O     56   █████░░░░░░░    37.1µs   2.1ms    2.1ms       1    1%
+   connect      NET      6   █░░░░░░░░░░░    41.3µs   248µs    248µs       3   50%
 ──────────────────────────────────────────────────────────────────────────────────
- q:quit  c:count▼  t:total  a:avg  x:max  e:errors  n:name  /:filter  ↑↓/jk:move  d:details  ?:help
+⚠  connect: 50% error rate (3/6 calls) — Happy Eyeballs: IPv4/IPv6 race, loser fails
+──────────────────────────────────────────────────────────────────────────────────
+ q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  ?:help
 ```
 
 Press `d` on any row to open the **detail overlay**:
@@ -81,20 +80,20 @@ LIVE STATISTICS
 ## Features
 
 - **Real-time aggregation** — syscalls counted, timed, and grouped as they happen; no log file needed
+- **Merged header bar** — target process, elapsed time, and live stats (syscalls, rate, errors, unique) all in one line
 - **Latency columns** — AVG, MAX, and TOTAL time spent in kernel; MAX exposes outliers that averages hide
-- **ERR%** — error rate per syscall; `access` at 100% (2/2) is more alarming than `openat` at 23% (18/77)
-- **Category bar** — instant overview: I/O · FS · NET · MEM · PROC · SIG · OTHER
-- **Summary line** — plain-English sentence describing what the process is doing and its health
+- **CALLS & ERRORS columns** — raw count and absolute error count alongside ERR% for quick triage
+- **Category bar** — instant overview: I/O · FS · NET · MEM · PROC · SIG · OTHER with percentage
 - **FREQ sparkbar** — visual proportion of each syscall relative to the most-called one
 - **Live rate** — syscalls/second, recalculated every 500 ms
-- **Anomaly highlighting** — rows turn yellow when AVG ≥ 5 ms, red when ERR% ≥ 50%
-- **Smart alerts** — banner with human-readable explanation of why the error is happening
+- **Anomaly highlighting** — rows turn yellow when AVG ≥ 5 ms, red when ERR% ≥ 50%, orange when any errors
+- **Smart alerts** — panel at the bottom with human-readable explanation of why the error is happening
 - **Interactive filter** — press `/` and type to narrow down syscalls in real time
-- **Detail overlay** — press `d` on any row to see the syscall's reference (description, signature, args) plus live statistics and anomaly explanation
+- **Detail overlay** — press `Enter` or `d` on any row to see the syscall's reference (description, signature, args) plus live statistics and anomaly explanation; navigate rows with `↑`/`↓` without leaving the overlay
 - **Cursor navigation** — `↑`/`↓` or `j`/`k` to move between rows without leaving the keyboard
 - **Help overlay** — press `?` for a full in-app reference of every column, colour, and pattern
-- **Multiple sort keys** — count, total time, avg latency, peak latency, errors, name
-- **Sidecar mode** — `--serve :8080` replaces the TUI with an HTTP API (JSON, WebSocket, Prometheus)
+- **Multiple sort keys** — count, total time, avg latency, peak latency, errors, name, category
+- **Sidecar mode** — `--serve :8080` replaces the TUI with an HTTP API (JSON, WebSocket, Prometheus) and a live HTML dashboard at `/`
 - **PID auto-discovery** — `stracectl discover <container-name>` finds the target PID inside a shared-PID-namespace Pod
 - **Kubernetes-ready** — ships with a Dockerfile, raw manifests, and a Helm chart
 
@@ -159,6 +158,7 @@ Available endpoints:
 
 | Endpoint | Description |
 | ---------- | ------------- |
+| `GET /` | Live HTML dashboard with WebSocket-powered table and category pills |
 | `GET /healthz` | Liveness probe — always returns `ok` |
 | `GET /api/stats` | JSON snapshot of all syscall stats, sorted by count |
 | `GET /api/categories` | JSON breakdown by category |
@@ -190,13 +190,14 @@ stracectl attach --serve :8080 "$(stracectl discover myapp)"
 | ----- | -------- |
 | `↑` / `k` | move cursor up |
 | `↓` / `j` | move cursor down |
-| `d` / `D` | open detail overlay for selected row |
-| `c` | sort by COUNT (default) |
+| `Enter` / `d` / `D` | open detail overlay for selected row |
+| `c` | sort by CALLS (default) |
 | `t` | sort by TOTAL time |
 | `a` | sort by AVG latency |
 | `x` | sort by MAX latency |
 | `e` | sort by error count |
 | `n` | sort alphabetically |
+| `g` | sort by category |
 | `/` | open filter prompt |
 | `esc` | clear filter / reset cursor |
 | `?` | open help overlay |
@@ -204,21 +205,25 @@ stracectl attach --serve :8080 "$(stracectl discover myapp)"
 
 ## Reading the dashboard
 
-### Stats bar
+### Header bar
 
 ```text
-syscalls: 472    rate: 892/s   unique: 40   errors: 35 (7.4%)
+ stracectl  /usr/local/bin/homebrew-update  +1m22s     syscalls: 139.0k  rate: 16096/s  errors: 23.3k  unique: 90
 ```
 
-- **syscalls** — total calls captured since tracing started
+The single top bar combines the target process identity with live counters:
+
+- **target** — path or command being traced
+- **elapsed** — wall-clock time since tracing started
+- **syscalls** — total calls captured
 - **rate** — current syscalls/second; a sudden spike or drop is the first sign of anomaly
-- **unique** — number of distinct syscall names; low value on a busy process often means a tight loop
-- **errors** — absolute count and percentage of failed calls
+- **errors** — absolute count of failed calls
+- **unique** — number of distinct syscall names; a low value on a busy process often means a tight loop
 
 ### Category bar
 
 ```text
-I/O:35%  │  FS:28%  │  NET:18%  │  MEM:9%  │  PROC:7%  │  OTHER:3%
+  I/O 35%    FS 28%    NET 18%    MEM 9%    PROC 7%    OTHER 3%
 ```
 
 Tells you at a glance what the process is doing.
@@ -235,38 +240,40 @@ A process at 80%+ FS is scanning directories or checking many files.
 | SIG | `rt_sigaction`, `rt_sigprocmask`, `eventfd`, … |
 | OTHER | everything not in the above categories |
 
-### Summary line
+### Table columns
 
-```text
-Process is mainly reading and writing data (60%), then networking (11%) — ✓ 7% errors (likely normal)
-```
-
-A plain-English sentence that combines the dominant category with a health indicator:
-
-| Indicator | Meaning |
-| --------- | ------- |
-| `✓ no errors` | all syscalls succeeded |
-| `✓ X% (likely normal)` | errors below 15% — usually harmless (linker searches, EAGAIN) |
-| `⚠ X% (worth investigating)` | errors between 15–40% |
-| `✗ X% (high, check alerts)` | errors above 40% |
+| Column | Description |
+| ------ | ----------- |
+| `SYSCALL` | syscall name |
+| `CAT` | category (I/O, FS, NET, MEM, PROC, SIG, OTHER) |
+| `CALLS` | total number of times this syscall was called |
+| `FREQ` | bar showing count relative to the most-called syscall |
+| `AVG` | average kernel time per call (yellow when ≥ 5 ms) |
+| `MAX` | peak latency — outliers that avg hides |
+| `TOTAL` | cumulative kernel time |
+| `ERRORS` | absolute number of failed calls (red when > 0) |
+| `ERR%` | percentage of calls that returned an error (red when > 0) |
 
 ### Row colours
 
 | Colour | Meaning |
 | -------- | ------- |
-| White | normal |
+| White/gray | normal |
 | **Yellow** | AVG latency ≥ 5 ms — kernel spending significant time here |
 | Orange | some errors, ERR% < 50% — often harmless |
 | **Red bold** | ERR% ≥ 50% — more than half of all calls are failing |
 
 ### Anomaly alerts
 
-When a row crosses a threshold, a banner with an explanation appears above the data:
+When a row crosses a threshold, an alerts panel with explanations appears **below the syscall rows**, between the bottom divider and the footer:
 
 ```text
+──────────────────────────────────────────────────────────────────────────────
 ⚠  ioctl: 100% error rate (3/3 calls) — terminal control failed (no TTY)
 ⚠  connect: 45% error rate — Happy Eyeballs: IPv4/IPv6 tried in parallel, loser fails
-⚡  openat: slow avg 8.2ms (max 34ms) — kernel spending time in this call
+⚡  wait4: slow avg 8.2ms (max 34ms) — kernel spending time in this call
+──────────────────────────────────────────────────────────────────────────────
+ q:quit  c:calls▼  …
 ```
 
 ### Common patterns explained
@@ -284,7 +291,7 @@ When a row crosses a threshold, a banner with an explanation appears above the d
 
 ### Detail overlay
 
-Press `d` (or `D`) on any highlighted row to open a full-screen panel for that syscall.
+Press `Enter` or `d` (or `D`) on any highlighted row to open a full-screen panel for that syscall.
 Navigate rows with `↑`/`↓` or `j`/`k` without leaving the overlay. Press any other key to close it.
 
 The overlay is divided into sections:
