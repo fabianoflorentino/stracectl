@@ -1,11 +1,11 @@
 # Required secrets (Settings → Secrets and variables → Actions):
 #
 #   Environment: DOCKERHUB
-#     USERNAME      Docker Hub login name
-#     ACCESS_TOKEN  Docker Hub access token
+#     DOCKERHUB_USERNAME  Docker Hub login name
+#     DOCKERHUB_TOKEN     Docker Hub access token
 #
 #   Environment: GITHUB
-#     TOKEN         GitHub personal access token with contents:write scope
+#     GIT_HUB_TOKEN  GitHub personal access token with contents:write scope
 
 name: Build, Publish, Tag and Release
 
