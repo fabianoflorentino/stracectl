@@ -27,13 +27,55 @@ SYSCALL        CAT      REQ  FREQ              AVG      MAX      TOTAL    ERR%
 ──────────────────────────────────────────────────────────────────────────────────
 ⚠ connect: 45% error rate (5/11 calls) — Happy Eyeballs: IPv4/IPv6 race, loser fails
 ──────────────────────────────────────────────────────────────────────────────────
-openat         I/O       77  ████████░░░░    36.8µs   2.8ms    2.8ms     23%
-close          I/O       67  ███████░░░░░    31.9µs   595µs    2.1ms      —
-fstat          FS        62  ██████░░░░░░    33.9µs   628µs    2.1ms      —
-read           I/O       56  █████░░░░░░░    37.1µs   2.1ms    2.1ms      —
-connect        NET        6  █░░░░░░░░░░░    41.3µs   248µs    248µs     50%
+►  openat         I/O       77  ████████░░░░    36.8µs   2.8ms    2.8ms     23%
+   close          I/O       67  ███████░░░░░    31.9µs   595µs    2.1ms      —
+   fstat          FS        62  ██████░░░░░░    33.9µs   628µs    2.1ms      —
+   read           I/O       56  █████░░░░░░░    37.1µs   2.1ms    2.1ms      —
+   connect        NET        6  █░░░░░░░░░░░    41.3µs   248µs    248µs     50%
 ──────────────────────────────────────────────────────────────────────────────────
- q:quit  c:count▼  t:total  a:avg  x:max  e:errors  n:name  /:filter  ?:help
+ q:quit  c:count▼  t:total  a:avg  x:max  e:errors  n:name  /:filter  ↑↓/jk:move  d:details  ?:help
+```
+
+Press `d` on any row to open the **detail overlay**:
+
+```text
+ stracectl  details: openat  (press any key to close)
+──────────────────────────────────────────────────────────────────────────────────
+SYSCALL REFERENCE
+──────────────────────────────────────────────────────────────────────────────────
+  Name              openat
+  Category          FS
+  Description       Open or create a file, returning a file descriptor.
+  Signature         openat(dirfd, pathname, flags, mode) → fd
+
+ARGUMENTS
+──────────────────────────────────────────────────────────────────────────────────
+  dirfd             AT_FDCWD or directory fd for relative path
+  pathname          path to file
+  flags             O_RDONLY, O_WRONLY, O_CREAT, O_TRUNC, …
+  mode              permission bits when O_CREAT is used
+
+RETURN VALUE
+──────────────────────────────────────────────────────────────────────────────────
+  On success        new file descriptor (≥ 0)
+  On error          -1, errno set
+  Common errors     ENOENT (not found), EACCES (permission), EMFILE (too many open fds)
+
+NOTES
+──────────────────────────────────────────────────────────────────────────────────
+                    High ENOENT error rates are normal: the dynamic linker probes
+                    many paths when loading shared libraries.
+
+LIVE STATISTICS
+──────────────────────────────────────────────────────────────────────────────────
+  Calls             77
+  Errors            18  (23%)
+  Avg latency       36.8µs
+  Max latency       2.8ms
+  Min latency       4.1µs
+  Total time        2.8ms
+──────────────────────────────────────────────────────────────────────────────────
+ press any key to return  │  ↑↓/jk to move between syscalls
 ```
 
 ## Features
@@ -48,6 +90,8 @@ connect        NET        6  █░░░░░░░░░░░    41.3µs   2
 - **Anomaly highlighting** — rows turn yellow when AVG ≥ 5 ms, red when ERR% ≥ 50%
 - **Smart alerts** — banner with human-readable explanation of why the error is happening
 - **Interactive filter** — press `/` and type to narrow down syscalls in real time
+- **Detail overlay** — press `d` on any row to see the syscall's reference (description, signature, args) plus live statistics and anomaly explanation
+- **Cursor navigation** — `↑`/`↓` or `j`/`k` to move between rows without leaving the keyboard
 - **Help overlay** — press `?` for a full in-app reference of every column, colour, and pattern
 - **Multiple sort keys** — count, total time, avg latency, peak latency, errors, name
 - **Sidecar mode** — `--serve :8080` replaces the TUI with an HTTP API (JSON, WebSocket, Prometheus)
@@ -144,6 +188,9 @@ stracectl attach --serve :8080 "$(stracectl discover myapp)"
 
 | Key | Action |
 | ----- | -------- |
+| `↑` / `k` | move cursor up |
+| `↓` / `j` | move cursor down |
+| `d` / `D` | open detail overlay for selected row |
 | `c` | sort by COUNT (default) |
 | `t` | sort by TOTAL time |
 | `a` | sort by AVG latency |
@@ -151,7 +198,7 @@ stracectl attach --serve :8080 "$(stracectl discover myapp)"
 | `e` | sort by error count |
 | `n` | sort alphabetically |
 | `/` | open filter prompt |
-| `esc` | clear filter |
+| `esc` | clear filter / reset cursor |
 | `?` | open help overlay |
 | `q` / `Ctrl+C` | quit |
 
@@ -234,6 +281,24 @@ When a row crosses a threshold, a banner with an explanation appears above the d
 | `access` 100% ERR% | optional config file does not exist | Rarely |
 | any syscall yellow | slow kernel path — I/O wait, lock contention, or disk | Investigate |
 | any syscall red | repeated real failures | Yes |
+
+### Detail overlay
+
+Press `d` (or `D`) on any highlighted row to open a full-screen panel for that syscall.
+Navigate rows with `↑`/`↓` or `j`/`k` without leaving the overlay. Press any other key to close it.
+
+The overlay is divided into sections:
+
+| Section | Contents |
+| ------- | -------- |
+| **SYSCALL REFERENCE** | name, category, plain-English description, C signature |
+| **ARGUMENTS** | each parameter name and what it controls |
+| **RETURN VALUE** | on-success value, common `errno` codes |
+| **NOTES** | real-world patterns, caveats, and tips |
+| **LIVE STATISTICS** | calls, errors, avg / max / min latency, total kernel time |
+| **ANOMALY EXPLANATION** | appears when `ERR% ≥ 50 %`; explains why the error is expected or alarming |
+
+The knowledge base covers ~40 common Linux syscalls. Unknown syscalls receive a generic entry pointing to `man 2 <name>`.
 
 ### Help overlay
 
@@ -365,7 +430,7 @@ flowchart TD
 | **Hardcoded PID `"1"` in the sidecar manifest** — `deploy/k8s/sidecar-pod.yaml` uses `"1"` as a placeholder | Replace it at deploy time or use `stracectl discover <container-name>` inside the sidecar to get the real PID before attaching |
 | **Sidecar must run as root** — `ptrace` is a kernel-level capability; `runAsNonRoot: false` is required | Limit exposure by deploying only in debug/staging namespaces and protecting the Pod with `PodSecurityAdmission` |
 | **WebSocket `/stream` has no authentication** — `CheckOrigin` accepts any origin unconditionally | Safe for in-cluster / port-forward usage; do not expose the port externally without an auth proxy or network policy |
-| **`MinTime` not exposed** — the aggregator tracks minimum syscall latency but neither the TUI nor the API surface it | The value is tracked internally but not yet returned |
+| **`MinTime` not in the API** — the aggregator tracks minimum syscall latency but the HTTP/WebSocket API does not expose it | The value is visible in the TUI detail overlay (`d` key); not yet returned by `/api/stats` |
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the implementation plan addressing each of these items.
 
