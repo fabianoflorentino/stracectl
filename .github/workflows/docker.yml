@@ -47,13 +47,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GIT_HUB_TOKEN }}
-
       - name: Build Docker image
         run: |
           docker build --no-cache --rm \
@@ -63,9 +56,6 @@ jobs:
 
       - name: Push Docker image to Docker Hub
         run: docker push ${{ github.repository }}:v1.0.${{ github.run_number }}
-
-      - name: Push Docker image to GitHub Container Registry
-        run: docker push ghcr.io/${{ github.repository }}:v1.0.${{ github.run_number }}
 
   # ── Create and push Git tag ──────────────────────────────────────────────────
   tag:
