@@ -15,6 +15,7 @@ import (
 // StraceTracer spawns a strace subprocess and emits parsed events on a channel.
 type StraceTracer struct{}
 
+// NewStraceTracer creates a new StraceTracer instance.
 func NewStraceTracer() *StraceTracer { return &StraceTracer{} }
 
 // Attach attaches to a running process by PID.
