@@ -124,6 +124,9 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 			}
 			ch <- *event
 		}
+		if err := scanner.Err(); err != nil {
+			log.Printf("strace output read error: %v", err)
+		}
 	}()
 
 	return ch, nil
