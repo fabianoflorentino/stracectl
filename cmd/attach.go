@@ -17,9 +17,20 @@ var attachServeAddr string
 var attachReportPath string
 
 var attachCmd = &cobra.Command{
-	Use:   "attach [--serve :8080] <pid>",
+	Use:   "attach [--serve :8080] [--report <path>] <pid>",
 	Short: "Attach to a running process and trace it",
-	Args:  cobra.ExactArgs(1),
+	Long: `Attach strace to an already-running process by PID and display live syscall
+statistics in the TUI.
+
+Press q or Ctrl+C to stop. On exit, an optional self-contained HTML report can
+be written to a file for sharing or archiving.
+
+Examples:
+  sudo stracectl attach 1234
+  sudo stracectl attach "$(pgrep nginx | head -1)"
+  sudo stracectl attach --serve :8080 1234
+  sudo stracectl attach --report nginx.html 1234`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		pid, err := strconv.Atoi(args[0])
 		if err != nil {

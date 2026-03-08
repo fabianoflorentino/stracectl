@@ -16,9 +16,19 @@ var runServeAddr string
 var runReportPath string
 
 var runCmd = &cobra.Command{
-	Use:   "run [--serve :8080] <command> [args...]",
+	Use:   "run [--serve :8080] [--report <path>] <command> [args...]",
 	Short: "Run a command and trace it",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Spawn a command under strace and display live syscall statistics in the TUI.
+
+Press q or Ctrl+C to stop. On exit, an optional self-contained HTML report can
+be written to a file for sharing or archiving.
+
+Examples:
+  sudo stracectl run curl https://example.com
+  sudo stracectl run -- python3 app.py --port 8080
+  sudo stracectl run --serve :8080 curl https://example.com
+  sudo stracectl run --report trace.html curl https://example.com`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
