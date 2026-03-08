@@ -32,7 +32,7 @@ spec:
 
     # ── stracectl sidecar ─────────────────────────────────────────────────────
     - name: stracectl
-      image: ghcr.io/fabianoflorentino/stracectl:latest
+      image: fabianoflorentino/stracectl:v1.0.23
       args:
         - attach
         - --serve
