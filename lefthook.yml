@@ -20,7 +20,11 @@ pre-push:
       run: go build ./...
 
     test-cover:
-      run: go test -coverprofile=/tmp/stracectl-coverage.out ./... && go tool cover -func=/tmp/stracectl-coverage.out
+      run: |
+        go test -coverprofile=/tmp/stracectl-coverage.out ./... &&
+        go tool cover -func=/tmp/stracectl-coverage.out &&
+        COV=$(go tool cover -func=/tmp/stracectl-coverage.out | grep '^total:' | awk '{print $3}' | tr -d '%') &&
+        awk "BEGIN {if ($COV+0 < 80) {print \"❌ Coverage \" $COV \"% is below the required 80%\"; exit 1} else {print \"✅ Coverage \" $COV \"% meets the 80% threshold\"}}"
 
     vuln:
       run: govulncheck ./...
