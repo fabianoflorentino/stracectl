@@ -44,18 +44,11 @@ This document tracks planned features, known technical debt, and the implementat
 
 ### Fix `<unfinished ...>` line merging in the parser
 
-**Goal:** preserve latency data for blocking syscalls in multi-threaded processes.
+**Goal:** preserve argument data for blocking syscalls in multi-threaded processes.
 
-**Why:** when `strace -f` traces multiple threads, a syscall that blocks is split across two lines:
+**Current state:** `<unfinished ...>` lines are discarded; `<... resumed>` lines are handled and latency is correctly captured from them. `Count` and `Latency` are therefore accurate. Only `Args` from the first (unfinished) line are lost — they are replaced by the suffix arguments from the resumed line.
 
-```shell
-[pid 42] read(5,  <unfinished ...>
-[pid 42] <... read resumed> "hello", 5) = 5 <0.002314>
-```
-
-Currently the first line is discarded; the second line is reconstructed but loses the original arguments. This means `Count` is accurate but `Latency` data is captured (latency comes from the `resumed` line, so it is actually preserved) while `Args` from the first line are lost.
-
-**Approach:**
+**Remaining work:**
 
 - Add a `pendingLines map[int]string` keyed by PID to `Parser` (make `Parse` a method on a stateful struct, or pass the map as a parameter)
 - On `<unfinished ...>`: store the partial line in `pendingLines[pid]`; return `nil, nil`
@@ -99,17 +92,17 @@ Currently the first line is discarded; the second line is reconstructed but lose
 
 ---
 
-### Expose `MinTime` in the API and TUI
+### Expose `MinTime` in the main TUI table and bulk API
 
-**Goal:** surface the minimum observed latency per syscall, which is already tracked by the aggregator.
+**Goal:** surface the minimum observed latency per syscall in the primary table view and bulk stats response.
 
-**Why:** `SyscallStat.MinTime` is computed but never returned by the JSON API or shown in the TUI. A very low `MinTime` alongside a high `MaxTime` indicates latency spikes rather than consistent slowness.
+**Current state:** `SyscallStat.MinTime` is computed by the aggregator, returned by `/api/syscall/{name}`, and shown in the TUI detail overlay (`d` key) and in the web detail page (`/syscall/{name}`). It is **not** shown as a column in the main TUI table and is not verified to be present in the `/api/stats` bulk response in a human-readable form (`time.Duration` serialises as integer nanoseconds).
 
-**Approach:**
+**Remaining work:**
 
-- Verify `SyscallStat` JSON tags — if `MinTime` already serialises (no `json:"-"`), the API change is a no-op
-- Add a `MIN` column to the TUI between `AVG` and `MAX`, with sort key `m`
+- Add a `MIN` column to the TUI table between `AVG` and `MAX`, with sort key `m`
 - Add `SortByMin` to the `Sorted()` sort fields in the aggregator
+- Decide whether `/api/stats` should format `MinTime` as a string or keep the raw nanosecond integer
 
 **Files:** `internal/aggregator/aggregator.go`, `internal/ui/tui.go`
 
@@ -212,7 +205,9 @@ Currently the first line is discarded; the second line is reconstructed but lose
 
 ## Hardening (sidecar security posture)
 
-Even before the eBPF backend lands, the sidecar manifest can be tightened:
+**Current state:** the sidecar manifest already sets `capabilities: add: [SYS_PTRACE]`. The remaining security fields are not yet applied.
+
+**Remaining work:** tighten the `securityContext` block to:
 
 ```yaml
 securityContext:
@@ -224,6 +219,6 @@ securityContext:
     add: [SYS_PTRACE]
 ```
 
-This limits the blast radius compared to the current configuration while keeping `ptrace` functional.
+This limits the blast radius while keeping `ptrace` functional. The same changes should be reflected in the Helm `values.yaml` and `_helpers.tpl`.
 
-**Files:** `deploy/k8s/sidecar-pod.yaml`, `deploy/helm/stracectl/values.yaml`
+**Files:** `deploy/k8s/sidecar-pod.yaml`, `deploy/helm/stracectl/values.yaml`, `deploy/helm/stracectl/templates/_helpers.tpl`
