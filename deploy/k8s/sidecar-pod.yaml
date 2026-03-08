@@ -44,10 +44,18 @@ spec:
           containerPort: 8080
           protocol: TCP
       securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: false      # strace/ptrace requires uid 0
+        runAsUser: 0
+        seccompProfile:
+          type: Unconfined      # default Docker seccomp blocks ptrace(2)
         capabilities:
+          drop:
+            - ALL
           add:
-            - SYS_PTRACE      # required for strace
-        runAsNonRoot: false   # strace requires root or ptrace_scope=0
+            - SYS_PTRACE        # required: allows strace to attach to processes
       resources:
         requests:
           cpu: "50m"
