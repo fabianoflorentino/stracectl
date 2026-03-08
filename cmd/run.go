@@ -41,7 +41,6 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
-	runCmd.Flags().StringVar(&runServeAddr, "serve", "",
-		`expose HTTP API instead of TUI (e.g. --serve :8080)`)
+	runCmd.Flags().StringVar(&runServeAddr, "serve", "", `expose HTTP API instead of TUI (e.g. --serve :8080)`)
 	rootCmd.AddCommand(runCmd)
 }
