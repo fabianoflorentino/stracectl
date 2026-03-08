@@ -711,3 +711,233 @@ func TestRenderHelp_ZeroWidthFallback(t *testing.T) {
 		t.Error("renderHelp with width=0 returned empty string")
 	}
 }
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+func TestModel_Init_ReturnsCmd(t *testing.T) {
+	m := newTestModel()
+	cmd := m.Init()
+	if cmd == nil {
+		t.Error("Init() should return a non-nil tick command")
+	}
+}
+
+// ── handleKey q/Q inside detailOverlay ───────────────────────────────────────
+
+func TestDetailOverlay_QQuits(t *testing.T) {
+	for _, key := range []string{"q", "Q"} {
+		m := newTestModel()
+		m.detailOverlay = true
+		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+		if cmd == nil {
+			t.Errorf("pressing %q in detailOverlay should return tea.Quit cmd, got nil", key)
+		}
+	}
+}
+
+// ── renderHelp w=0 branch (called directly, not through View) ────────────────
+
+func TestRenderHelp_ZeroWidthDirect(t *testing.T) {
+	m := newTestModel()
+	m.width = 0
+	out := m.renderHelp()
+	if out == "" {
+		t.Error("renderHelp() with width=0 returned empty string")
+	}
+}
+
+// ── colWidths name < 14 clamp ─────────────────────────────────────────────────
+
+func TestColWidths_NarrowTerminalClampsName(t *testing.T) {
+	// width=50: computed name = 50-75 = -25, clamped to 14
+	cw := colWidths(50)
+	if cw.name != 14 {
+		t.Errorf("colWidths(50).name = %d, want 14 (clamped)", cw.name)
+	}
+}
+
+// ── sparkBar filled > width clamp ────────────────────────────────────────────
+
+func TestSparkBar_CountExceedsMax(t *testing.T) {
+	// Passing count > maxCount should not produce more █ than width.
+	out := sparkBar(20, 10, 5)
+	if len([]rune(out)) != 5 {
+		t.Errorf("sparkBar len = %d, want 5", len([]rune(out)))
+	}
+	if strings.Count(out, "█") > 5 {
+		t.Errorf("sparkBar should not overflow width, got %q", out)
+	}
+}
+
+// ── View filter path ─────────────────────────────────────────────────────────
+
+func TestView_FilterNarrowsRows(t *testing.T) {
+	m := newTestModel()
+	addEvent(m.agg, "read", 1*time.Microsecond, "")
+	addEvent(m.agg, "write", 1*time.Microsecond, "")
+	m.filter = "read"
+	out := m.View()
+	if !strings.Contains(out, "read") {
+		t.Errorf("filtered view should contain 'read', got:\n%s", out)
+	}
+}
+
+// ── View scroll path ─────────────────────────────────────────────────────────
+
+func TestView_ScrollOffset(t *testing.T) {
+	m := newTestModel()
+	// Add more rows than maxRows (height=40, fixedLines≈8 → maxRows≈32)
+	// Use unique names to exceed maxRows.
+	names := []string{
+		"read", "write", "openat", "close", "mmap", "munmap", "mprotect",
+		"madvise", "brk", "fstat", "getdents64", "access", "connect", "accept4",
+		"recvfrom", "sendto", "epoll_wait", "epoll_ctl", "poll", "futex",
+		"clone", "execve", "exit_group", "wait4", "ioctl", "prctl",
+		"rt_sigaction", "rt_sigprocmask", "getpid", "getuid", "lseek", "pipe",
+		"dup", "socket", "bind", "listen",
+	}
+	for _, name := range names {
+		addEvent(m.agg, name, 1*time.Microsecond, "")
+	}
+	// Push cursor past the first page so scrollOffset > 0.
+	m.cursor = len(names) - 1
+	out := m.View()
+	if out == "" {
+		t.Error("View() with scroll offset returned empty string")
+	}
+}
+
+// ── View gap < 0 path ────────────────────────────────────────────────────────
+
+func TestView_GapNegativeIsClamped(t *testing.T) {
+	m := newTestModel()
+	// Use a very wide target name + tiny width so gap would go negative.
+	m.target = strings.Repeat("x", 200)
+	m.width = 40
+	// Should not panic, gap is clamped to 0.
+	out := m.View()
+	if out == "" {
+		t.Error("View() with negative gap returned empty string")
+	}
+}
+
+// ── renderDetail wrapWidth < 40 clamp ────────────────────────────────────────
+
+func TestRenderDetail_NarrowTerminalClampsWrapWidth(t *testing.T) {
+	m := newTestModel()
+	// width < 62 → wrapWidth = w-22 < 40, triggers clamp to 40
+	m.width = 50
+	addEvent(m.agg, "read", 1*time.Millisecond, "")
+	m.detailOverlay = true
+	// Should not panic and must contain the syscall name.
+	out := m.View()
+	if !strings.Contains(out, "read") {
+		t.Errorf("renderDetail narrow width: expected 'read' in output, got:\n%s", out)
+	}
+}
+
+// ── handleKey q in normal mode (outer switch) ─────────────────────────────────
+
+func TestHandleKey_QQuitsNormalMode(t *testing.T) {
+	m := newTestModel()
+	// detailOverlay=false, helpOverlay=false — hits the outer switch case
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	if cmd == nil {
+		t.Error("q in normal mode should return tea.Quit cmd, got nil")
+	}
+}
+
+// ── handleKey cursor-- inside detailOverlay (cursor > 0) ─────────────────────
+
+func TestDetailOverlay_UpDecrementsWhenCursorPositive(t *testing.T) {
+	m := newTestModel()
+	m.detailOverlay = true
+	m.cursor = 3
+	m = pressKey(m, "k")
+	if m.cursor != 2 {
+		t.Errorf("cursor after 'k' with cursor=3: got %d, want 2", m.cursor)
+	}
+}
+
+// ── View editing footer path ──────────────────────────────────────────────────
+
+func TestView_EditingFooterShownDuringFilter(t *testing.T) {
+	m := newTestModel()
+	m.editing = true
+	m.filter = "rea"
+	addEvent(m.agg, "read", 1*time.Microsecond, "")
+	out := m.View()
+	if !strings.Contains(out, "filter:") {
+		t.Errorf("editing footer not found in View output:\n%s", out)
+	}
+}
+
+// ── View maxRows clamped to 1 ─────────────────────────────────────────────────
+
+func TestView_MaxRowsClampedToOne(t *testing.T) {
+	m := newTestModel()
+	m.height = 8 // fixedLines=8, maxRows=0 → clamped to 1
+	addEvent(m.agg, "read", 1*time.Microsecond, "")
+	out := m.View()
+	if out == "" {
+		t.Error("View with maxRows clamped to 1 returned empty string")
+	}
+}
+
+// ── View errRowStyle (errors > 0, ErrPct < hotErrPct) ────────────────────────
+
+func TestView_ErrRowStyleRendered(t *testing.T) {
+	m := newTestModel()
+	// "write" gets many calls (cursor=0 → selected), "read" gets fewer calls
+	// with one error so ErrPct = 33% < 50% = hotErrPct → errRowStyle
+	for i := 0; i < 5; i++ {
+		addEvent(m.agg, "write", 1*time.Microsecond, "")
+	}
+	addEvent(m.agg, "read", 1*time.Microsecond, "")
+	addEvent(m.agg, "read", 1*time.Microsecond, "")
+	addEvent(m.agg, "read", 1*time.Microsecond, "ENOENT") // 33% errors
+	m.cursor = 0                                          // cursor on "write", not "read"
+	out := m.View()
+	if !strings.Contains(out, "read") {
+		t.Errorf("errRowStyle row 'read' not found in View output:\n%s", out)
+	}
+}
+
+// ── View slowRowStyle (avgDur >= slowAvgThreshold, no errors) ─────────────────
+
+func TestView_SlowRowStyleRendered(t *testing.T) {
+	m := newTestModel()
+	// "read" (cursor=0, selected), "write" (slow, 10ms avg, no errors)
+	addEvent(m.agg, "read", 1*time.Microsecond, "")
+	addEvent(m.agg, "read", 1*time.Microsecond, "")
+	addEvent(m.agg, "write", 10*time.Millisecond, "") // avg=10ms ≥ 5ms slowAvgThreshold
+	m.cursor = 0                                      // cursor on "read" (2 calls > 1)
+	out := m.View()
+	if !strings.Contains(out, "write") {
+		t.Errorf("slowRowStyle row 'write' not found in View output:\n%s", out)
+	}
+}
+
+// ── renderDetail w=0 branch (called directly) ─────────────────────────────────
+
+func TestRenderDetail_ZeroWidthDirect(t *testing.T) {
+	m := newTestModel()
+	m.width = 0
+	addEvent(m.agg, "read", 1*time.Millisecond, "")
+	out := m.renderDetail()
+	if !strings.Contains(out, "read") {
+		t.Errorf("renderDetail direct w=0: expected 'read' in output, got:\n%s", out)
+	}
+}
+
+// ── renderDetail cursor clamped to len(stats)-1 ───────────────────────────────
+
+func TestRenderDetail_CursorClampedToLastRow(t *testing.T) {
+	m := newTestModel()
+	addEvent(m.agg, "read", 1*time.Millisecond, "")
+	m.cursor = 99 // well beyond the 1-item stats list
+	out := m.renderDetail()
+	if !strings.Contains(out, "read") {
+		t.Errorf("renderDetail cursor clamp: expected 'read' in output, got:\n%s", out)
+	}
+}
