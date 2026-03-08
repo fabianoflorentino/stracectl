@@ -25,9 +25,16 @@ var statsCmd = &cobra.Command{
 	Long: `Parse a raw strace output file and display the same aggregated stats
 as the live trace session — without needing the traced process.
 
-The file must have been captured with strace -T (timing) for latency data:
-  strace -T -o trace.log <command>
-  stracectl stats trace.log`,
+The file must have been captured with strace -T (timing) for latency data.
+All output modes available to the live commands are supported.
+
+Examples:
+  stracectl stats trace.log                       # analyse in TUI
+  stracectl stats --serve :8080 trace.log         # serve via HTTP / WebSocket / Prometheus
+  stracectl stats --report report.html trace.log  # analyse and export HTML report
+
+Capture a trace file with strace:
+  strace -T -o trace.log curl https://example.com`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		path := args[0]

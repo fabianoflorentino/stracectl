@@ -11,8 +11,14 @@ import (
 var discoverCmd = &cobra.Command{
 	Use:   "discover <container-name>",
 	Short: "Find the PID of a container in a shared-PID-namespace Pod",
-	Long: `Scans /proc for processes whose cgroup path contains <container-name>.
-Useful inside a Kubernetes sidecar with shareProcessNamespace: true.`,
+	Long: `Scans /proc for processes whose cgroup path contains <container-name> and
+prints the lowest matching PID. Useful inside a Kubernetes sidecar that has
+shareProcessNamespace: true in its Pod spec.
+
+Examples:
+  stracectl discover myapp
+  sudo stracectl attach "$(stracectl discover myapp)"
+  sudo stracectl attach --serve :8080 "$(stracectl discover myapp)"`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		pid, err := discover.LowestPIDInContainer(args[0])

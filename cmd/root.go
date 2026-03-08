@@ -18,9 +18,20 @@ var rootCmd = &cobra.Command{
 	Long: `stracectl is a modern strace replacement with real-time aggregation,
 per-syscall latency stats, and an interactive htop-style TUI.
 
+Trace a command from the start, attach to a running process, or analyse a
+saved strace log file offline. In any mode, pass --serve :8080 to replace
+the TUI with an HTTP API, or --report report.html to write a self-contained
+HTML report on exit.
+
 Examples:
-  stracectl attach 1234        # attach to running process
-  stracectl run curl google.com  # trace a command`,
+  stracectl run curl https://example.com           # trace a command from the start
+  stracectl run --report out.html curl google.com  # trace and save an HTML report
+  stracectl attach 1234                            # attach to a running process
+  stracectl attach --serve :8080 1234              # attach and expose HTTP/Prometheus
+  stracectl stats trace.log                        # analyse a saved strace file
+  stracectl stats --serve :8080 trace.log          # serve stats from a saved file
+  stracectl stats --report report.html trace.log   # analyse and export an HTML report
+  stracectl discover myapp                         # find container PID in a Pod`,
 }
 
 func Execute() {
