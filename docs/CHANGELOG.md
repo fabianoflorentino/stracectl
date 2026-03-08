@@ -22,6 +22,7 @@ Fixed by extracting the file-loading logic into `loadAggFromFile` and setting a
 512 KiB scanner buffer — matching the limit already used by the live `StraceTracer`.
 
 Tests added in `cmd/stats_test.go`:
+
 - `NotFound` — returns error for non-existent file
 - `Empty` — returns error when file contains no parseable events
 - `ValidTrace` — counts events correctly
@@ -114,6 +115,7 @@ Markdown, reporting dozens of false-positive heading and list warnings due to th
 `*` glob patterns and `@`-mention syntax.
 
 Two changes applied:
+
 - `.vscode/settings.json` — associates `CODEOWNERS` with the `plaintext` language
   mode so no linter runs on the file in VS Code.
 - `.markdownlintignore` — excludes `.github/CODEOWNERS` from the `markdownlint` CLI
