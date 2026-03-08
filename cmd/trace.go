@@ -53,7 +53,7 @@ func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-cha
 }
 
 // writeHTMLReport writes a self-contained HTML report to path.
-// Errors are printed to stderr but do not affect the exit code.
+// Any error is returned to the caller and propagates as a non-zero exit code.
 func writeHTMLReport(path string, agg *aggregator.Aggregator, label string) error {
 	if err := report.Write(path, agg, label); err != nil {
 		return fmt.Errorf("writing report %s: %w", path, err)
