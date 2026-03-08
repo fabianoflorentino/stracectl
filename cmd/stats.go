@@ -37,30 +37,9 @@ Capture a trace file with strace:
   strace -T -o trace.log curl https://example.com`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
-		path := args[0]
-		f, err := os.Open(path) // #nosec G304 — path comes from a CLI argument supplied by the operator
+		agg, err := loadAggFromFile(args[0])
 		if err != nil {
-			return fmt.Errorf("opening %s: %w", path, err)
-		}
-		defer func() { _ = f.Close() }()
-
-		agg := aggregator.New()
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			event, parseErr := parser.Parse(scanner.Text(), 0)
-			if parseErr != nil {
-				continue // skip malformed lines silently
-			}
-			if event != nil {
-				agg.Add(*event)
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("reading %s: %w", path, err)
-		}
-
-		if agg.Total() == 0 {
-			return fmt.Errorf("no syscall events found in %s — make sure the file was produced by strace", path)
+			return err
 		}
 
 		if statsServeAddr != "" {
@@ -71,15 +50,49 @@ Capture a trace file with strace:
 			return srv.Start(ctx)
 		}
 
-		if err := ui.Run(agg, path); err != nil {
+		if err := ui.Run(agg, args[0]); err != nil {
 			return err
 		}
 
 		if statsReportPath != "" {
-			return writeHTMLReport(statsReportPath, agg, path)
+			return writeHTMLReport(statsReportPath, agg, args[0])
 		}
 		return nil
 	},
+}
+
+// loadAggFromFile reads a strace output file and returns an Aggregator
+// populated with all parsed events.
+//
+// The scanner buffer is set to 512 KiB — the same limit used by the live
+// tracer — so that lines containing large read/write argument dumps are not
+// silently truncated (the default bufio limit is only 64 KiB).
+func loadAggFromFile(path string) (*aggregator.Aggregator, error) {
+	f, err := os.Open(path) // #nosec G304 — path comes from a CLI argument supplied by the operator
+	if err != nil {
+		return nil, fmt.Errorf("opening %s: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+
+	agg := aggregator.New()
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 512*1024), 512*1024) // match live-tracer buffer size
+	for scanner.Scan() {
+		event, parseErr := parser.Parse(scanner.Text(), 0)
+		if parseErr != nil {
+			continue // skip malformed lines silently
+		}
+		if event != nil {
+			agg.Add(*event)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+	if agg.Total() == 0 {
+		return nil, fmt.Errorf("no syscall events found in %s — make sure the file was produced by strace", path)
+	}
+	return agg, nil
 }
 
 func init() {
