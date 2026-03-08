@@ -49,6 +49,7 @@ func scanCgroup(procRoot, containerName string, yield func(pid int) bool) error 
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -66,6 +67,7 @@ func ScanProc(procRoot, containerName string) (int, error) {
 	if found == 0 {
 		return 0, fmt.Errorf("no process found for container %q", containerName)
 	}
+
 	return found, nil
 }
 
@@ -77,6 +79,7 @@ func ScanProcLowest(procRoot, containerName string) (int, error) {
 		if lowest == 0 || pid < lowest {
 			lowest = pid
 		}
+
 		return true // keep scanning for a smaller PID
 	})
 	if err != nil {
@@ -85,5 +88,6 @@ func ScanProcLowest(procRoot, containerName string) (int, error) {
 	if lowest == 0 {
 		return 0, fmt.Errorf("no process found for container %q", containerName)
 	}
+
 	return lowest, nil
 }
