@@ -6,6 +6,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	red   = "\033[31m"
+	bold  = "\033[1m"
+	reset = "\033[0m"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "stracectl",
 	Short: "A modern strace with real-time TUI",
@@ -18,6 +24,7 @@ Examples:
 }
 
 func Execute() {
+	rootCmd.SetErrPrefix(red + bold + "Error:" + reset)
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

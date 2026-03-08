@@ -9,6 +9,8 @@ import (
 	"log"
 	"os/exec"
 	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/fabianoflorentino/stracectl/internal/models"
 	"github.com/fabianoflorentino/stracectl/internal/parser"
@@ -35,6 +37,12 @@ func NewStraceTracer() *StraceTracer { return &StraceTracer{} }
 func (t *StraceTracer) Attach(ctx context.Context, pid int) (<-chan models.SyscallEvent, error) {
 	if err := checkStrace(); err != nil {
 		return nil, err
+	}
+	if err := syscall.Kill(pid, 0); err != nil {
+		if errors.Is(err, syscall.ESRCH) {
+			return nil, fmt.Errorf("no process found with PID \033[1m%d\033[0m", pid)
+		}
+		return nil, fmt.Errorf("cannot access process \033[1m%d\033[0m: %w", pid, err)
 	}
 	cmd := exec.CommandContext(ctx, "strace", "-f", "-T", "-q", "-p", strconv.Itoa(pid))
 	return t.start(cmd, pid)
@@ -66,6 +74,8 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 
 	go func() {
 		defer close(ch)
+
+		var straceErrors []string
 		defer func() {
 			if err := cmd.Wait(); err != nil {
 				// A killed-by-signal exit is expected when the context is
@@ -74,7 +84,11 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 				if errors.As(err, &exitErr) && exitErr.ExitCode() == -1 {
 					return // killed by signal — context cancellation, not an error
 				}
-				log.Printf("strace exited with error: %v", err)
+				if len(straceErrors) > 0 {
+					log.Printf("strace: %s", strings.Join(straceErrors, "; "))
+				} else {
+					log.Printf("strace exited with error: %v", err)
+				}
 			}
 		}()
 
@@ -83,12 +97,19 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 		scanner.Buffer(make([]byte, 512*1024), 512*1024)
 
 		for scanner.Scan() {
-			event, err := parser.Parse(scanner.Text(), defaultPID)
+			line := scanner.Text()
+			event, err := parser.Parse(line, defaultPID)
 			if err != nil {
 				log.Printf("parse error: %v", err)
 				continue
 			}
 			if event == nil {
+				// Capture diagnostic lines emitted by strace itself (e.g. permission
+				// errors or "No such process") so they can be shown if strace exits
+				// with a non-zero code.
+				if strings.HasPrefix(line, "strace:") {
+					straceErrors = append(straceErrors, strings.TrimPrefix(strings.TrimSpace(line), "strace: "))
+				}
 				continue
 			}
 			ch <- *event
