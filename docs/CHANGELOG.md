@@ -133,6 +133,7 @@ each group. A second press restores the default (count) sort.
 
 The root URL now serves a single-page application instead of returning 404.  
 Features:
+
 - Table of all observed syscalls with category pills, spark bars, and colour-coded
   cells for high error rates and high latencies.
 - Column header clicks to sort (calls, avg latency, errors, category).
@@ -148,7 +149,7 @@ Features:
 The terminal UI received a full layout overhaul:
 
 | What changed | Before | After |
-|---|---|---|
+| --- | --- | --- |
 | Header | Two separate bars (title + counters) | Single merged title bar |
 | Counters position | Own row | Right side of the title bar |
 | Column `REQ` | Showed raw request count | Renamed to `CALLS` |
