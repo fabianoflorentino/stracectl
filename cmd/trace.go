@@ -22,13 +22,11 @@ import (
 // events channel closes promptly after the UI or server has exited.
 func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-chan models.SyscallEvent, agg *aggregator.Aggregator, serveAddr, label string) error {
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for event := range events {
 			agg.Add(event)
 		}
-	}()
+	})
 
 	var runErr error
 	if serveAddr != "" {
@@ -43,5 +41,6 @@ func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-cha
 	// This closes the events channel so the consumer goroutine can finish.
 	cancelTracer()
 	wg.Wait()
+
 	return runErr
 }
