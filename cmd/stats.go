@@ -47,11 +47,13 @@ Capture a trace file with strace:
 			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
 			srv := server.New(statsServeAddr, agg)
-			return srv.Start(ctx)
-		}
-
-		if err := ui.Run(agg, args[0]); err != nil {
-			return err
+			if err := srv.Start(ctx); err != nil {
+				return err
+			}
+		} else {
+			if err := ui.Run(agg, args[0]); err != nil {
+				return err
+			}
 		}
 
 		if statsReportPath != "" {
