@@ -590,6 +590,10 @@ func (m model) renderHelp() string {
 		sb.WriteString(activeSortStyle.Render(fmt.Sprintf("  %-12s", key)))
 		sb.WriteString(rowStyle.Render(desc) + "\n")
 	}
+	patternRow := func(key, desc string) {
+		sb.WriteString(activeSortStyle.Render(fmt.Sprintf("  %-15s", key)))
+		sb.WriteString(rowStyle.Render(desc) + "\n")
+	}
 
 	section("COLUMNS")
 	row("SYSCALL", "name of the kernel function called by the process")
@@ -617,14 +621,14 @@ func (m model) renderHelp() string {
 	row("SIG", "rt_sigaction, sigprocmask — signal handling")
 
 	section("COMMON PATTERNS")
-	row("openat ERR%", "dynamic linker searches multiple paths — usually harmless")
-	row("recvfrom ERR%", "EAGAIN on non-blocking socket — normal for async I/O")
-	row("connect ERR%", "Happy Eyeballs: IPv4 and IPv6 tried in parallel, loser fails")
-	row("ioctl ERR%", "process has no TTY (running under sudo or piped)")
-	row("madvise ERR%", "memory hints rejected by kernel — informational")
-	row("high I/O%", "process is doing heavy file or socket data transfer")
-	row("high FS%", "process is scanning directories or checking many files")
-	row("high SIG%", "many signal handlers registered — common during lib init")
+	patternRow("openat ERR%", "dynamic linker searches multiple paths — usually harmless")
+	patternRow("recvfrom ERR%", "EAGAIN on non-blocking socket — normal for async I/O")
+	patternRow("connect ERR%", "Happy Eyeballs: IPv4 and IPv6 tried in parallel, loser fails")
+	patternRow("ioctl ERR%", "process has no TTY (running under sudo or piped)")
+	patternRow("madvise ERR%", "memory hints rejected by kernel — informational")
+	patternRow("high I/O%", "process is doing heavy file or socket data transfer")
+	patternRow("high FS%", "process is scanning directories or checking many files")
+	patternRow("high SIG%", "many signal handlers registered — common during lib init")
 
 	section("KEYBOARD SHORTCUTS")
 	row("↑ / k", "move selection up")
