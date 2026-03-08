@@ -19,3 +19,4 @@ Thumbs.db
 *.swp
 *.swo
 *.html
+!internal/server/static/*.html
