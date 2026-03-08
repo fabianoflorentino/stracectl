@@ -1,6 +1,10 @@
 pre-commit:
   parallel: true
   commands:
+    fmt:
+      glob: "**/*.go"
+      run: bash -c 'files=$(gofmt -l .); [ -z "$files" ] && exit 0; printf "unformatted files (run gofmt):\n%s\n" "$files"; exit 1'
+
     vet:
       glob: "**/*.go"
       run: go vet ./...
