@@ -14,6 +14,7 @@ import (
 )
 
 var attachServeAddr string
+var attachReportPath string
 
 var attachCmd = &cobra.Command{
 	Use:   "attach [--serve :8080] <pid>",
@@ -44,12 +45,13 @@ var attachCmd = &cobra.Command{
 			return err
 		}
 
-		return runTrace(ctx, cancelTracer, events, agg, attachServeAddr, fmt.Sprintf("PID %d", pid))
+		return runTrace(ctx, cancelTracer, events, agg, attachServeAddr, attachReportPath, fmt.Sprintf("PID %d", pid))
 	},
 }
 
 // init initializes the attach command and adds it to the root command.
 func init() {
 	attachCmd.Flags().StringVar(&attachServeAddr, "serve", "", `expose HTTP API instead of TUI (e.g. --serve :8080)`)
+	attachCmd.Flags().StringVar(&attachReportPath, "report", "", "write a self-contained HTML report to this file on exit")
 	rootCmd.AddCommand(attachCmd)
 }
