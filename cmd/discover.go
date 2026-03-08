@@ -19,7 +19,9 @@ Useful inside a Kubernetes sidecar with shareProcessNamespace: true.`,
 		if err != nil {
 			return err
 		}
+
 		fmt.Printf("%d\n", pid)
+
 		return nil
 	},
 }
