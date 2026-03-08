@@ -150,20 +150,6 @@ This document tracks planned features, known technical debt, and the implementat
 
 ---
 
-### `stracectl stats <file>` — post-mortem analysis
-
-**Goal:** analyse a raw `strace -o <file>` output file offline.
-
-**Approach:**
-
-- Add a `stats` subcommand that reads a file line by line through the existing `parser.Parse()` pipeline and feeds the aggregator
-- Display the same TUI or, with `--serve`, the same HTTP API
-- No tracer involved — just `os.Open` + `bufio.Scanner`
-
-**Files:** `cmd/stats.go` (new), wired into `cmd/root.go`
-
----
-
 ### Process tree view for multi-process tracing (`-f`)
 
 **Goal:** group syscall stats by process/thread when tracing with `-f`.
@@ -179,46 +165,15 @@ This document tracks planned features, known technical debt, and the implementat
 
 ---
 
-### HTML report export
+### HTML report — anomaly section and timeline sparkline
 
-**Goal:** generate a self-contained, detailed HTML file with the full trace results at the end of a session (or on demand), suitable for sharing, archiving, and offline analysis.
+**Goal:** extend the existing `--report` HTML export with the remaining planned sections.
 
-**Why:** the TUI is ephemeral — once the process exits the data is gone. A `--report <file.html>` flag would produce a portable snapshot that teams can attach to incident reports, share with colleagues, or store as audit artefacts without needing `stracectl` installed.
+**Current state:** the report already includes a header, summary bar, category breakdown, and a sortable syscall table. The following sections are not yet implemented.
 
-**Approach:**
+**Remaining work:**
 
-- Add `--report <path>` flag to `run` and `attach`; when set, write the HTML file on clean exit (SIGINT / process end) using `os.WriteFile`
-- Use Go's `html/template` from the standard library — no external dependencies
-- The report contains:
-  - **Header:** command or PID traced, start time, total duration, host info
-  - **Summary bar:** total syscalls, rate, unique names, overall error %
-  - **Category breakdown:** horizontal bar chart rendered with inline SVG
-  - **Syscall table:** all columns (NAME, CAT, COUNT, FREQ %, AVG, MIN, MAX, TOTAL, ERR%) sortable via plain JavaScript
-  - **Anomaly section:** same alerts that appear in the TUI banner, listed with explanations
-  - **Timeline sparkline:** per-second call rate rendered as an inline SVG path (reuses the ring buffer from the timeline feature)
-- The file is fully self-contained (no external CSS/JS CDN links) — safe for air-gapped environments
-- Template lives in `internal/report/report.go` with the HTML embedded via `//go:embed`
+- **Anomaly section** — list the same alerts that appear in the TUI banner, each with a human-readable explanation
+- **Timeline sparkline** — per-second call rate rendered as an inline SVG path (requires the ring-buffer timeline feature below)
 
-**Files:** `internal/report/report.go` (new), `internal/report/template.html` (new), `cmd/attach.go`, `cmd/run.go`
-
----
-
-## Hardening (sidecar security posture)
-
-**Current state:** the sidecar manifest already sets `capabilities: add: [SYS_PTRACE]`. The remaining security fields are not yet applied.
-
-**Remaining work:** tighten the `securityContext` block to:
-
-```yaml
-securityContext:
-  runAsUser: 0
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop: [ALL]
-    add: [SYS_PTRACE]
-```
-
-This limits the blast radius while keeping `ptrace` functional. The same changes should be reflected in the Helm `values.yaml` and `_helpers.tpl`.
-
-**Files:** `deploy/k8s/sidecar-pod.yaml`, `deploy/helm/stracectl/values.yaml`, `deploy/helm/stracectl/templates/_helpers.tpl`
+**Files:** `internal/report/report.go`, `internal/report/static/report.html`

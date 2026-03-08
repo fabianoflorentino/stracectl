@@ -93,11 +93,13 @@ LIVE STATISTICS
 - **Cursor navigation** — `↑`/`↓` or `j`/`k` to move between rows without leaving the keyboard
 - **Help overlay** — press `?` for a full in-app reference of every column, colour, and pattern
 - **Multiple sort keys** — count, total time, avg latency, peak latency, errors, name, category
-- **Sidecar mode** — `--serve :8080` replaces the TUI with an HTTP API (JSON, WebSocket, Prometheus) and a live HTML dashboard at `/`
+- **Sidecar mode** — `--serve :8080` replaces the TUI with an HTTP API (JSON, WebSocket, Prometheus) and a live HTML dashboard at `/`; also works with `stats`
 - **Clickable dashboard rows** — click any syscall row in the web dashboard to navigate to its dedicated detail page
 - **Web detail page** — `/syscall/<name>` shows 7 live stat cards (calls, avg/min/max latency, total time, errors, error rate) plus a reference panel (description, C signature, arguments, return values, common errno codes, notes) for ~80 well-known Linux syscalls; unknown syscalls fall back to a `man 2 <name>` hint
 - **PID auto-discovery** — `stracectl discover <container-name>` finds the target PID inside a shared-PID-namespace Pod
-- **Kubernetes-ready** — ships with a Dockerfile, raw manifests, and a Helm chart
+- **Post-mortem analysis** — `stracectl stats <file>` reads a saved `strace -T -o` log file and displays the same aggregated TUI or HTTP API — no need to re-run the process
+- **HTML report export** — `--report <path>` on any trace command (or `stats`) writes a self-contained, sortable HTML file suitable for sharing, archiving, and offline analysis; no external dependencies
+- **Kubernetes-ready** — ships with a Dockerfile, raw manifests, and a Helm chart with a hardened sidecar security context
 
 ## Requirements
 
@@ -137,11 +139,41 @@ sudo stracectl run curl https://example.com
 sudo stracectl run -- python3 app.py --port 8080
 ```
 
+Add `--report` to save a self-contained HTML file when the session ends:
+
+```bash
+sudo stracectl run --report report.html curl https://example.com
+```
+
 ### Attach to a running process
 
 ```bash
 sudo stracectl attach 1234
 sudo stracectl attach "$(pgrep nginx | head -1)"
+```
+
+Save a report on exit:
+
+```bash
+sudo stracectl attach --report nginx-report.html 1234
+```
+
+### Analyse a saved strace file (post-mortem)
+
+If you already have a strace log captured with `-T`, you can analyse it offline:
+
+```bash
+# Capture with strace
+strace -T -o trace.log curl https://example.com
+
+# Analyse in TUI (no process needed)
+stracectl stats trace.log
+
+# Analyse and expose the same HTTP API
+stracectl stats --serve :8080 trace.log
+
+# Analyse and write an HTML report
+stracectl stats --report report.html trace.log
 ```
 
 ### Sidecar / HTTP API mode
@@ -446,12 +478,13 @@ stracectl/
 ├── Dockerfile
 ├── cmd/
 │   ├── root.go              # Cobra root command
-│   ├── attach.go            # stracectl attach [--serve] <pid>
-│   ├── run.go               # stracectl run [--serve] <cmd>
+│   ├── attach.go            # stracectl attach [--serve] [--report] <pid>
+│   ├── run.go               # stracectl run [--serve] [--report] <cmd>
+│   ├── stats.go             # stracectl stats [--serve] [--report] <file>
 │   └── discover.go          # stracectl discover <container-name>
 ├── deploy/
 │   ├── k8s/
-│   │   ├── sidecar-pod.yaml # example Pod with sidecar
+│   │   ├── sidecar-pod.yaml # example Pod with hardened sidecar securityContext
 │   │   └── servicemonitor.yaml
 │   └── helm/stracectl/      # Helm chart
 └── internal/
@@ -465,6 +498,10 @@ stracectl/
     │   └── strace.go        # spawns strace subprocess, emits events on a channel
     ├── discover/
     │   └── discover.go      # PID discovery via /proc/<pid>/cgroup
+    ├── report/
+    │   ├── report.go        # HTML report renderer (html/template + go:embed)
+    │   └── static/
+    │       └── report.html  # embedded report template
     ├── server/
     │   └── server.go        # HTTP API (JSON + WebSocket + Prometheus)
     └── ui/
