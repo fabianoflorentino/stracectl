@@ -23,6 +23,11 @@ pre-push:
     build:
       run: go build ./...
 
+    mod-tidy:
+      run: |
+        go mod tidy
+        git diff --exit-code -- go.mod go.sum || (echo "go.mod/go.sum are not tidy — run 'go mod tidy' and stage the changes"; exit 1)
+
     test-cover:
       run: |
         go test -coverprofile=/tmp/stracectl-coverage.out ./... &&
