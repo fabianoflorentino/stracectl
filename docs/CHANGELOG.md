@@ -8,6 +8,117 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+#### Stats Command — Scanner Buffer Too Small for Large Strace Lines (`fix(cmd/stats)`)
+
+The default `bufio.Scanner` token buffer is 64 KiB. `strace` output lines can exceed
+this when traced calls have large read/write argument dumps (e.g. `read()` returning
+a 64+ KiB buffer). When a line exceeded the limit the scanner silently dropped it,
+eventually triggering the _"no syscall events found"_ error on otherwise valid trace
+files.
+
+Fixed by extracting the file-loading logic into `loadAggFromFile` and setting a
+512 KiB scanner buffer — matching the limit already used by the live `StraceTracer`.
+
+Tests added in `cmd/stats_test.go`:
+- `NotFound` — returns error for non-existent file
+- `Empty` — returns error when file contains no parseable events
+- `ValidTrace` — counts events correctly
+- `LongLine` — verifies lines > 64 KiB are parsed without error (regression test)
+- `MalformedLinesSkipped` — non-syscall lines are silently ignored
+
+---
+
+#### Live Tracer — Silent I/O Errors After Scan Loop (`fix(tracer)`)
+
+After the `strace` output goroutine's scan loop exited, `scanner.Err()` was never
+checked. An I/O error on the stderr pipe (e.g. kernel buffer overflow or broken pipe)
+was silently swallowed: events would stop arriving and the channel would close with no
+indication of why.
+
+Fixed by adding a `scanner.Err()` check at the end of the goroutine; when non-nil the
+error is logged via `log.Printf`, matching the existing parse-error handling style. The
+`stats` command already checked scanner errors; this brings the live tracer into parity.
+
+---
+
+#### `writeHTMLReport` — Misleading Error-Handling Comment (`fix(cmd/trace)`)
+
+The comment on `writeHTMLReport` stated _"Errors are printed to stderr but do not
+affect the exit code"_, which contradicted the actual implementation: the function
+wraps and returns the error, and all callers (`run`, `attach`, `stats`) propagate it
+to Cobra, resulting in a non-zero exit code.
+
+Updated the comment to accurately describe the behaviour.
+
+---
+
+### CI / Developer Experience
+
+#### Gofmt Check Added to Pre-Commit Hook (`ci(lefthook)`)
+
+`gofmt -l` now runs as part of the lefthook pre-commit hook. The hook fails and prints
+the list of unformatted files if any Go source file needs reformatting, preventing
+style drift from ever reaching the repository.
+
+---
+
+#### Go Mod Tidy Check Added to Pre-Push Hook (`ci(lefthook)`)
+
+A `go mod tidy` check runs in the pre-push hook. After running tidy, the hook checks
+`git diff --exit-code go.sum`; if `go.sum` is dirty the push is rejected. This keeps
+the module graph consistent and prevents dependency skew between development machines
+and CI.
+
+---
+
+#### GitHub Actions Pinned to Immutable Commit SHAs (`ci`)
+
+All `uses:` references in `.github/workflows/ci.yml` are now pinned to full 40-character
+commit SHAs instead of floating version tags (e.g. `actions/checkout@v4`). This
+eliminates the risk of a supply-chain attack through tag mutation.
+
+---
+
+#### Dependency Review Job Added for Pull Requests (`ci`)
+
+A `dependency-review` job now runs on every pull request. It uses
+`actions/dependency-review-action` to compare the dependency graph between the base
+and head commits and fails the PR if any newly introduced dependency has a known
+vulnerability (CVE), a denied license, or is explicitly blocklisted.
+
+---
+
+#### Semgrep SAST Security Analysis (`ci`)
+
+A `semgrep-sast` job now runs on every push and pull request. It uses the official
+`semgrep/semgrep-action` with the `p/golang` ruleset to perform static application
+security testing (SAST) and catch common Go security anti-patterns (e.g. weak crypto,
+unsafe pointer use, command injection, SSRF).
+
+---
+
+#### CODEOWNERS File Enforces Review Assignments (`ci`)
+
+`.github/CODEOWNERS` maps repository paths to their required reviewers. GitHub
+automatically requests reviews from the designated owners when a pull request touches
+those paths, removing the need for manual reviewer assignment.
+
+---
+
+#### Markdownlint False Positives Suppressed for CODEOWNERS (`chore`)
+
+VS Code and the `markdownlint` CLI incorrectly treated the `CODEOWNERS` file as
+Markdown, reporting dozens of false-positive heading and list warnings due to the
+`*` glob patterns and `@`-mention syntax.
+
+Two changes applied:
+- `.vscode/settings.json` — associates `CODEOWNERS` with the `plaintext` language
+  mode so no linter runs on the file in VS Code.
+- `.markdownlintignore` — excludes `.github/CODEOWNERS` from the `markdownlint` CLI
+  (used by the extension and any CI markdown checks).
+
 ---
 
 ## [1.0.22] — 2026-03-08
