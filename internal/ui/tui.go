@@ -12,8 +12,11 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 )
 
-// refreshInterval is how often the UI updates with new data from the aggregator.
-const refreshInterval = 200 * time.Millisecond
+const (
+	refreshInterval  = 200 * time.Millisecond
+	slowAvgThreshold = 5 * time.Millisecond // avg latency considered slow
+	hotErrPct        = 50.0                 // % errors considered critical
+)
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 var (
@@ -45,12 +48,6 @@ var (
 	detailValueStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	detailDimStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	detailCodeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("149"))
-)
-
-// ── Thresholds for visual anomaly detection ───────────────────────────────────
-const (
-	slowAvgThreshold = 5 * time.Millisecond // avg latency considered slow
-	hotErrPct        = 50.0                 // % errors considered critical
 )
 
 // ── BubbleTea plumbing ────────────────────────────────────────────────────────
