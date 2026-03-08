@@ -35,7 +35,7 @@ SYSCALL        CAT    CALLS  FREQ              AVG      MAX      TOTAL  ERRORS  
  q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  ?:help
 ```
 
-Press `d` on any row to open the **detail overlay**:
+Press `enter/d` on any row to open the **detail overlay**:
 
 ```text
  stracectl  details: openat  (press any key to close)
