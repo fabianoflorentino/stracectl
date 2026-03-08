@@ -25,7 +25,7 @@ var statsCmd = &cobra.Command{
 	Long: `Parse a raw strace output file and display the same aggregated stats
 as the live trace session — without needing the traced process.
 
-The file must have been captured with strace ­T (timing) for latency data:
+The file must have been captured with strace -T (timing) for latency data:
   strace -T -o trace.log <command>
   stracectl stats trace.log`,
 	Args: cobra.ExactArgs(1),

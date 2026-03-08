@@ -39,6 +39,15 @@ func TestMain(m *testing.M) {
 	case "empty":
 		// Exit immediately without writing anything.
 		os.Exit(0)
+	case "strace_error_exit":
+		// Writes a "strace: ..." diagnostic line then exits with a non-zero code,
+		// exercising the len(straceErrors)>0 branch inside the deferred Wait handler.
+		fmt.Fprintln(os.Stderr, "strace: attach: ptrace(PTRACE_SEIZE, 1): Operation not permitted")
+		os.Exit(1)
+	case "nonzero_exit":
+		// Exits non-zero without any strace diagnostics, hitting the else branch
+		// (generic "strace exited with error" log) inside the deferred Wait handler.
+		os.Exit(1)
 	}
 	os.Exit(m.Run())
 }
@@ -323,4 +332,69 @@ func TestRun_WithStrace_EmitsAtLeastOneEvent(t *testing.T) {
 	// strace may fail to trace without ptrace permissions (e.g. no sudo);
 	// in that case the channel closes with 0 events which is acceptable.
 	t.Logf("Run(true) emitted %d events", count)
+}
+
+// ── Additional branch coverage ────────────────────────────────────────────────
+
+// TestStart_BadExecutable_ReturnsError covers the cmd.Start() error path inside
+// start(): launching a non-existent binary causes Start to fail immediately.
+func TestStart_BadExecutable_ReturnsError(t *testing.T) {
+	tr := NewStraceTracer()
+	cmd := exec.CommandContext(t.Context(), "/no/such/binary/zz_does_not_exist")
+	_, err := tr.start(cmd, 0)
+	if err == nil {
+		t.Error("expected error when executable does not exist, got nil")
+	}
+}
+
+// TestStart_StraceErrorExit covers the `len(straceErrors) > 0` branch inside
+// the deferred cmd.Wait() handler: the subprocess prints a "strace: …" line
+// then exits with a non-zero code.
+func TestStart_StraceErrorExit_CoversBranch(t *testing.T) {
+	tr := NewStraceTracer()
+	ch, err := tr.start(fakeCmd(t, "strace_error_exit"), 1)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	select {
+	case <-drain(ch):
+	case <-time.After(5 * time.Second):
+		t.Error("channel did not close within 5 s")
+	}
+}
+
+// TestStart_NonzeroExit_CoversBranch covers the else branch inside the deferred
+// cmd.Wait() handler: subprocess exits non-zero with no strace diagnostics.
+func TestStart_NonzeroExit_CoversBranch(t *testing.T) {
+	tr := NewStraceTracer()
+	ch, err := tr.start(fakeCmd(t, "nonzero_exit"), 1)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	select {
+	case <-drain(ch):
+	case <-time.After(5 * time.Second):
+		t.Error("channel did not close within 5 s")
+	}
+}
+
+// TestAttach_DeadPID_ReturnsESRCH covers the syscall.ESRCH branch in Attach():
+// after a process exits its PID no longer resolves, so Kill returns ESRCH.
+func TestAttach_DeadPID_ReturnsESRCH(t *testing.T) {
+	if _, err := exec.LookPath("strace"); err != nil {
+		t.Skip("strace not installed")
+	}
+	// Start a trivial process, record its PID, and wait for it to die.
+	cmd := exec.CommandContext(t.Context(), "true")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("cmd.Start: %v", err)
+	}
+	pid := cmd.Process.Pid
+	cmd.Wait() //nolint:errcheck // intentional: we want the PID to be dead
+
+	tr := NewStraceTracer()
+	_, err := tr.Attach(context.Background(), pid)
+	if err == nil {
+		t.Error("Attach to dead PID should return an error")
+	}
 }
