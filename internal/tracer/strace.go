@@ -42,9 +42,12 @@ func (t *StraceTracer) Attach(ctx context.Context, pid int) (<-chan models.Sysca
 		if errors.Is(err, syscall.ESRCH) {
 			return nil, fmt.Errorf("no process found with PID \033[1m%d\033[0m", pid)
 		}
+
 		return nil, fmt.Errorf("cannot access process \033[1m%d\033[0m: %w", pid, err)
 	}
+
 	cmd := exec.CommandContext(ctx, "strace", "-f", "-T", "-q", "-p", strconv.Itoa(pid))
+
 	return t.start(cmd, pid)
 }
 
@@ -53,8 +56,10 @@ func (t *StraceTracer) Run(ctx context.Context, program string, args []string) (
 	if err := checkStrace(); err != nil {
 		return nil, err
 	}
+
 	straceArgs := append([]string{"-f", "-T", "-q", "--", program}, args...)
 	cmd := exec.CommandContext(ctx, "strace", straceArgs...)
+
 	return t.start(cmd, 0)
 }
 
@@ -76,14 +81,17 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 		defer close(ch)
 
 		var straceErrors []string
+
 		defer func() {
 			if err := cmd.Wait(); err != nil {
 				// A killed-by-signal exit is expected when the context is
 				// cancelled (normal quit). Only log genuine unexpected errors.
 				var exitErr *exec.ExitError
+
 				if errors.As(err, &exitErr) && exitErr.ExitCode() == -1 {
 					return // killed by signal — context cancellation, not an error
 				}
+
 				if len(straceErrors) > 0 {
 					log.Printf("strace: %s", strings.Join(straceErrors, "; "))
 				} else {
@@ -103,6 +111,7 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 				log.Printf("parse error: %v", err)
 				continue
 			}
+
 			if event == nil {
 				// Capture diagnostic lines emitted by strace itself (e.g. permission
 				// errors or "No such process") so they can be shown if strace exits
@@ -110,6 +119,7 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 				if strings.HasPrefix(line, "strace:") {
 					straceErrors = append(straceErrors, strings.TrimPrefix(strings.TrimSpace(line), "strace: "))
 				}
+
 				continue
 			}
 			ch <- *event
@@ -123,5 +133,6 @@ func checkStrace() error {
 	if _, err := exec.LookPath("strace"); err != nil {
 		return fmt.Errorf("strace not found in PATH — install it with: apt install strace")
 	}
+
 	return nil
 }
