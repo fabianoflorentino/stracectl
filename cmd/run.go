@@ -12,8 +12,8 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/tracer"
 )
 
-// runServeAddr is the address to serve the HTTP API on. If empty, the TUI will be used instead.
 var runServeAddr string
+var runReportPath string
 
 var runCmd = &cobra.Command{
 	Use:   "run [--serve :8080] <command> [args...]",
@@ -36,11 +36,12 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		return runTrace(ctx, cancelTracer, events, agg, runServeAddr, strings.Join(args, " "))
+		return runTrace(ctx, cancelTracer, events, agg, runServeAddr, runReportPath, strings.Join(args, " "))
 	},
 }
 
 func init() {
 	runCmd.Flags().StringVar(&runServeAddr, "serve", "", `expose HTTP API instead of TUI (e.g. --serve :8080)`)
+	runCmd.Flags().StringVar(&runReportPath, "report", "", "write a self-contained HTML report to this file on exit")
 	rootCmd.AddCommand(runCmd)
 }

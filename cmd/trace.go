@@ -8,6 +8,7 @@ import (
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/models"
+	"github.com/fabianoflorentino/stracectl/internal/report"
 	"github.com/fabianoflorentino/stracectl/internal/server"
 	"github.com/fabianoflorentino/stracectl/internal/ui"
 )
@@ -20,7 +21,7 @@ import (
 // cancelTracer must be the cancel function for the context that was passed to
 // Tracer.Attach / Tracer.Run. Calling it kills the strace subprocess so the
 // events channel closes promptly after the UI or server has exited.
-func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-chan models.SyscallEvent, agg *aggregator.Aggregator, serveAddr, label string) error {
+func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-chan models.SyscallEvent, agg *aggregator.Aggregator, serveAddr, reportPath, label string) error {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		for event := range events {
@@ -42,5 +43,21 @@ func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-cha
 	cancelTracer()
 	wg.Wait()
 
+	if runErr == nil && reportPath != "" {
+		if err := writeHTMLReport(reportPath, agg, label); err != nil {
+			return err
+		}
+	}
+
 	return runErr
+}
+
+// writeHTMLReport writes a self-contained HTML report to path.
+// Errors are printed to stderr but do not affect the exit code.
+func writeHTMLReport(path string, agg *aggregator.Aggregator, label string) error {
+	if err := report.Write(path, agg, label); err != nil {
+		return fmt.Errorf("writing report %s: %w", path, err)
+	}
+	fmt.Fprintf(os.Stderr, "report written to %s\n", path)
+	return nil
 }
