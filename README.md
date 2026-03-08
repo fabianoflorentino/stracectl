@@ -176,6 +176,14 @@ stracectl stats --serve :8080 trace.log
 stracectl stats --report report.html trace.log
 ```
 
+### REPORT
+
+[![HTML report screenshot](docs/img/report.jpg)](docs/img/report.jpg)
+
+The report is a self-contained HTML file — no server, no CDN, no `stracectl` installation
+needed. It includes a summary bar, category breakdown, and a fully sortable syscall table
+that can be shared, archived, or attached to an incident report.
+
 ### Sidecar / HTTP API mode
 
 Pass `--serve <addr>` to any command to replace the TUI with an HTTP server:
