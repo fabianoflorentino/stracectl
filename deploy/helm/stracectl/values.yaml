@@ -25,6 +25,14 @@ resources:
     cpu: "200m"
     memory: "64Mi"
 
+# Security context applied to the stracectl sidecar container.
+# readOnlyRootFilesystem: reduces attack surface (stracectl writes nothing to disk).
+# seccompProfile Unconfined: required because the default Docker seccomp profile
+# blocks the ptrace(2) family of syscalls that strace depends on.
+securityContext:
+  readOnlyRootFilesystem: true
+  seccompProfile: Unconfined
+
 # Enable Prometheus ServiceMonitor (requires prometheus-operator)
 serviceMonitor:
   enabled: false

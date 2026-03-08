@@ -21,10 +21,18 @@ And add to spec.template.spec:
       containerPort: {{ .Values.port }}
       protocol: TCP
   securityContext:
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+    runAsNonRoot: false
+    runAsUser: 0
+    seccompProfile:
+      type: {{ .Values.securityContext.seccompProfile }}
     capabilities:
+      drop:
+        - ALL
       add:
         - SYS_PTRACE
-    runAsNonRoot: false
   resources:
     {{- toYaml .Values.resources | nindent 4 }}
   livenessProbe:
