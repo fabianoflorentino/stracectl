@@ -357,3 +357,10 @@ func (a *Aggregator) Rate() float64 {
 	defer a.mu.RUnlock()
 	return a.rate
 }
+
+// StartTime returns the time the aggregator was created.
+func (a *Aggregator) StartTime() time.Time {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.started
+}
