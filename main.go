@@ -6,10 +6,14 @@
 //
 // Usage:
 //
-//	stracectl attach <pid>           # attach to a running process
-//	stracectl run <cmd> [args...]    # trace a command from start
-//	stracectl discover               # list traceable processes
-//	stracectl trace --serve          # run in sidecar/HTTP mode
+//	  stracectl run curl https://example.com           # trace a command from the start
+//		stracectl run --report out.html curl google.com  # trace and save an HTML report
+//		stracectl attach 1234                            # attach to a running process
+//		stracectl attach --serve :8080 1234              # attach and expose HTTP/Prometheus
+//		stracectl stats trace.log                        # analyse a saved strace file
+//		stracectl stats --serve :8080 trace.log          # serve stats from a saved file
+//		stracectl stats --report report.html trace.log   # analyse and export an HTML report
+//		stracectl discover myapp                         # find container PID in a Pod
 package main
 
 import "github.com/fabianoflorentino/stracectl/cmd"
