@@ -50,7 +50,7 @@ jobs:
         run: |
           go test -race -timeout 120s \
             -coverprofile=coverage.out -covermode=atomic \
-            -coverpkg=./internal/aggregator/...,./internal/discover/...,./internal/models/...,./internal/parser/...,./internal/server/... \
+            -coverpkg=./internal/... \
             ./...
 
       - name: Check coverage ≥ 80%
