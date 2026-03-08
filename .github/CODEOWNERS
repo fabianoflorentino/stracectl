@@ -1,0 +1,24 @@
+# CODEOWNERS — every pull request must be reviewed by at least one owner
+# before it can be merged into main (requires branch protection to be
+# configured with "Require review from Code Owners").
+#
+# Syntax: <pattern>  <@owner> [<@owner> ...]
+# Patterns follow .gitignore rules; the last matching rule wins.
+
+# Catch-all: any file not matched below requires owner review.
+*                               @fabianoflorentino
+
+# Core tracing and parsing logic — security-sensitive (ptrace, subprocess).
+internal/tracer/                @fabianoflorentino
+internal/parser/                @fabianoflorentino
+
+# CLI surface area — changes here affect the public UX contract.
+cmd/                            @fabianoflorentino
+
+# CI / security configuration — changes here affect the entire pipeline.
+.github/                        @fabianoflorentino
+lefthook.yml                    @fabianoflorentino
+.golangci.yml                   @fabianoflorentino
+
+# Kubernetes / Helm deployment manifests.
+deploy/                         @fabianoflorentino
