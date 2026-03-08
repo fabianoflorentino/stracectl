@@ -127,7 +127,7 @@ sudo mv stracectl /usr/local/bin/
 Or use the pre-built container image:
 
 ```bash
-docker pull ghcr.io/fabianoflorentino/stracectl:latest
+docker pull ghcr.io/fabianoflorentino/stracectl:<version>
 ```
 
 ## Usage
