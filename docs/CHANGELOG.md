@@ -10,7 +10,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [1.0.21] — 2026-03-07
+## [1.0.22] — 2026-03-08
+
+### Added
+
+#### `stracectl stats <file>` — Post-Mortem Analysis
+
+New `stats` subcommand that reads a raw strace output file and displays the same
+aggregated TUI or HTTP API as a live trace session — without re-running the process.
+
+The file must have been captured with `strace -T` for latency data:
+
+```bash
+strace -T -o trace.log <command>
+stracectl stats trace.log
+```
+
+Supports all the same modes as `run` and `attach`:
+
+| Flag | Effect |
+| ---- | ------ |
+| _(none)_ | Opens the interactive TUI |
+| `--serve :8080` | Exposes the HTTP API (JSON, WebSocket, Prometheus, web dashboard) |
+| `--report <path>` | Writes a self-contained HTML report after the TUI exits |
+
+---
+
+#### `--report <path>` Flag on `run`, `attach`, and `stats`
+
+All trace commands now accept a `--report <path>` flag. When set, a self-contained
+HTML file is written when the session ends (on clean exit, SIGINT, or process end).
+
+The report includes:
+
+- **Header** — command or file traced, generation timestamp, total duration
+- **Summary bar** — total syscalls, unique syscall count, overall error rate
+- **Category breakdown** — bar chart of I/O / FS / NET / MEM / PROC / SIG / OTHER
+- **Syscall table** — all columns (NAME, CAT, COUNT, FREQ %, AVG, MIN, MAX, TOTAL,
+  ERR%) with sortable column headers (plain JavaScript, no external dependencies)
+
+The file is fully self-contained (no CDN links) — safe for air-gapped environments
+and suitable for attaching to incident reports or archiving.
+
+---
+
+#### Kubernetes Sidecar — Hardened `securityContext`
+
+The sidecar manifest (`deploy/k8s/sidecar-pod.yaml`) and Helm chart
+(`deploy/helm/stracectl/values.yaml`, `_helpers.tpl`) now apply a tighter
+security context:
+
+```yaml
+securityContext:
+  runAsUser: 0
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+    add: [SYS_PTRACE]
+```
+
+This limits the blast radius to the minimum capability needed while keeping
+`ptrace` functional.
+
+---
+
+#### Test Coverage Enforcement ≥ 80 %
+
+Both the lefthook pre-push hook and the GitHub Actions CI workflow now enforce a
+minimum 80 % statement coverage across all packages. Any push or PR that drops
+coverage below this threshold fails immediately with a clear error message showing
+the actual total coverage percentage.
+
+---
 
 ### Added
 
