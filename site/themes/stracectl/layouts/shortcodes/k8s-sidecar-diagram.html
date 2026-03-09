@@ -1,0 +1,32 @@
+<div class="arch-diagram">
+  <div class="arch-node">
+    <span class="arch-node-label">kubectl port-forward</span>
+    <code class="arch-node-code">pod/&lt;name&gt; 8080:8080</code>
+  </div>
+  <div class="arch-arrow">
+    <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
+      <line x1="0" y1="8" x2="26" y2="8" stroke="currentColor" stroke-width="1.5"/>
+      <polyline points="20,3 26,8 20,13" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="arch-pod">
+    <span class="arch-pod-title">Pod &mdash; shareProcessNamespace: true</span>
+    <div class="arch-pod-inner">
+      <div class="arch-node arch-node-sidecar">
+        <span class="arch-node-label">stracectl sidecar</span>
+        <code class="arch-node-code">:8080</code>
+      </div>
+      <div class="arch-arrow arch-arrow-ptrace">
+        <span class="arch-edge-label">ptrace(2)</span>
+        <svg width="40" height="16" viewBox="0 0 40 16" fill="none">
+          <line x1="0" y1="8" x2="34" y2="8" stroke="currentColor" stroke-width="1.5"/>
+          <polyline points="28,3 34,8 28,13" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="arch-node">
+        <span class="arch-node-label">app container</span>
+        <code class="arch-node-code">PID 42</code>
+      </div>
+    </div>
+  </div>
+</div>
