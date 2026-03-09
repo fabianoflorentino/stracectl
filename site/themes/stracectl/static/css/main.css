@@ -899,7 +899,203 @@ code, pre, kbd {
   border: none;
 }
 
-/* ── 13. CTA ───────────────────────────────────────────────── */
+/* ── 13. Screenshot Carousel ───────────────────────────────── */
+.showcase-section {
+  padding: 7rem 0;
+  position: relative;
+}
+
+.showcase-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+.showcase-carousel {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* Viewport: clip overflow, fixed aspect ratio slot */
+.carousel-viewport {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 60px rgba(0,212,170,0.06);
+}
+
+/* Track: CSS grid single-cell overlay so all slides stack at the same position */
+.carousel-track {
+  display: grid;
+  grid-template-rows: auto;
+  grid-template-columns: 100%;
+}
+
+/* Every slide placed at row 1 / col 1 so they all overlap */
+.carousel-slide {
+  grid-row: 1;
+  grid-column: 1;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.9s ease, visibility 0s linear 0.9s;
+  pointer-events: none;
+  min-width: 0;
+}
+
+.carousel-slide.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.9s ease, visibility 0s linear 0s;
+}
+
+/* Frame: chrome bar + image */
+.slide-frame {
+  display: flex;
+  flex-direction: column;
+}
+
+.slide-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--surface-3);
+  border-bottom: 1px solid var(--border-2);
+  flex-shrink: 0;
+}
+
+.slide-chrome-title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0 auto;
+}
+
+.carousel-slide img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+/* Footer: captions + controls + progress */
+.carousel-footer {
+  padding: 1.5rem 0 0;
+}
+
+/* Captions */
+.carousel-captions {
+  min-height: 3.2rem;
+  text-align: center;
+  margin-bottom: 1.25rem;
+  position: relative;
+}
+
+.carousel-caption {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+
+.carousel-caption.active {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.caption-label {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.caption-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  max-width: 560px;
+}
+
+/* Controls row */
+.carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.carousel-prev,
+.carousel-next {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  transition: color var(--transition), border-color var(--transition),
+              background var(--transition);
+}
+
+.carousel-prev:hover,
+.carousel-next:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-dim);
+}
+
+.carousel-dots {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.carousel-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  border: none;
+  padding: 0;
+  transition: background var(--transition-md), transform var(--transition-md),
+              width var(--transition-md);
+  cursor: pointer;
+}
+
+.carousel-dot.active {
+  background: var(--primary);
+  width: 20px;
+  border-radius: 4px;
+}
+
+/* Progress bar */
+.carousel-progress-bar {
+  height: 2px;
+  background: var(--border-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.carousel-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  border-radius: 2px;
+  transition: width linear;
+}
+
+/* ── 14. CTA ───────────────────────────────────────────────── */
 .cta-section {
   padding: 7rem 0;
   position: relative;
@@ -1425,4 +1621,6 @@ code, pre, kbd {
   .hero-actions { flex-direction: column; align-items: flex-start; }
   .footer-inner { grid-template-columns: 1fr; }
   .modes-grid   { grid-template-columns: 1fr; }
+  .caption-desc { font-size: 0.78rem; }
+  .carousel-captions { min-height: 4rem; }
 }

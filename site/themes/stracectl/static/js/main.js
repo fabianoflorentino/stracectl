@@ -264,6 +264,104 @@
   setTimeout(typeChar, 1200);
 })();
 
+/* ──────────────────────────────────────────────────────────
+ * Screenshot Carousel (auto-advances every 2 s)
+ * ──────────────────────────────────────────────────────────*/
+(function () {
+  'use strict';
+
+  const INTERVAL_MS   = 5000;   // 5 seconds per slide
+  const SLIDE_COUNT   = 4;
+
+  const slides    = document.querySelectorAll('.carousel-slide');
+  const dots      = document.querySelectorAll('.carousel-dot');
+  const captions  = document.querySelectorAll('.carousel-caption');
+  const progress  = document.getElementById('carousel-progress');
+  const prevBtn   = document.getElementById('carousel-prev');
+  const nextBtn   = document.getElementById('carousel-next');
+
+  if (!slides.length) return;
+
+  let current   = 0;
+  let timer     = null;
+  let startTime = null;
+  let rafId     = null;
+  let paused    = false;
+
+  function goTo(idx, restart) {
+    slides[current].classList.remove('active');
+    dots[current].classList.remove('active');
+    captions[current].classList.remove('active');
+
+    current = (idx + SLIDE_COUNT) % SLIDE_COUNT;
+
+    slides[current].classList.add('active');
+    dots[current].classList.add('active');
+    captions[current].classList.add('active');
+
+    if (restart !== false) resetTimer();
+  }
+
+  /* Smooth progress bar via rAF */
+  function animateProgress() {
+    rafId = requestAnimationFrame(animateProgress);
+    if (paused || !startTime) return;
+    const elapsed = performance.now() - startTime;
+    const pct = Math.min((elapsed / INTERVAL_MS) * 100, 100);
+    if (progress) progress.style.width = pct + '%';
+  }
+
+  function resetTimer() {
+    clearInterval(timer);
+    startTime = performance.now();
+    if (progress) progress.style.transition = 'none';
+    if (progress) progress.style.width = '0%';
+    // Force reflow to reset transition
+    if (progress) void progress.offsetWidth;
+    if (progress) progress.style.transition = '';
+
+    timer = setInterval(() => {
+      if (!paused) goTo(current + 1);
+    }, INTERVAL_MS);
+  }
+
+  /* Pause on hover */
+  const viewport = document.getElementById('carousel-viewport');
+  if (viewport) {
+    viewport.addEventListener('mouseenter', () => { paused = true; });
+    viewport.addEventListener('mouseleave', () => {
+      paused = false;
+      startTime = performance.now();
+    });
+  }
+
+  /* Prev / Next buttons */
+  if (prevBtn) prevBtn.addEventListener('click', () => goTo(current - 1));
+  if (nextBtn) nextBtn.addEventListener('click', () => goTo(current + 1));
+
+  /* Dot navigation */
+  dots.forEach(dot => {
+    dot.addEventListener('click', () => goTo(Number(dot.dataset.idx)));
+  });
+
+  /* Touch / swipe support */
+  let touchStartX = 0;
+  if (viewport) {
+    viewport.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].clientX;
+    }, { passive: true });
+    viewport.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 40) goTo(dx < 0 ? current + 1 : current - 1);
+    }, { passive: true });
+  }
+
+  /* Kick off */
+  slides[0].classList.add('active');
+  rafId = requestAnimationFrame(animateProgress);
+  resetTimer();
+})();
+
 // ── Latest GitHub release badge ──────────────────────────────────────────────
 (function () {
   var label = document.getElementById('latest-release-label');

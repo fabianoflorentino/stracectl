@@ -177,6 +177,121 @@
 </section>
 
 <!-- ============================================================
+     SCREENSHOT CAROUSEL
+     ============================================================ -->
+<section class="showcase-section" id="showcase">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title reveal">See it in <span class="gradient-text">action</span></h2>
+      <p class="section-sub reveal">From interactive TUI to live web dashboard to self-contained HTML report.</p>
+    </div>
+    <div class="showcase-carousel reveal">
+      <div class="carousel-viewport" id="carousel-viewport">
+        <div class="carousel-track" id="carousel-track">
+
+          <div class="carousel-slide" data-idx="0">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — syscall stats</span>
+              </div>
+              <img src="{{ "img/dashboard.png" | relURL }}" alt="stracectl Syscall Stats Dashboard" loading="lazy" draggable="false">
+            </div>
+          </div>
+
+          <div class="carousel-slide" data-idx="1">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — live log</span>
+              </div>
+              <img src="{{ "img/log.png" | relURL }}" alt="stracectl Live Log Stream" loading="lazy" draggable="false">
+            </div>
+          </div>
+
+          <div class="carousel-slide" data-idx="2">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — syscall detail</span>
+              </div>
+              <img src="{{ "img/detail.png" | relURL }}" alt="stracectl Syscall Detail View" loading="lazy" draggable="false">
+            </div>
+          </div>
+
+          <div class="carousel-slide" data-idx="3">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — HTML report</span>
+              </div>
+              <img src="{{ "img/report.jpg" | relURL }}" alt="stracectl HTML Report" loading="lazy" draggable="false">
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="carousel-footer">
+        <div class="carousel-captions" id="carousel-captions">
+          <div class="carousel-caption active" data-idx="0">
+            <span class="caption-label">Syscall Dashboard</span>
+            <span class="caption-desc">Live htop-style table — sort by calls, avg latency, error rate, or total time</span>
+          </div>
+          <div class="carousel-caption" data-idx="1">
+            <span class="caption-label">Live Log Stream</span>
+            <span class="caption-desc">Real-time syscall feed with anomaly alerts highlighted in red and yellow</span>
+          </div>
+          <div class="carousel-caption" data-idx="2">
+            <span class="caption-label">Syscall Detail View</span>
+            <span class="caption-desc">P95 / P99 latencies, error breakdown by errno, and recent error samples per syscall</span>
+          </div>
+          <div class="carousel-caption" data-idx="3">
+            <span class="caption-label">HTML Report</span>
+            <span class="caption-desc">Self-contained report export — sortable table, category bars, no server or CDN required</span>
+          </div>
+        </div>
+
+        <div class="carousel-controls">
+          <button class="carousel-prev" id="carousel-prev" aria-label="Previous screenshot">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="carousel-dots" id="carousel-dots">
+            <button class="carousel-dot active" data-idx="0" aria-label="Screenshot 1"></button>
+            <button class="carousel-dot" data-idx="1" aria-label="Screenshot 2"></button>
+            <button class="carousel-dot" data-idx="2" aria-label="Screenshot 3"></button>
+            <button class="carousel-dot" data-idx="3" aria-label="Screenshot 4"></button>
+          </div>
+          <button class="carousel-next" id="carousel-next" aria-label="Next screenshot">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+
+        <div class="carousel-progress-bar" aria-hidden="true">
+          <div class="carousel-progress-fill" id="carousel-progress"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
      MODES
      ============================================================ -->
 <section class="modes-section" id="modes">
