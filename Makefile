@@ -17,7 +17,7 @@
 
 BINARY        := stracectl
 MODULE        := github.com/fabianoflorentino/stracectl
-IMAGE         := ghcr.io/fabianoflorentino/stracectl
+IMAGE         := fabianoflorentino/stracectl
 VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS       := -s -w -X main.version=$(VERSION)
 BUILD_FLAGS   := CGO_ENABLED=0 GOARCH=amd64
