@@ -59,13 +59,13 @@ jwt=$(curl -fsSL \
 
 [[ -z "$jwt" || "$jwt" == "null" ]] && die "Received empty token from Docker Hub."
 
-# ── list tags (sorted by last_updated descending — API default) ───────────────
+# ── list tags ────────────────────────────────────────────────────────────────
 
 log "Listing tags..."
 
 tags_json=$(curl -fsSL \
   -H "Authorization: Bearer ${jwt}" \
-  "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/?page_size=100&ordering=-last_updated")
+  "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/?page_size=100")
 
 total=$(echo "$tags_json" | jq '.count')
 
@@ -76,9 +76,10 @@ if [[ "$total" -eq 0 ]]; then
   exit 0
 fi
 
-# ── resolve tag names from the first page ────────────────────────────────────
+# ── resolve tag names sorted by last_updated (oldest first) ──────────────────
+# Sorting is done client-side via jq to avoid relying on API ordering.
 
-all_tags=$(echo "$tags_json" | jq -r '[.results[] | .name] | .[]')
+all_tags=$(echo "$tags_json" | jq -r '[.results | sort_by(.last_updated) | .[].name] | .[]')
 tag_count=$(echo "$all_tags" | wc -l | tr -d ' ')
 
 if [[ "$tag_count" -le 1 ]]; then
@@ -87,13 +88,13 @@ if [[ "$tag_count" -le 1 ]]; then
   exit 0
 fi
 
-# ── identify the most recently pushed tag (first in the ordered list) ─────────
-# Skip the "latest" alias if it is the first result and there are other tags.
+# ── identify the most recently pushed tag (last in ascending-sorted list) ─────
+# Skip the "latest" alias — keep the most recent versioned tag.
 
-latest_tag=$(echo "$all_tags" | grep -v '^latest$' | head -1)
+latest_tag=$(echo "$all_tags" | grep -v '^latest$' | tail -1)
 
 if [[ -z "$latest_tag" ]]; then
-  latest_tag=$(echo "$all_tags" | head -1)
+  latest_tag=$(echo "$all_tags" | tail -1)
   warn "Only a 'latest' alias tag found. Keeping it and skipping."
   exit 0
 fi
@@ -109,7 +110,9 @@ while IFS= read -r tag; do
   [[ "$tag" == "$latest_tag" ]] && continue
 
   log "Removing tag: $tag"
-  http_status=$(curl -o /dev/null -w "%{http_code}" -fsSL \
+  # Note: -f is intentionally omitted so curl does not abort on 4xx;
+  # the HTTP status code is captured and evaluated explicitly.
+  http_status=$(curl -o /dev/null -w "%{http_code}" -sSL \
     -X DELETE \
     -H "Authorization: Bearer ${jwt}" \
     "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/${tag}/")
