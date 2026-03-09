@@ -390,6 +390,13 @@
         var el = document.getElementById(id);
         if (el) el.dataset.copy = cmd;
       });
+
+      // Update docker pull snippet to use the pinned version
+      var dockerCmd = 'docker pull fabianoflorentino/stracectl:' + tag;
+      var dockerCmdEl = document.getElementById('install-docker-cmd');
+      if (dockerCmdEl) dockerCmdEl.textContent = dockerCmd;
+      var dockerCopyEl = document.getElementById('install-docker-copy');
+      if (dockerCopyEl) dockerCopyEl.dataset.copy = dockerCmd;
     })
     .catch(function () { /* keep default text on error */ });
 })();
