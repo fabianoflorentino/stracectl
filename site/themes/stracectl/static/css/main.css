@@ -385,6 +385,14 @@ code, pre, kbd {
   font-weight: 500;
   margin-bottom: 1.25rem;
   width: fit-content;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.hero-badge:hover {
+  background: rgba(0,212,170,0.18);
+  border-color: rgba(0,212,170,0.6);
 }
 
 .badge-dot {

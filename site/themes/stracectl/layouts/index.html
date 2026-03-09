@@ -6,10 +6,12 @@
   <canvas id="particle-canvas" aria-hidden="true"></canvas>
   <div class="hero-inner container">
     <div class="hero-text">
-      <div class="hero-badge reveal">
+      <a class="hero-badge reveal" id="latest-release-badge"
+         href="{{ .Site.Params.github }}/releases/latest"
+         target="_blank" rel="noopener">
         <span class="badge-dot"></span>
-        <span>v{{ .Site.Params.version }} — Latest Release</span>
-      </div>
+        <span id="latest-release-label">Latest Release</span>
+      </a>
       <h1 class="hero-headline reveal">
         Modern <span class="gradient-text">strace</span>.<br>
         Real-time <span class="gradient-text">TUI</span>.<br>

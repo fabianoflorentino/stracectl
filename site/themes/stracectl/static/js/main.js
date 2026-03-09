@@ -263,3 +263,21 @@
   // Start typewriter after 1.2s
   setTimeout(typeChar, 1200);
 })();
+
+// ── Latest GitHub release badge ──────────────────────────────────────────────
+(function () {
+  var label = document.getElementById('latest-release-label');
+  var badge = document.getElementById('latest-release-badge');
+  if (!label) return;
+
+  fetch('https://api.github.com/repos/fabianoflorentino/stracectl/releases/latest', {
+    headers: { Accept: 'application/vnd.github+json' }
+  })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (data) {
+      var tag = data.tag_name || '';
+      label.textContent = tag + ' — Latest Release';
+      if (badge && data.html_url) badge.href = data.html_url;
+    })
+    .catch(function () { /* keep default text on error */ });
+})();
