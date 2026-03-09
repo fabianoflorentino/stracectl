@@ -8,6 +8,80 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## v1.0.35 — 2026-03-09
+
+### Added
+
+**GitHub Pages site** — A fully custom, animated Hugo site is now live at [fabianoflorentino.github.io/stracectl](https://fabianoflorentino.github.io/stracectl/), with documentation, changelog, roadmap, and a hero terminal animation. A dedicated GitHub Actions workflow (`pages.yml`) builds and deploys the site on every push to `site/**`.
+
+**`.dockerignore`** — A `.dockerignore` file excludes `site/`, `docs/`, `deploy/`, `scripts/`, and other non-build assets from the Docker build context, reducing context size and speeding up image builds.
+
+---
+
+## v1.0.34 — 2026-03-09
+
+### Added
+
+**Docker Hub tag cleanup** — A new `cleanup.yml` workflow (and `scripts/cleanup-dockerhub-tags.sh`) removes stale Docker Hub image tags, keeping only the latest release. Supports a `dry_run` mode to preview deletions before applying them.
+
+**Production Docker target** — The Docker build command now explicitly targets the `production` stage (`--target production`), preventing accidental builds of the development image.
+
+### Fixed
+
+**README badges** — Corrected and standardised shield badges for consistency across all CI/CD and package links.
+
+**Dockerfile comments** — Clarified stage descriptions and build example comments for readability.
+
+---
+
+## v1.0.33 — 2026-03-09
+
+### Added
+
+**GitHub release cleanup** — A new `cleanup-releases.sh` script and `Cleanup` workflow prune old GitHub releases and tags, retaining only the latest. A `dry_run` input lets you preview what would be deleted before committing.
+
+### Changed
+
+**Linux-specific CI removed** — The separate Linux CI workflow was consolidated into the main CI pipeline.
+
+---
+
+## v1.0.26 – v1.0.32 — 2026-02-xx
+
+### Added
+
+**CI hardening** — All GitHub Actions steps are now pinned to immutable commit SHAs to prevent supply-chain attacks. A `dependency-review` job blocks PRs that introduce dependencies with known moderate-or-higher vulnerabilities. A Semgrep SAST job runs the Go ruleset on every push.
+
+**CODEOWNERS** — A `CODEOWNERS` file enforces mandatory code review for all paths.
+
+**Dependabot** — Automated dependency update PRs configured for Go modules and GitHub Actions.
+
+**`go mod tidy` pre-push hook** — `lefthook` now runs `go mod tidy` before every push to keep the module graph clean.
+
+### Fixed
+
+**`paths-ignore` for `.github/`** — CI `push`/`pull_request` triggers now correctly skip workflow runs when only `.github/` files change.
+
+**Help overlay alignment** — The `COMMON PATTERNS` section in the TUI help overlay is now correctly indented.
+
+---
+
+## v1.0.24 – v1.0.25 — 2026-02-xx
+
+### Added
+
+**`stracectl stats` — post-mortem analysis** — A new `stats` sub-command reads a saved strace output file and produces the same aggregated syscall statistics (counts, latencies, error rates, percentiles) that the live TUI shows, without needing a running process.
+
+**`--report` flag** — `stracectl stats --report` generates a self-contained, single-file HTML report with the full syscall breakdown. The report embeds all CSS and JS inline so it can be shared without extra assets.
+
+### Fixed
+
+**Scanner buffer too small for large strace lines** — The default `bufio.Scanner` token buffer (64 KiB) was exceeded by `strace` lines containing large read/write dumps. Fixed by extracting file-loading into `loadAggFromFile` and increasing the buffer to 512 KiB — matching the limit used by the live tracer.
+
+**TUI frozen after traced process exits** — Two root causes fixed: (1) `exec.CommandContext` only killed the `strace` process, leaving long-running child processes alive and the stderr pipe open; fixed by setting `Setpgid: true` and sending `SIGKILL` to the entire process group on cancel. (2) Sending `tea.QuitMsg` on process exit caused the TUI to vanish immediately; replaced with `processDeadMsg` so the footer shows an amber *"✔ process exited — press q to quit"* banner instead.
+
+---
+
 ## v1.0.23 — 2026-03-09
 
 ### Added
