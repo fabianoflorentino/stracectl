@@ -1,0 +1,5 @@
+name        = "stracectl"
+license     = "MIT"
+licenselink = "https://github.com/fabianoflorentino/stracectl/blob/main/LICENSE"
+description = "Dark animated terminal theme for stracectl"
+min_version = "0.123.0"
