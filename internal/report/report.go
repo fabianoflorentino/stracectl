@@ -16,18 +16,26 @@ import (
 //go:embed static/report.html
 var reportHTML string
 
+// errnoItem is a single errno + formatted stats for the report template.
+type errnoItem struct {
+	Errno  string
+	Count  int64
+	PctStr string
+}
+
 // rowData holds pre-formatted values for one table row.
 type rowData struct {
-	Name     string
-	Category string
-	Count    int64
-	FreqPct  string
-	Avg      string
-	Min      string
-	Max      string
-	Total    string
-	ErrPct   string
-	Errors   int64
+	Name           string
+	Category       string
+	Count          int64
+	FreqPct        string
+	Avg            string
+	Min            string
+	Max            string
+	Total          string
+	ErrPct         string
+	Errors         int64
+	ErrnoBreakdown []errnoItem
 }
 
 type catRow struct {
@@ -62,17 +70,26 @@ func Write(path string, agg *aggregator.Aggregator, label string) error {
 
 	rows := make([]rowData, len(raw))
 	for i, s := range raw {
+		var errnoBreakdown []errnoItem
+		for _, ec := range s.TopErrors(0) {
+			errnoBreakdown = append(errnoBreakdown, errnoItem{
+				Errno:  ec.Errno,
+				Count:  ec.Count,
+				PctStr: fmtPct(float64(ec.Count) / float64(s.Count) * 100),
+			})
+		}
 		rows[i] = rowData{
-			Name:     s.Name,
-			Category: s.Category.String(),
-			Count:    s.Count,
-			FreqPct:  fmtPct(pct(s.Count, total)),
-			Avg:      fmtDur(s.AvgTime()),
-			Min:      fmtDur(s.MinTime),
-			Max:      fmtDur(s.MaxTime),
-			Total:    fmtDur(s.TotalTime),
-			ErrPct:   fmtPct(s.ErrPct()),
-			Errors:   s.Errors,
+			Name:           s.Name,
+			Category:       s.Category.String(),
+			Count:          s.Count,
+			FreqPct:        fmtPct(pct(s.Count, total)),
+			Avg:            fmtDur(s.AvgTime()),
+			Min:            fmtDur(s.MinTime),
+			Max:            fmtDur(s.MaxTime),
+			Total:          fmtDur(s.TotalTime),
+			ErrPct:         fmtPct(s.ErrPct()),
+			Errors:         s.Errors,
+			ErrnoBreakdown: errnoBreakdown,
 		}
 	}
 

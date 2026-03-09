@@ -546,6 +546,14 @@ func (m model) renderDetail() string {
 	field("Min latency", formatDur(s.MinTime))
 	field("Total time", formatDur(s.TotalTime))
 
+	if errnos := s.TopErrors(0); len(errnos) > 0 {
+		section("ERROR BREAKDOWN")
+		for _, ec := range errnos {
+			pct := float64(ec.Count) / float64(s.Count) * 100
+			dimField(ec.Errno, fmt.Sprintf("%s calls  (%.0f%%)", formatCount(ec.Count), pct))
+		}
+	}
+
 	if expl := alertExplanation(s.Name); expl != "" && s.ErrPct() >= hotErrPct {
 		section("ANOMALY EXPLANATION")
 		for _, line := range wordWrap(expl, w-22) {

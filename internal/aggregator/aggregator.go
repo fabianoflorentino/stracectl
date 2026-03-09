@@ -10,6 +10,16 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/models"
 )
 
+// sortErrnoCount sorts a slice of ErrnoCount descending by count, then ascending by name.
+func sortErrnoCount(s []ErrnoCount) {
+	sort.Slice(s, func(i, j int) bool {
+		if s[i].Count != s[j].Count {
+			return s[i].Count > s[j].Count
+		}
+		return s[i].Errno < s[j].Errno
+	})
+}
+
 // Category groups syscalls by purpose.
 type Category int
 
@@ -165,6 +175,32 @@ type SyscallStat struct {
 	TotalTime time.Duration
 	MinTime   time.Duration
 	MaxTime   time.Duration
+	// ErrorBreakdown counts occurrences of each distinct errno (e.g. "ENOENT").
+	// It is non-nil only when at least one error has been recorded.
+	ErrorBreakdown map[string]int64
+}
+
+// TopErrors returns the errno breakdown sorted descending by count.
+// It returns at most n entries; pass 0 for all.
+func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
+	if len(s.ErrorBreakdown) == 0 {
+		return nil
+	}
+	out := make([]ErrnoCount, 0, len(s.ErrorBreakdown))
+	for errno, cnt := range s.ErrorBreakdown {
+		out = append(out, ErrnoCount{Errno: errno, Count: cnt})
+	}
+	sortErrnoCount(out)
+	if n > 0 && len(out) > n {
+		out = out[:n]
+	}
+	return out
+}
+
+// ErrnoCount pairs an errno name with its occurrence count.
+type ErrnoCount struct {
+	Errno string
+	Count int64
 }
 
 // AvgTime returns the mean latency per call.
@@ -258,6 +294,12 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 	if e.IsError() {
 		s.Errors++
 		a.errors++
+		if e.Error != "" {
+			if s.ErrorBreakdown == nil {
+				s.ErrorBreakdown = make(map[string]int64)
+			}
+			s.ErrorBreakdown[e.Error]++
+		}
 	}
 
 	// Update rate roughly every 500ms without spawning goroutines.

@@ -39,6 +39,13 @@
   .args-table td:first-child{font-family:monospace;color:#79c0ff;width:160px;padding-left:2px}
   .args-table td:last-child{color:#8b949e}
 
+  /* error breakdown */
+  .errno-section{padding:0 24px 24px}
+  .errno-table{width:auto;border-collapse:collapse;font-size:.82rem;margin-top:4px}
+  .errno-table td{padding:3px 16px 3px 0;vertical-align:top;color:#e6edf3}
+  .errno-table td:first-child{font-family:monospace;color:#f85149;width:120px}
+  .errno-table td:last-child{color:#8b949e}
+
   #not-found{display:none;padding:48px 24px;text-align:center;color:#8b949e;font-size:1rem}
   #not-found code{font-size:1.2rem;color:#e6edf3;font-family:monospace}
   #status{padding:8px 24px;font-size:.75rem;color:#8b949e;border-top:1px solid #30363d;
@@ -91,6 +98,12 @@
 
 <!-- syscall reference panel (rendered from static JS table) -->
 <div class="ref" id="ref"></div>
+
+<!-- error breakdown (populated from live WebSocket data) -->
+<div class="errno-section" id="errno-section" style="display:none">
+  <div class="sec-hdr" style="margin-top:0">ERROR BREAKDOWN</div>
+  <table class="errno-table" id="errno-table"></table>
+</div>
 
 <div id="status">Connecting…</div>
 
@@ -319,6 +332,21 @@ function update(r) {
 
   // colour avg card only when slow (≥5 ms)
   document.getElementById('c-avg').className = 'card' + (avgNs >= 5e6 ? ' c-slow' : '');
+
+  // error breakdown table
+  const bd = r.ErrorBreakdown;
+  const sec = document.getElementById('errno-section');
+  const tbl = document.getElementById('errno-table');
+  if (bd && Object.keys(bd).length > 0) {
+    const entries = Object.entries(bd).sort((a, b) => b[1] - a[1]);
+    tbl.innerHTML = entries.map(([errno, cnt]) => {
+      const pct = r.Count ? (cnt / r.Count * 100).toFixed(1) : '0';
+      return '<tr><td>' + esc(errno) + '</td><td>' + fmtN(cnt) + ' calls</td><td>' + pct + '%</td></tr>';
+    }).join('');
+    sec.style.display = '';
+  } else {
+    sec.style.display = 'none';
+  }
 }
 
 // ── WebSocket ────────────────────────────────────────────────────────────────
