@@ -610,3 +610,27 @@ func TestRecentLog_ReturnsLatestWhenFull(t *testing.T) {
 		t.Errorf("last entry should be write (latest), got %s", log[len(log)-1].Name)
 	}
 }
+
+func TestSetDone_FalseByDefault(t *testing.T) {
+	a := aggregator.New()
+	if a.IsDone() {
+		t.Error("IsDone should be false for a new aggregator")
+	}
+}
+
+func TestSetDone_TrueAfterCall(t *testing.T) {
+	a := aggregator.New()
+	a.SetDone()
+	if !a.IsDone() {
+		t.Error("IsDone should be true after SetDone()")
+	}
+}
+
+func TestSetDone_Idempotent(t *testing.T) {
+	a := aggregator.New()
+	a.SetDone()
+	a.SetDone()
+	if !a.IsDone() {
+		t.Error("IsDone should still be true after multiple SetDone() calls")
+	}
+}

@@ -114,6 +114,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		Rate    float64             `json:"Rate"`
 		Unique  int                 `json:"Unique"`
 		Elapsed string              `json:"Elapsed"`
+		Done    bool                `json:"Done"`
 	}
 	resp := statusResp{
 		Proc:    s.agg.GetProcInfo(),
@@ -122,6 +123,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		Rate:    s.agg.Rate(),
 		Unique:  s.agg.UniqueCount(),
 		Elapsed: time.Since(s.agg.StartTime()).Round(time.Second).String(),
+		Done:    s.agg.IsDone(),
 	}
 	writeJSON(w, resp)
 }
@@ -174,6 +176,14 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 		case <-ticker.C:
 			stats := s.agg.Sorted(aggregator.SortByCount)
 			if err := conn.WriteJSON(stats); err != nil {
+				return
+			}
+			// After sending the snapshot, notify the client if the process exited.
+			if s.agg.IsDone() {
+				type doneMsg struct {
+					Done bool `json:"done"`
+				}
+				_ = conn.WriteJSON(doneMsg{Done: true})
 				return
 			}
 		}

@@ -31,6 +31,8 @@ func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-cha
 		for event := range events {
 			agg.Add(event)
 		}
+		// Mark the traced process as done so the server can notify clients.
+		agg.SetDone()
 	})
 
 	var runErr error

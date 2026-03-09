@@ -357,3 +357,60 @@ func TestDashboard_ContainsSearchInput(t *testing.T) {
 		t.Error("dashboard HTML should contain search clear button (#search-clear)")
 	}
 }
+
+func TestStatus_DoneFalseByDefault(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+	if done, ok := resp["Done"]; !ok || done.(bool) {
+		t.Errorf("expected Done=false in status response, got %v", resp["Done"])
+	}
+}
+
+func TestStatus_DoneTrueAfterSetDone(t *testing.T) {
+	agg := aggregator.New()
+	agg.SetDone()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+	if done, ok := resp["Done"]; !ok || !done.(bool) {
+		t.Errorf("expected Done=true in status response, got %v", resp["Done"])
+	}
+}
+
+func TestDashboard_ContainsDoneBanner(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "done-banner") {
+		t.Error("dashboard HTML should contain the process-exited banner element (#done-banner)")
+	}
+}
