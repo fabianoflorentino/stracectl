@@ -1,0 +1,38 @@
+baseURL = "https://fabianoflorentino.github.io/stracectl/"
+languageCode = "en-us"
+title = "stracectl"
+theme = "stracectl"
+
+[params]
+  description = "A modern strace with real-time htop-style TUI and Kubernetes sidecar mode"
+  github = "https://github.com/fabianoflorentino/stracectl"
+  docker  = "https://ghcr.io/fabianoflorentino/stracectl"
+  version = "v1.0.23"
+  tagline = "Modern strace. Real-time TUI. Kubernetes-ready."
+  subtitle = "Aggregate syscalls live — counts, latencies, errors, anomalies — in an interactive dashboard or HTTP sidecar."
+  author  = "Fabiano Florentino"
+
+[menu]
+  [[menu.main]]
+    name   = "Features"
+    url    = "/#features"
+    weight = 1
+  [[menu.main]]
+    name   = "Docs"
+    url    = "/docs/"
+    weight = 2
+  [[menu.main]]
+    name   = "Changelog"
+    url    = "/changelog/"
+    weight = 3
+  [[menu.main]]
+    name   = "Roadmap"
+    url    = "/roadmap/"
+    weight = 4
+
+[markup]
+  [markup.highlight]
+    style     = "github-dark"
+    noClasses = false
+  [markup.goldmark.renderer]
+    unsafe = true
