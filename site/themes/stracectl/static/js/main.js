@@ -276,8 +276,22 @@
     .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
     .then(function (data) {
       var tag = data.tag_name || '';
+      if (!tag) return;
+
+      // Update badge
       label.textContent = tag + ' — Latest Release';
       if (badge && data.html_url) badge.href = data.html_url;
+
+      // Update all go install snippets to use the pinned version
+      var cmd = 'go install github.com/fabianoflorentino/stracectl@' + tag;
+      ['hero-install-cmd', 'install-go-cmd'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = cmd;
+      });
+      ['hero-install-copy', 'install-go-copy'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.dataset.copy = cmd;
+      });
     })
     .catch(function () { /* keep default text on error */ });
 })();
