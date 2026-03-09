@@ -974,15 +974,15 @@ func TestProcessDeadMsg_SetsProcessDoneFlag(t *testing.T) {
 	}
 }
 
-// TestProcessDeadMsg_ShowsBanner verifies the footer shows the "process exited" banner
-// and the user can still quit with q after the process has finished.
+// TestProcessDeadMsg_ShowsBanner verifies the footer still shows shortcuts when the process has finished.
+// The "process exited" banner was removed — the q shortcut is already visible in the footer.
 func TestProcessDeadMsg_ShowsBanner(t *testing.T) {
 	m := newTestModel()
 	m.processDone = true
 	addEvent(m.agg, "read", 1*time.Microsecond, "")
 	out := m.View()
-	if !strings.Contains(out, "process exited") {
-		t.Errorf("View() with processDone=true should show 'process exited' banner, got:\n%s", out)
+	if !strings.Contains(out, "q:quit") {
+		t.Errorf("View() with processDone=true should show shortcuts footer, got:\n%s", out)
 	}
 }
 

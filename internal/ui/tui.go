@@ -3,6 +3,9 @@ package ui
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -207,30 +210,30 @@ func (m model) View() string {
 	div := divStyle.Render(strings.Repeat("─", w))
 	hdr := renderHeader(cw, m.sortBy)
 
+	shortcuts := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  ?:help  esc:clear"
+	if m.filter != "" {
+		shortcuts += fmt.Sprintf("   [filter: %q]", m.filter)
+	}
+
 	var footer string
 	if m.editing {
 		footer = filterStyle.Render(fmt.Sprintf(" filter: %s█", m.filter))
 	} else if m.processDone {
-		hint := " ✔  process exited — press q to quit"
-		if m.filter != "" {
-			hint += fmt.Sprintf("   [filter: %q]", m.filter)
-		}
-		footer = alertStyle.Render(hint)
+		footer = footerStyle.Render(shortcuts)
 	} else {
-		hint := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  ?:help  esc:clear"
-		if m.filter != "" {
-			hint += fmt.Sprintf("   [filter: %q]", m.filter)
-		}
-		footer = footerStyle.Render(hint)
+		footer = footerStyle.Render(shortcuts)
 	}
 
 	// anomaly alerts
 	alerts := m.renderAlerts()
 
-	// fixed UI lines: title+stats, div, cat, div, hdr, div, bottom-div, footer
-	fixedLines := 8
+	// fixed UI lines: title+stats, div, cat, div, hdr, div, bottom-div, footer-sep-div + footer lines
+	// baseline: 6 header lines + 1 end-of-rows div + 1 footer-sep div + footer height
+	footerLines := strings.Count(footer, "\n") + 1
+	fixedLines := 8 + footerLines
 	if alerts != "" {
-		fixedLines += strings.Count(alerts, "\n") + 2 // alert lines + separator div
+		// alert header line + alert content lines
+		fixedLines += strings.Count(alerts, "\n") + 2
 	}
 	maxRows := m.height - fixedLines
 	if maxRows < 1 {
@@ -344,9 +347,12 @@ func (m model) View() string {
 
 	sb.WriteString(div + "\n")
 	if alerts != "" {
+		n := strings.Count(alerts, "\n") + 1
+		alertsHdr := alertStyle.Render(fmt.Sprintf(" ⚠  ANOMALY ALERTS (%d)", n))
+		sb.WriteString(alertsHdr + "\n")
 		sb.WriteString(alerts + "\n")
-		sb.WriteString(div + "\n")
 	}
+	sb.WriteString(div + "\n")
 	sb.WriteString(footer)
 
 	return sb.String()
@@ -791,6 +797,12 @@ func Run(agg *aggregator.Aggregator, target string, done <-chan struct{}) error 
 // opts are forwarded to tea.NewProgram, allowing tests to inject headless
 // input/output without a real TTY.
 func runWithOpts(agg *aggregator.Aggregator, target string, done <-chan struct{}, opts ...tea.ProgramOption) error {
+	// Prevent tracer log.Printf messages from bleeding into the alt-screen buffer.
+	// All log output is discarded while the TUI owns the terminal; it is restored
+	// unconditionally when the TUI exits.
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(os.Stderr)
+
 	m := model{
 		agg:     agg,
 		target:  target,
