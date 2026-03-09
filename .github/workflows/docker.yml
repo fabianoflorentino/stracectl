@@ -20,6 +20,7 @@ on:
       - 'docs/**'
       - '.github/**'
       - '**/*.md'
+      - 'scripts/**'
 
 permissions:
   contents: write
