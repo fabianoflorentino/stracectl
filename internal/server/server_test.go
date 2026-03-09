@@ -299,3 +299,41 @@ func TestStatus_WithProcInfo(t *testing.T) {
 		t.Errorf("Comm: want nginx, got %q", resp.Proc.Comm)
 	}
 }
+
+func TestLog_Empty(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/log", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	// Should return an empty JSON array, not null.
+	body := strings.TrimSpace(rr.Body.String())
+	if body != "[]" && body != "null" {
+		t.Errorf("expected [] or null, got %q", body)
+	}
+}
+
+func TestLog_ContainsEvents(t *testing.T) {
+	agg := newPopulatedAgg()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/log", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var entries []map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&entries); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Error("expected at least one log entry")
+	}
+}

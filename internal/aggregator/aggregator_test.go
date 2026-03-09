@@ -560,3 +560,53 @@ func TestErrRate60s_SortedPopulates(t *testing.T) {
 		t.Errorf("Sorted ErrRate60s: want 3, got %d", stats[0].ErrRate60s)
 	}
 }
+
+// ── Live log ring buffer ──────────────────────────────────────────────────────
+
+func TestRecentLog_EmptyInitially(t *testing.T) {
+	a := aggregator.New()
+	if log := a.RecentLog(); len(log) != 0 {
+		t.Errorf("RecentLog should be empty initially, got %d entries", len(log))
+	}
+}
+
+func TestRecentLog_RecordsEvents(t *testing.T) {
+	a := aggregator.New()
+	a.Add(ok("read", time.Microsecond))
+	a.Add(fail("open", time.Microsecond))
+	log := a.RecentLog()
+	if len(log) != 2 {
+		t.Fatalf("want 2 log entries, got %d", len(log))
+	}
+	if log[0].Name != "read" {
+		t.Errorf("first entry: want read, got %s", log[0].Name)
+	}
+	if log[1].Name != "open" || log[1].Error != "ENOENT" {
+		t.Errorf("second entry: want open/ENOENT, got %s/%s", log[1].Name, log[1].Error)
+	}
+}
+
+func TestRecentLog_CappedAt500(t *testing.T) {
+	a := aggregator.New()
+	for i := 0; i < 600; i++ {
+		a.Add(ok("read", time.Microsecond))
+	}
+	log := a.RecentLog()
+	if len(log) > 500 {
+		t.Errorf("RecentLog should be capped at 500, got %d", len(log))
+	}
+}
+
+func TestRecentLog_ReturnsLatestWhenFull(t *testing.T) {
+	a := aggregator.New()
+	// fill to capacity
+	for i := 0; i < 500; i++ {
+		a.Add(ok("read", time.Microsecond))
+	}
+	// one more with a unique syscall name
+	a.Add(ok("write", time.Microsecond))
+	log := a.RecentLog()
+	if log[len(log)-1].Name != "write" {
+		t.Errorf("last entry should be write (latest), got %s", log[len(log)-1].Name)
+	}
+}
