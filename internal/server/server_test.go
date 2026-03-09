@@ -250,3 +250,52 @@ func TestSyscallDetail(t *testing.T) {
 		t.Fatal("expected detail HTML to contain syscall reference section")
 	}
 }
+
+func TestStatus_DefaultEmpty(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var resp map[string]json.RawMessage
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+	if _, ok := resp["Elapsed"]; !ok {
+		t.Error("response should contain Elapsed field")
+	}
+}
+
+func TestStatus_WithProcInfo(t *testing.T) {
+	agg := aggregator.New()
+	agg.SetProcInfo(aggregator.ProcInfo{PID: 42, Comm: "nginx", Exe: "/usr/sbin/nginx"})
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var resp struct {
+		Proc struct {
+			PID  int    `json:"PID"`
+			Comm string `json:"Comm"`
+		} `json:"Proc"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+	if resp.Proc.PID != 42 {
+		t.Errorf("PID: want 42, got %d", resp.Proc.PID)
+	}
+	if resp.Proc.Comm != "nginx" {
+		t.Errorf("Comm: want nginx, got %q", resp.Proc.Comm)
+	}
+}

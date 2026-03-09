@@ -49,6 +49,7 @@ Examples:
 		defer cancelTracer()
 
 		agg := aggregator.New()
+		agg.SetProcInfo(aggregator.ReadProcInfo(pid))
 		t := tracer.NewStraceTracer()
 
 		events, err := t.Attach(tracerCtx, pid)

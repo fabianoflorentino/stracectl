@@ -41,6 +41,7 @@ func New(addr string, agg *aggregator.Aggregator) *Server {
 
 	s.mux.HandleFunc("/", s.handleDashboard)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
+	s.mux.HandleFunc("/api/status", s.handleStatus)
 	s.mux.HandleFunc("/api/stats", s.handleStats)
 	s.mux.HandleFunc("/api/categories", s.handleCategories)
 	s.mux.HandleFunc("/api/syscall/{name}", s.handleSyscallStat)
@@ -102,6 +103,26 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStats(w http.ResponseWriter, _ *http.Request) {
 	stats := s.agg.Sorted(aggregator.SortByCount)
 	writeJSON(w, stats)
+}
+
+func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
+	type statusResp struct {
+		Proc    aggregator.ProcInfo `json:"Proc"`
+		Total   int64               `json:"Total"`
+		Errors  int64               `json:"Errors"`
+		Rate    float64             `json:"Rate"`
+		Unique  int                 `json:"Unique"`
+		Elapsed string              `json:"Elapsed"`
+	}
+	resp := statusResp{
+		Proc:    s.agg.GetProcInfo(),
+		Total:   s.agg.Total(),
+		Errors:  s.agg.Errors(),
+		Rate:    s.agg.Rate(),
+		Unique:  s.agg.UniqueCount(),
+		Elapsed: time.Since(s.agg.StartTime()).Round(time.Second).String(),
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleCategories(w http.ResponseWriter, _ *http.Request) {

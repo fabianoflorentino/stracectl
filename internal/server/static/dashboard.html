@@ -9,6 +9,7 @@
   body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
   header{background:#161b22;border-bottom:1px solid #30363d;padding:12px 24px;display:flex;align-items:center;gap:16px}
   header h1{font-size:1.1rem;font-weight:600;color:#58a6ff}
+  #proc-info{font-size:.8rem;color:#8b949e;font-family:monospace;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40vw}
   #meta{margin-left:auto;font-size:.8rem;color:#8b949e;display:flex;gap:20px}
   #meta span b{color:#e6edf3}
   .bar-wrap{background:#161b22;border-bottom:1px solid #30363d;padding:10px 24px;display:flex;gap:20px;flex-wrap:wrap}
@@ -43,6 +44,7 @@
 <body>
 <header>
   <h1>stracectl</h1>
+  <span id="proc-info"></span>
   <div id="meta">
     <span>syscalls: <b id="m-total">—</b></span>
     <span>rate: <b id="m-rate">—</b>/s</span>
@@ -76,6 +78,19 @@
 <div id="status">Connecting…</div>
 
 <script>
+function fetchStatus() {
+  fetch('/api/status').then(r => r.json()).then(s => {
+    const p = s.Proc;
+    const el = document.getElementById('proc-info');
+    if (p && p.Comm) {
+      let label = p.Comm + '[' + p.PID + ']';
+      if (p.Cwd) label += '  \u2022  ' + escapeHtml(p.Cwd);
+      el.textContent = label;
+      el.title = p.Cmdline || '';
+    }
+  }).catch(() => {});
+}
+
 const escapeHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 function alertExplanation(name) {
@@ -227,6 +242,7 @@ function connect() {
   ws.onopen = () => {
     document.getElementById('status').textContent = 'Connected — live updates every second';
     document.getElementById('status').classList.remove('err');
+    fetchStatus();
   };
 
   ws.onmessage = e => {

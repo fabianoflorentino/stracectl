@@ -196,7 +196,12 @@ func (m model) View() string {
 	rate := m.agg.Rate()
 	unique := m.agg.UniqueCount()
 	elapsed := time.Since(m.started).Round(time.Second)
-	left := fmt.Sprintf(" stracectl  %s  +%s ", m.target, elapsed)
+
+	procLabel := m.target
+	if pi := m.agg.GetProcInfo(); pi.Comm != "" {
+		procLabel = fmt.Sprintf("%s[%d]", pi.Comm, pi.PID)
+	}
+	left := fmt.Sprintf(" stracectl  %s  +%s ", procLabel, elapsed)
 	right := fmt.Sprintf(" syscalls: %s  rate: %.0f/s  errors: %s  unique: %d ",
 		formatCount(total), rate, formatCount(errs), unique)
 	gap := w - len(left) - len(right)
