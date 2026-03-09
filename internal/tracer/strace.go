@@ -60,6 +60,22 @@ func (t *StraceTracer) Run(ctx context.Context, program string, args []string) (
 	straceArgs := append([]string{"-f", "-T", "-q", "--", program}, args...)
 	cmd := exec.CommandContext(ctx, "strace", straceArgs...)
 
+	// Put strace and its subprocess into a separate process group so that
+	// on context cancellation (user pressing q or Ctrl-C) the entire group
+	// is killed atomically. Without this, the traced child (e.g. a long-running
+	// "ping") survives strace being SIGKILL'd, keeping the stderr pipe open
+	// and making the terminal appear frozen while wg.Wait() blocks.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		// When Setpgid is true the PGID equals strace's PID, so Kill(-pid)
+		// delivers SIGKILL to strace and all its children (e.g. ping).
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		return nil
+	}
+
 	return t.start(cmd, 0)
 }
 
