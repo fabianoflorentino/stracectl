@@ -16,9 +16,11 @@
   .cat-pill{font-size:.75rem;padding:2px 8px;border-radius:10px;background:#21262d;font-weight:500}
   .cat-IO{color:#79c0ff}.cat-FS{color:#56d364}.cat-NET{color:#f0883e}.cat-MEM{color:#d2a8ff}
   .cat-PROC{color:#ff7b72}.cat-SIG{color:#8b949e}.cat-OTHER{color:#6e7681}
-  .wrap{padding:20px 24px;overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:.82rem}
-  thead th{text-align:left;padding:6px 10px;color:#8b949e;font-weight:600;border-bottom:1px solid #30363d;white-space:nowrap;cursor:pointer;user-select:none}
+  .wrap{padding:8px 24px 60px;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;table-layout:fixed}
+  thead th{text-align:left;padding:6px 10px;color:#8b949e;font-weight:600;border-bottom:1px solid #30363d;white-space:nowrap;cursor:pointer;user-select:none;overflow:hidden;text-overflow:ellipsis}
+  thead th.rnum{text-align:right}
+  thead th.spark-col{width:100px;cursor:default}
   thead th:hover{color:#e6edf3}
   thead th.asc::after{content:" ▲"}
   thead th.desc::after{content:" ▼"}
@@ -57,7 +59,7 @@
   #done-banner{display:none;padding:8px 24px;background:#3d2f00;border-bottom:2px solid #e3b341;
                font-size:.82rem;color:#e3b341;font-weight:600;letter-spacing:.03em}
   /* search bar */
-  #search-bar{padding:8px 24px;background:#0d1117;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px}
+  #search-bar{padding:8px 24px 4px;background:#0d1117;display:flex;align-items:center;gap:8px}
   #search-input{background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-family:monospace;font-size:.82rem;padding:5px 10px;width:220px;outline:none}
   #search-input:focus{border-color:#58a6ff}
   #search-label{font-size:.78rem;color:#8b949e}
@@ -97,15 +99,15 @@
 <table>
   <thead>
     <tr>
-      <th data-col="Name">SYSCALL</th>
-      <th data-col="Category">CAT</th>
-      <th data-col="Count" class="desc">CALLS</th>
-      <th data-col="_bar"></th>
-      <th data-col="AvgTime">AVG</th>
-      <th data-col="MaxTime">MAX</th>
-      <th data-col="TotalTime">TOTAL</th>
-      <th data-col="Errors">ERRORS</th>
-      <th data-col="_erp">ERR%</th>
+      <th data-col="Name" style="width:22%">SYSCALL</th>
+      <th data-col="Category" style="width:80px">CAT</th>
+      <th data-col="Count" class="desc rnum" style="width:7%">CALLS</th>
+      <th data-col="_bar" class="spark-col"></th>
+      <th data-col="AvgTime" class="rnum" style="width:8%">AVG</th>
+      <th data-col="MaxTime" class="rnum" style="width:8%">MAX</th>
+      <th data-col="TotalTime" class="rnum" style="width:9%">TOTAL</th>
+      <th data-col="Errors" class="rnum" style="width:8%">ERRORS</th>
+      <th data-col="_erp" class="rnum" style="width:6%">ERR%</th>
     </tr>
   </thead>
   <tbody id="tbody"></tbody>
