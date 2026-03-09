@@ -1,0 +1,30 @@
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <span class="logo-bracket">&gt;_</span><span class="logo-text">stracectl</span>
+      <p>A modern strace with real-time TUI and Kubernetes sidecar mode.</p>
+      <p class="footer-license">MIT License — © {{ now.Format "2006" }} {{ .Site.Params.author }}</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <p class="footer-col-title">Project</p>
+        <a href="{{ .Site.Params.github }}" target="_blank" rel="noopener">GitHub</a>
+        <a href="{{ .Site.Params.github }}/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="{{ .Site.Params.github }}/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+      <div class="footer-col">
+        <p class="footer-col-title">Docs</p>
+        <a href="/docs/install/">Install</a>
+        <a href="/docs/usage/">Usage</a>
+        <a href="/docs/kubernetes/">Kubernetes</a>
+        <a href="/docs/api/">HTTP API</a>
+      </div>
+      <div class="footer-col">
+        <p class="footer-col-title">More</p>
+        <a href="/changelog/">Changelog</a>
+        <a href="/roadmap/">Roadmap</a>
+        <a href="{{ .Site.Params.github }}/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+      </div>
+    </div>
+  </div>
+</footer>
