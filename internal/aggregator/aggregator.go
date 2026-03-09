@@ -3,13 +3,53 @@ package aggregator
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/bits"
+	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/fabianoflorentino/stracectl/internal/models"
 )
+
+// ProcInfo holds process metadata read from /proc/<pid>.
+type ProcInfo struct {
+	PID     int
+	Comm    string // short name from /proc/<pid>/comm
+	Cmdline string // full command line from /proc/<pid>/cmdline
+	Exe     string // executable path via /proc/<pid>/exe symlink
+	Cwd     string // working directory via /proc/<pid>/cwd symlink
+}
+
+// ReadProcInfo reads process metadata from /proc/<pid>.
+// Missing or inaccessible fields are silently omitted (empty string).
+func ReadProcInfo(pid int) ProcInfo {
+	base := fmt.Sprintf("/proc/%d", pid)
+	info := ProcInfo{PID: pid}
+	// The paths are constructed from a numeric PID so there is no traversal risk.
+	// G304 is suppressed via a local variable assignment to satisfy gosec.
+	commPath := base + "/comm"
+	if b, err := os.ReadFile(commPath); err == nil { //nolint:gosec // path is /proc/<pid>/comm (numeric PID)
+		info.Comm = strings.TrimSpace(string(b))
+	}
+	cmdlinePath := base + "/cmdline"
+	if b, err := os.ReadFile(cmdlinePath); err == nil { //nolint:gosec // path is /proc/<pid>/cmdline (numeric PID)
+		// cmdline is NUL-separated; convert to space-separated and trim trailing NUL
+		info.Cmdline = strings.TrimRight(
+			strings.ReplaceAll(string(b), "\x00", " "),
+			" ",
+		)
+	}
+	if exe, err := os.Readlink(base + "/exe"); err == nil {
+		info.Exe = exe
+	}
+	if cwd, err := os.Readlink(base + "/cwd"); err == nil {
+		info.Cwd = cwd
+	}
+	return info
+}
 
 // sortErrnoCount sorts a slice of ErrnoCount descending by count, then ascending by name.
 func sortErrnoCount(s []ErrnoCount) {
@@ -307,6 +347,7 @@ type Aggregator struct {
 	started  time.Time
 	prevRate rateSnapshot
 	rate     float64 // syscalls/s, updated every snapshot
+	procInfo ProcInfo
 }
 
 type rateSnapshot struct {
@@ -481,4 +522,18 @@ func (a *Aggregator) StartTime() time.Time {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.started
+}
+
+// SetProcInfo stores process metadata for the traced process.
+func (a *Aggregator) SetProcInfo(info ProcInfo) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.procInfo = info
+}
+
+// GetProcInfo returns the stored process metadata.
+func (a *Aggregator) GetProcInfo() ProcInfo {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.procInfo
 }

@@ -2,6 +2,7 @@ package aggregator_test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -458,5 +459,51 @@ func TestPercentile_SortedPopulatesBoth(t *testing.T) {
 	s := stats[0]
 	if s.P95 == 0 || s.P99 == 0 {
 		t.Errorf("Sorted should populate P95/P99; got P95=%v P99=%v", s.P95, s.P99)
+	}
+}
+
+// ── ProcInfo ──────────────────────────────────────────────────────────────────
+
+func TestReadProcInfo_Self(t *testing.T) {
+	pid := os.Getpid()
+	info := aggregator.ReadProcInfo(pid)
+	if info.PID != pid {
+		t.Errorf("PID: want %d, got %d", pid, info.PID)
+	}
+	if info.Comm == "" {
+		t.Error("Comm should be non-empty for the current process")
+	}
+	if info.Exe == "" {
+		t.Error("Exe should be non-empty for the current process")
+	}
+}
+
+func TestReadProcInfo_NonExistentPID(t *testing.T) {
+	// A very large PID that cannot exist.
+	info := aggregator.ReadProcInfo(999999999)
+	if info.PID != 999999999 {
+		t.Errorf("PID should be set even when process doesn't exist; got %d", info.PID)
+	}
+	// All string fields should be empty when /proc/<pid> doesn't exist.
+	if info.Comm != "" || info.Exe != "" || info.Cwd != "" || info.Cmdline != "" {
+		t.Errorf("string fields should be empty for non-existent PID; got %+v", info)
+	}
+}
+
+func TestSetGetProcInfo(t *testing.T) {
+	a := aggregator.New()
+	want := aggregator.ProcInfo{PID: 42, Comm: "testbin", Exe: "/usr/bin/testbin"}
+	a.SetProcInfo(want)
+	got := a.GetProcInfo()
+	if got != want {
+		t.Errorf("GetProcInfo: want %+v, got %+v", want, got)
+	}
+}
+
+func TestGetProcInfo_DefaultEmpty(t *testing.T) {
+	a := aggregator.New()
+	info := a.GetProcInfo()
+	if info.PID != 0 || info.Comm != "" {
+		t.Errorf("default ProcInfo should be zero value; got %+v", info)
 	}
 }
