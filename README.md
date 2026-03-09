@@ -2,8 +2,10 @@
 
 [![CI](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml)
 [![Docker](https://github.com/fabianoflorentino/stracectl/actions/workflows/docker.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/docker.yml)
-[![Linux](https://github.com/fabianoflorentino/stracectl/actions/workflows/linux.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/linux.yml)
+[![Dependency Graph](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/update-graph)
+[![CodeQL](https://github.com/fabianoflorentino/stracectl/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/github-code-scanning/codeql)
 [![Trivy](https://github.com/fabianoflorentino/stracectl/actions/workflows/trivy.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/trivy.yml)
+[![Dependabot Updates](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/dependabot-updates)
 [![Release](https://img.shields.io/github/v/release/fabianoflorentino/stracectl?label=release)](https://github.com/fabianoflorentino/stracectl/releases/latest)
 
 A modern `strace` with a real-time, htop-style TUI — and an HTTP sidecar mode
