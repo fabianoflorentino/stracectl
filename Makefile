@@ -1,0 +1,221 @@
+# ============================================================================
+# stracectl — Makefile
+# ============================================================================
+# Development environment management for stracectl and the Hugo docs site
+# ============================================================================
+
+.PHONY: help \
+        build run test test-short coverage fmt vet lint tidy clean all \
+        site-dev site-build site-clean \
+        docker-build docker-build-dev docker-build-site docker-push \
+        up up-site up-detach down logs logs-tail ps restart prune \
+        check-deps info
+
+# ============================================================================
+# Variables
+# ============================================================================
+
+BINARY        := stracectl
+MODULE        := github.com/fabianoflorentino/stracectl
+IMAGE         := ghcr.io/fabianoflorentino/stracectl
+VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS       := -s -w -X main.version=$(VERSION)
+BUILD_FLAGS   := CGO_ENABLED=0 GOARCH=amd64
+GOTEST_FLAGS  := -v -race -count=1
+
+SITE_DIR      := site
+SITE_BASE_URL ?= http://localhost:1313/stracectl/
+
+# ============================================================================
+# Output colors
+# ============================================================================
+
+RED    := \033[0;31m
+GREEN  := \033[0;32m
+YELLOW := \033[0;33m
+BLUE   := \033[0;34m
+NC     := \033[0m
+
+# ============================================================================
+# Default target
+# ============================================================================
+
+.DEFAULT_GOAL := help
+
+##@ Help
+
+help: ## Show this help message
+	@echo ""
+	@echo -e "$(BLUE)╔══════════════════════════════════════════════════════════════╗$(NC)"
+	@echo -e "$(BLUE)║               stracectl — Available Commands                 ║$(NC)"
+	@echo -e "$(BLUE)╚══════════════════════════════════════════════════════════════╝$(NC)"
+	@echo ""
+	@awk 'BEGIN {FS = ":.*##"; printf ""} /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-18s$(NC) %s\n", $$1, $$2 } /^##@/ { printf "\n$(YELLOW)%s$(NC)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@echo ""
+
+##@ Go — Build & Run
+
+build: ## Compile the binary to ./bin/stracectl
+	@echo -e "$(BLUE)🔨 Building $(BINARY)...$(NC)"
+	@mkdir -p bin
+	@$(BUILD_FLAGS) go build -trimpath -ldflags="$(LDFLAGS)" -o bin/$(BINARY) .
+	@echo -e "$(GREEN)✓ Binary created at bin/$(BINARY)$(NC)"
+
+run: ## Run with go run (pass ARGS="..." for extra flags)
+	@echo -e "$(BLUE)▶  Running $(BINARY)...$(NC)"
+	@go run . $(ARGS)
+
+all: fmt vet test build ## Format, vet, test and build everything
+
+##@ Go — Tests & Quality
+
+test: ## Run all unit tests (with race detector)
+	@echo -e "$(BLUE)🧪 Running tests...$(NC)"
+	@go test $(GOTEST_FLAGS) ./...
+	@echo -e "$(GREEN)✓ All tests passed!$(NC)"
+
+test-short: ## Run tests without the race detector (faster)
+	@echo -e "$(BLUE)🧪 Running tests (fast mode)...$(NC)"
+	@go test -v -count=1 ./...
+	@echo -e "$(GREEN)✓ Tests completed!$(NC)"
+
+coverage: ## Run tests and generate an HTML coverage report
+	@echo -e "$(BLUE)📊 Generating coverage report...$(NC)"
+	@go test -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo -e "$(GREEN)✓ Report generated: coverage.html$(NC)"
+
+fmt: ## Format Go source files
+	@echo -e "$(BLUE)✏️  Formatting code...$(NC)"
+	@go fmt ./...
+	@echo -e "$(GREEN)✓ Formatting done!$(NC)"
+
+vet: ## Run go vet
+	@echo -e "$(BLUE)🔍 Running go vet...$(NC)"
+	@go vet ./...
+	@echo -e "$(GREEN)✓ go vet passed!$(NC)"
+
+lint: ## Run golangci-lint (must be installed)
+	@echo -e "$(BLUE)🔍 Running golangci-lint...$(NC)"
+	@golangci-lint run ./...
+	@echo -e "$(GREEN)✓ Lint passed!$(NC)"
+
+tidy: ## Tidy and verify Go modules
+	@echo -e "$(BLUE)📦 Tidying modules...$(NC)"
+	@go mod tidy
+	@go mod verify
+	@echo -e "$(GREEN)✓ Modules up to date!$(NC)"
+
+clean: ## Remove build artifacts
+	@echo -e "$(YELLOW)🧹 Removing artifacts...$(NC)"
+	@rm -rf bin/ coverage.out coverage.html
+	@echo -e "$(GREEN)✓ Clean done!$(NC)"
+
+##@ Site (Hugo)
+
+site-dev: ## Start the Hugo dev server with live-reload (requires Hugo extended)
+	@echo -e "$(BLUE)🚀 Starting Hugo server...$(NC)"
+	@echo -e "$(YELLOW)📝 Site available at: $(SITE_BASE_URL)$(NC)"
+	@hugo server \
+		--source $(SITE_DIR) \
+		--bind 0.0.0.0 \
+		--disableFastRender \
+		--buildDrafts \
+		--baseURL "$(SITE_BASE_URL)"
+
+site-build: ## Build the static site into site/public/ (minified)
+	@echo -e "$(BLUE)🏗️  Building static site...$(NC)"
+	@hugo --source $(SITE_DIR) --minify
+	@echo -e "$(GREEN)✓ Site built at $(SITE_DIR)/public$(NC)"
+
+site-clean: ## Remove the site/public/ directory
+	@echo -e "$(YELLOW)🧹 Removing $(SITE_DIR)/public/...$(NC)"
+	@rm -rf $(SITE_DIR)/public
+	@echo -e "$(GREEN)✓ $(SITE_DIR)/public/ removed!$(NC)"
+
+##@ Docker — Images
+
+docker-build: ## Build the production Docker image (distroless)
+	@echo -e "$(BLUE)🔨 Building production image...$(NC)"
+	@docker build --target production \
+		-t $(IMAGE):$(VERSION) \
+		-t $(IMAGE):latest .
+	@echo -e "$(GREEN)✓ Image $(IMAGE):$(VERSION) created!$(NC)"
+
+docker-build-dev: ## Build the development Docker image
+	@echo -e "$(BLUE)🔨 Building development image...$(NC)"
+	@docker build --target development -t $(IMAGE):dev .
+	@echo -e "$(GREEN)✓ Image $(IMAGE):dev created!$(NC)"
+
+docker-build-site: ## Build the Hugo site Docker image
+	@echo -e "$(BLUE)🔨 Building site image...$(NC)"
+	@docker build --target site -t $(IMAGE):site .
+	@echo -e "$(GREEN)✓ Image $(IMAGE):site created!$(NC)"
+
+docker-push: ## Push production images to the registry
+	@echo -e "$(BLUE)📤 Pushing images to the registry...$(NC)"
+	@docker push $(IMAGE):$(VERSION)
+	@docker push $(IMAGE):latest
+	@echo -e "$(GREEN)✓ Images pushed successfully!$(NC)"
+
+##@ Docker Compose — Services
+
+up: ## Start stracectl in dev mode with live-reload
+	@echo -e "$(BLUE)🚀 Starting stracectl (dev)...$(NC)"
+	@docker compose up
+
+up-site: ## Start the Hugo dev server via docker compose
+	@echo -e "$(BLUE)🚀 Starting Hugo site...$(NC)"
+	@docker compose up site
+
+up-detach: ## Start all services in the background
+	@echo -e "$(BLUE)🚀 Starting services in the background...$(NC)"
+	@docker compose up -d
+	@echo -e "$(GREEN)✓ Services running in the background!$(NC)"
+
+down: ## Stop and remove all compose containers
+	@echo -e "$(BLUE)🛑 Stopping services...$(NC)"
+	@docker compose down
+	@echo -e "$(GREEN)✓ Services stopped!$(NC)"
+
+logs: ## Follow compose service logs (Ctrl-C to exit)
+	@docker compose logs -f
+
+logs-tail: ## Show the last 100 lines of logs
+	@docker compose logs --tail=100
+
+ps: ## List running compose services
+	@echo -e "$(BLUE)📊 Service status:$(NC)"
+	@docker compose ps
+
+restart: ## Restart all compose services
+	@echo -e "$(BLUE)🔄 Restarting services...$(NC)"
+	@docker compose restart
+	@echo -e "$(GREEN)✓ Services restarted!$(NC)"
+
+prune: ## Remove dangling images and stopped containers (safe cleanup)
+	@echo -e "$(YELLOW)🧹 Removing unused Docker resources...$(NC)"
+	@docker image prune -f
+	@docker container prune -f
+	@echo -e "$(GREEN)✓ Cleanup done!$(NC)"
+
+##@ Utilities
+
+check-deps: ## Check that all required dependencies are installed
+	@echo -e "$(BLUE)🔍 Checking dependencies...$(NC)"
+	@command -v go     >/dev/null 2>&1 || { echo -e "$(RED)❌ Go is not installed$(NC)";      exit 1; }
+	@command -v docker >/dev/null 2>&1 || { echo -e "$(RED)❌ Docker is not installed$(NC)";  exit 1; }
+	@command -v hugo   >/dev/null 2>&1 || { echo -e "$(RED)❌ Hugo is not installed$(NC)";    exit 1; }
+	@echo -e "$(GREEN)✓ All dependencies are installed!$(NC)"
+
+info: ## Show development environment information
+	@echo -e "$(BLUE)ℹ️  Environment info:$(NC)"
+	@echo -e "$(YELLOW)Go:$(NC)"
+	@go version
+	@echo -e "$(YELLOW)Docker:$(NC)"
+	@docker --version
+	@echo -e "$(YELLOW)Docker Compose:$(NC)"
+	@docker compose version
+	@echo -e "$(YELLOW)Hugo:$(NC)"
+	@hugo version 2>/dev/null || echo "  Hugo not found"
+	@echo -e "$(YELLOW)Version:$(NC) $(VERSION)"
