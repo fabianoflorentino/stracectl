@@ -1,0 +1,11 @@
+site/
+deploy/
+docs/
+scripts/
+.github/
+.git/
+*.md
+.gitignore
+.tool-versions
+lefthook.yml
+docker-compose.yml
