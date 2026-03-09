@@ -21,3 +21,4 @@ Thumbs.db
 *.html
 !internal/server/static/*.html
 !internal/report/static/*.html
+.vscode
