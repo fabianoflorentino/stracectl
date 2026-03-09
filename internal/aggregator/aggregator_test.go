@@ -407,3 +407,56 @@ func TestAdd_Concurrent(t *testing.T) {
 		t.Errorf("concurrent Total: want %d, got %d", want, got)
 	}
 }
+
+// ── Latency percentiles (P95/P99) ─────────────────────────────────────────────
+
+func TestPercentile_ZeroWhenNoEvents(t *testing.T) {
+	a := aggregator.New()
+	a.Add(fail("open", 0)) // error, zero latency
+	s, _ := a.Get("open")
+	if s.P95 != 0 || s.P99 != 0 {
+		t.Errorf("P95/P99 with no positive latency: want 0/0, got %v/%v", s.P95, s.P99)
+	}
+}
+
+func TestPercentile_P95LessThanOrEqualP99(t *testing.T) {
+	a := aggregator.New()
+	for i := 1; i <= 100; i++ {
+		a.Add(ok("read", time.Duration(i)*time.Microsecond))
+	}
+	s, _ := a.Get("read")
+	if s.P95 > s.P99 {
+		t.Errorf("P95 (%v) must be <= P99 (%v)", s.P95, s.P99)
+	}
+	if s.P99 == 0 {
+		t.Error("P99 should be non-zero after 100 events with positive latency")
+	}
+}
+
+func TestPercentile_UniformDistribution(t *testing.T) {
+	// 100 events: 1µs … 100µs. P99 should be in the bucket containing 99µs.
+	a := aggregator.New()
+	for i := 1; i <= 100; i++ {
+		a.Add(ok("write", time.Duration(i)*time.Microsecond))
+	}
+	s, _ := a.Get("write")
+	// P99 bucket lower bound must be ≥ 32µs (bucket for 64µs range) and ≤ 128µs
+	if s.P99 < 32*time.Microsecond || s.P99 > 128*time.Microsecond {
+		t.Errorf("P99 out of expected range [32µs, 128µs]: got %v", s.P99)
+	}
+}
+
+func TestPercentile_SortedPopulatesBoth(t *testing.T) {
+	a := aggregator.New()
+	for i := 1; i <= 50; i++ {
+		a.Add(ok("fstat", time.Duration(i)*time.Microsecond))
+	}
+	stats := a.Sorted(aggregator.SortByCount)
+	if len(stats) == 0 {
+		t.Fatal("Sorted returned no stats")
+	}
+	s := stats[0]
+	if s.P95 == 0 || s.P99 == 0 {
+		t.Errorf("Sorted should populate P95/P99; got P95=%v P99=%v", s.P95, s.P99)
+	}
+}

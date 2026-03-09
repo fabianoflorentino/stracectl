@@ -79,6 +79,14 @@
     <div class="val" id="v-min">—</div>
   </div>
   <div class="card">
+    <div class="lbl">P95 Latency</div>
+    <div class="val" id="v-p95">—</div>
+  </div>
+  <div class="card">
+    <div class="lbl">P99 Latency</div>
+    <div class="val" id="v-p99">—</div>
+  </div>
+  <div class="card">
     <div class="lbl">Max Latency</div>
     <div class="val" id="v-max">—</div>
   </div>
@@ -331,6 +339,8 @@ function update(r) {
   document.getElementById('v-calls').textContent  = fmtN(r.Count);
   document.getElementById('v-avg').textContent    = fmtDur(avgNs);
   document.getElementById('v-min').textContent    = fmtDur(r.MinTime);
+  document.getElementById('v-p95').textContent    = fmtDur(r.P95);
+  document.getElementById('v-p99').textContent    = fmtDur(r.P99);
   document.getElementById('v-max').textContent    = fmtDur(r.MaxTime);
   document.getElementById('v-total').textContent  = fmtDur(r.TotalTime);
   document.getElementById('v-errors').textContent = r.Errors ? fmtN(r.Errors) : '—';
