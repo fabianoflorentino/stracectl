@@ -99,7 +99,7 @@ spec:
     image: myapp:latest          # replace with your workload
 
   - name: stracectl
-    image: fabianoflorentino/stracectl:v1.0.23
+    image: fabianoflorentino/stracectl:v1.0.38
     args:
       - attach
       - --serve

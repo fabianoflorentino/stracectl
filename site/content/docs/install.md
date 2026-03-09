@@ -50,7 +50,7 @@ Pre-built images are published to Docker Hub on every release:
 docker pull fabianoflorentino/stracectl:latest
 
 # Pin to a specific version
-docker pull fabianoflorentino/stracectl:v1.0.23
+docker pull fabianoflorentino/stracectl:v1.0.38
 ```
 
 Run inside a privileged container (required for `ptrace`):
