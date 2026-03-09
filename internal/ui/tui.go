@@ -65,6 +65,7 @@ type model struct {
 	editing       bool
 	helpOverlay   bool
 	detailOverlay bool
+	processDone   bool
 	cursor        int
 	width         int
 	height        int
@@ -74,14 +75,15 @@ type model struct {
 func (m model) Init() tea.Cmd { return tick() }
 
 // processDeadMsg is sent to the program when the traced process exits.
-// Handling it in Update (rather than sending tea.QuitMsg directly) makes the
-// auto-quit path unit-testable without a real terminal.
+// The TUI marks itself as done and shows a banner, but does NOT quit
+// automatically — the user reviews the final data and presses q.
 type processDeadMsg struct{}
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case processDeadMsg:
-		return m, tea.Quit
+		m.processDone = true
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -208,6 +210,12 @@ func (m model) View() string {
 	var footer string
 	if m.editing {
 		footer = filterStyle.Render(fmt.Sprintf(" filter: %s█", m.filter))
+	} else if m.processDone {
+		hint := " ✔  process exited — press q to quit"
+		if m.filter != "" {
+			hint += fmt.Sprintf("   [filter: %q]", m.filter)
+		}
+		footer = alertStyle.Render(hint)
 	} else {
 		hint := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  ?:help  esc:clear"
 		if m.filter != "" {
