@@ -99,6 +99,10 @@
     <div class="val" id="v-errors">—</div>
   </div>
   <div class="card c-err">
+    <div class="lbl">Errors (60 s)</div>
+    <div class="val" id="v-err60">—</div>
+  </div>
+  <div class="card c-err">
     <div class="lbl">Error Rate</div>
     <div class="val" id="v-errpct">—</div>
   </div>
@@ -344,6 +348,7 @@ function update(r) {
   document.getElementById('v-max').textContent    = fmtDur(r.MaxTime);
   document.getElementById('v-total').textContent  = fmtDur(r.TotalTime);
   document.getElementById('v-errors').textContent = r.Errors ? fmtN(r.Errors) : '—';
+  document.getElementById('v-err60').textContent  = r.ErrRate60s ? fmtN(r.ErrRate60s) : '—';
   document.getElementById('v-errpct').textContent = r.Errors ? errPct.toFixed(1) + '%' : '—';
 
   // colour avg card only when slow (≥5 ms)
