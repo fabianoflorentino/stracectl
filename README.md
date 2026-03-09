@@ -104,7 +104,7 @@ LIVE STATISTICS
 ## Requirements
 
 - Linux (uses `ptrace` via the `strace` binary)
-- Go 1.21+
+- Go 1.26+
 - `strace` installed
 
 ```bash
