@@ -1,6 +1,10 @@
 # binary (the compiled executable at project root)
 /stracectl
 
+# Hugo build output
+site/public/
+site/resources/_gen/
+
 # Go
 *.test
 *.out
@@ -21,4 +25,5 @@ Thumbs.db
 *.html
 !internal/server/static/*.html
 !internal/report/static/*.html
+!site/**/*.html
 .vscode
