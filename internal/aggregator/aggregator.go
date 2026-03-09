@@ -3,6 +3,7 @@ package aggregator
 
 import (
 	"encoding/json"
+	"math/bits"
 	"sort"
 	"sync"
 	"time"
@@ -175,11 +176,17 @@ type SyscallStat struct {
 	TotalTime time.Duration
 	MinTime   time.Duration
 	MaxTime   time.Duration
+	// P95 and P99 are approximate latency percentiles derived from the log2 histogram.
+	// They are populated by Sorted() and Get() — not during Add().
+	P95 time.Duration
+	P99 time.Duration
 	// ErrorBreakdown counts occurrences of each distinct errno (e.g. "ENOENT").
 	// It is non-nil only when at least one error has been recorded.
 	ErrorBreakdown map[string]int64
 	// RecentErrors is a ring buffer of the last maxErrorSamples failed calls.
 	RecentErrors []ErrorSample
+	// latHist is an unexported log2 histogram used to compute P95/P99.
+	latHist [latencyBuckets]int64
 }
 
 // TopErrors returns the errno breakdown sorted descending by count.
@@ -200,6 +207,48 @@ func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
 }
 
 const maxErrorSamples = 10 // max recent error samples retained per syscall
+
+// latencyBuckets is the number of log2 histogram buckets used for percentile estimation.
+// Bucket i covers the latency range [2^i, 2^(i+1)) nanoseconds.
+// Using 63 buckets keeps all indices within int64 range (max bucket = 2^62 ≈ 146 years).
+const latencyBuckets = 63
+
+// latBucket returns the histogram bucket index for a nanosecond latency value.
+func latBucket(ns int64) int {
+	if ns <= 1 {
+		return 0
+	}
+	b := bits.Len64(uint64(ns)) - 1
+	if b >= latencyBuckets {
+		b = latencyBuckets - 1
+	}
+	return b
+}
+
+// latPercentile returns the p-th percentile (0–100) from a log2 latency histogram.
+// The result is the lower bound of the bucket that contains the p-th observation.
+// Returns 0 when no positive-latency observations have been recorded.
+func latPercentile(hist *[latencyBuckets]int64, p float64) time.Duration {
+	var total int64
+	for _, c := range hist {
+		total += c
+	}
+	if total == 0 {
+		return 0
+	}
+	target := total * int64(p) / 100
+	if target == 0 {
+		target = 1
+	}
+	var acc int64
+	for i := 0; i < latencyBuckets; i++ {
+		acc += hist[i]
+		if acc >= target {
+			return time.Duration(int64(1) << uint(i))
+		}
+	}
+	return time.Duration(int64(1) << 62) // unreachable in practice
+}
 
 // ErrorSample captures args and context of a single failed syscall call.
 type ErrorSample struct {
@@ -294,6 +343,7 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 	s.TotalTime += e.Latency
 
 	if e.Latency > 0 {
+		s.latHist[latBucket(int64(e.Latency))]++
 		if s.MinTime == 0 || e.Latency < s.MinTime {
 			s.MinTime = e.Latency
 		}
@@ -340,7 +390,10 @@ func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 
 	out := make([]SyscallStat, 0, len(a.stats))
 	for _, s := range a.stats {
-		out = append(out, *s)
+		cp := *s
+		cp.P95 = latPercentile(&s.latHist, 95)
+		cp.P99 = latPercentile(&s.latHist, 99)
+		out = append(out, cp)
 	}
 
 	sort.Slice(out, func(i, j int) bool {
@@ -377,7 +430,10 @@ func (a *Aggregator) Get(name string) (SyscallStat, bool) {
 	if !ok {
 		return SyscallStat{}, false
 	}
-	return *s, true
+	cp := *s
+	cp.P95 = latPercentile(&s.latHist, 95)
+	cp.P99 = latPercentile(&s.latHist, 99)
+	return cp, true
 }
 
 // CategoryBreakdown returns counts grouped by category.
