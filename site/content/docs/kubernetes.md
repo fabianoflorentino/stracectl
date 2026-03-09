@@ -39,7 +39,7 @@ without modifying the target process's execution.
 Three settings are **required** on the sidecar container:
 
 | Setting | Value | Why |
-|---------|-------|-----|
+| --------- | ------- | ----- |
 | `spec.shareProcessNamespace` | `true` | Without this each container has its own PID namespace; the sidecar cannot see the app's processes |
 | `capabilities.add` | `[SYS_PTRACE]` | The Linux capability that allows `strace` to call `ptrace(2)` on another process |
 | `seccompProfile.type` | `Unconfined` | The default Kubernetes seccomp profile blocks the `ptrace` syscall; it must be disabled on the sidecar |
@@ -87,7 +87,7 @@ kubectl port-forward pod/<pod-name> 8080:8080
 ```
 
 | What | Command |
-|------|---------|
+| ------ | --------- |
 | Live web dashboard | `open http://localhost:8080` |
 | All syscalls (JSON) | `curl localhost:8080/api/syscalls \| jq .` |
 | One syscall detail (P95/P99, errno) | `curl localhost:8080/api/syscall/read \| jq .` |
@@ -144,7 +144,7 @@ helm install stracectl ./deploy/helm/stracectl \
 Key values (`values.yaml`):
 
 | Value | Default | Description |
-|-------|---------|-------------|
+| ------- | --------- | ------------- |
 | `target.image` | — | Image of the workload container |
 | `serve.port` | `8080` | Port for the HTTP / WebSocket API |
 | `serve.enabled` | `true` | Enable HTTP sidecar mode |
@@ -154,7 +154,7 @@ Key values (`values.yaml`):
 ## HTTP API endpoints
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
+| ---------- | -------- | ------------- |
 | `/` | GET | Live HTML dashboard |
 | `/api/syscalls` | GET | JSON snapshot of all aggregated syscalls |
 | `/api/syscall/{name}` | GET | JSON detail for one syscall (P95/P99, errno breakdown, recent error samples) |
