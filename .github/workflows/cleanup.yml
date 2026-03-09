@@ -1,0 +1,111 @@
+name: Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (list without removing)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: write
+
+jobs:
+  # ── CleanupGitHub releases & tags ───────────────────────────────────────────────────
+  cleanup-github-releases:
+    name: Cleanup GitHub releases and tags
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: List current releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "=== Current releases ==="
+          gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq '.[] | "\(.tag_name)  published_at=\(.published_at)  latest=\(.prerelease | not)"'
+
+      - name: Run cleanup (dry-run)
+        if: ${{ inputs.dry_run == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(gh api "repos/${{ github.repository }}/releases/latest" --jq '.tag_name')
+          echo "=== [DRY-RUN] Release kept: $latest ==="
+          echo "=== [DRY-RUN] Would be removed: ==="
+          gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq --arg keep "$latest" \
+            '[.[] | select(.tag_name != $keep) | .tag_name] | .[]'
+
+      - name: Run cleanup
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/cleanup-releases.sh
+          scripts/cleanup-releases.sh "${{ github.repository }}"
+
+  # ── Cleanup Docker Hub tags ──────────────────────────────────────────────────────────
+  cleanup-dockerhub-tags:
+    name: Cleanup Docker Hub tags
+    needs: cleanup-github-releases
+    environment: DOCKERHUB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate with Docker Hub
+        id: auth
+        run: |
+          TOKEN=$(curl -fsSL \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"username\": \"${{ secrets.DOCKERHUB_USERNAME }}\", \"password\": \"${{ secrets.DOCKERHUB_TOKEN }}\"}" \
+            "https://hub.docker.com/v2/users/login" | jq -r '.token')
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: List current tags
+        run: |
+          NAMESPACE="${{ github.repository_owner }}"
+          REPOSITORY="${{ github.event.repository.name }}"
+          echo "=== Current tags for $NAMESPACE/$REPOSITORY ==="
+          curl -fsSL \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
+            "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/?page_size=100" \
+            | jq -r '.results | sort_by(.last_updated) | .[] | "\(.name)  last_updated=\(.last_updated)"'
+
+      - name: Run cleanup (dry-run)
+        if: ${{ inputs.dry_run == 'true' }}
+        run: |
+          NAMESPACE="${{ github.repository_owner }}"
+          REPOSITORY="${{ github.event.repository.name }}"
+
+          all_tags=$(curl -fsSL \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
+            "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/?page_size=100" \
+            | jq -r '[.results | sort_by(.last_updated) | .[].name] | .[]')
+
+          latest=$(echo "$all_tags" | grep -v '^latest$' | tail -1)
+
+          echo "=== [DRY-RUN] Tag kept: $latest ==="
+          echo "=== [DRY-RUN] Would be removed: ==="
+          echo "$all_tags" | grep -v "^${latest}$" || true
+
+      - name: Run cleanup
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          chmod +x scripts/cleanup-dockerhub-tags.sh
+          scripts/cleanup-dockerhub-tags.sh "${{ github.repository }}"
