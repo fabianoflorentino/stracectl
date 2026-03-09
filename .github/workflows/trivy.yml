@@ -14,7 +14,8 @@ on:
       - '**/*.md'
       - 'scripts/**'
       - 'site/**'
-      
+      - 'Makefile'
+
 jobs:
   scan:
     name: Trivy vulnerability scan

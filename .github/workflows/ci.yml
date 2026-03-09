@@ -9,6 +9,7 @@ on:
       - '.github/**'
       - 'scripts/**'
       - 'site/**'
+      - 'Makefile'
   pull_request:
     branches: [main]
     paths-ignore:
@@ -17,6 +18,7 @@ on:
       - '.github/**'
       - 'scripts/**'
       - 'site/**'
+      - 'Makefile'
 
 permissions:
   contents: read
