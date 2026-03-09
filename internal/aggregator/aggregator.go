@@ -220,6 +220,9 @@ type SyscallStat struct {
 	// They are populated by Sorted() and Get() — not during Add().
 	P95 time.Duration
 	P99 time.Duration
+	// ErrRate60s is the number of errors recorded in the last 60 seconds.
+	// Populated by Sorted() and Get().
+	ErrRate60s int64
 	// ErrorBreakdown counts occurrences of each distinct errno (e.g. "ENOENT").
 	// It is non-nil only when at least one error has been recorded.
 	ErrorBreakdown map[string]int64
@@ -227,6 +230,8 @@ type SyscallStat struct {
 	RecentErrors []ErrorSample
 	// latHist is an unexported log2 histogram used to compute P95/P99.
 	latHist [latencyBuckets]int64
+	// errWin is an unexported sliding-window error rate tracker.
+	errWin errWindow
 }
 
 // TopErrors returns the errno breakdown sorted descending by count.
@@ -247,6 +252,39 @@ func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
 }
 
 const maxErrorSamples = 10 // max recent error samples retained per syscall
+
+// errWindowSize is the number of 1-second buckets kept for the sliding error-rate window.
+const errWindowSize = 60
+
+// errWindow is a circular buffer that counts errors per second over the last 60 s.
+// bucket[i] holds the error count for the Unix second (i % errWindowSize).
+// epoch[i] records which Unix second that bucket belongs to; stale buckets are zeroed.
+type errWindow struct {
+	buckets [errWindowSize]int32
+	epochs  [errWindowSize]int64 // Unix seconds
+}
+
+// record adds one error at the given Unix second.
+func (w *errWindow) record(sec int64) {
+	idx := int(sec % errWindowSize)
+	if w.epochs[idx] != sec {
+		// New second: reset the stale bucket.
+		w.buckets[idx] = 0
+		w.epochs[idx] = sec
+	}
+	w.buckets[idx]++
+}
+
+// sum returns the total errors in the last 60 s relative to now (Unix second).
+func (w *errWindow) sum(now int64) int64 {
+	var total int64
+	for i := 0; i < errWindowSize; i++ {
+		if now-w.epochs[i] < errWindowSize {
+			total += int64(w.buckets[i])
+		}
+	}
+	return total
+}
 
 // latencyBuckets is the number of log2 histogram buckets used for percentile estimation.
 // Bucket i covers the latency range [2^i, 2^(i+1)) nanoseconds.
@@ -402,6 +440,12 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 			}
 			s.ErrorBreakdown[e.Error]++
 		}
+		// sliding window: record error in the 1-second bucket
+		sec := e.Time.Unix()
+		if sec == 0 {
+			sec = time.Now().Unix()
+		}
+		s.errWin.record(sec)
 		// ring buffer: keep the most recent maxErrorSamples samples
 		sample := ErrorSample{Args: e.Args, Errno: e.Error, Time: e.Time}
 		if len(s.RecentErrors) < maxErrorSamples {
@@ -430,10 +474,12 @@ func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 	defer a.mu.RUnlock()
 
 	out := make([]SyscallStat, 0, len(a.stats))
+	now := time.Now().Unix()
 	for _, s := range a.stats {
 		cp := *s
 		cp.P95 = latPercentile(&s.latHist, 95)
 		cp.P99 = latPercentile(&s.latHist, 99)
+		cp.ErrRate60s = s.errWin.sum(now)
 		out = append(out, cp)
 	}
 
@@ -474,6 +520,7 @@ func (a *Aggregator) Get(name string) (SyscallStat, bool) {
 	cp := *s
 	cp.P95 = latPercentile(&s.latHist, 95)
 	cp.P99 = latPercentile(&s.latHist, 99)
+	cp.ErrRate60s = s.errWin.sum(time.Now().Unix())
 	return cp, true
 }
 

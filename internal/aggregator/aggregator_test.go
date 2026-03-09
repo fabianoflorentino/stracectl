@@ -507,3 +507,56 @@ func TestGetProcInfo_DefaultEmpty(t *testing.T) {
 		t.Errorf("default ProcInfo should be zero value; got %+v", info)
 	}
 }
+
+// ── ErrRate60s sliding window ─────────────────────────────────────────────────
+
+func TestErrRate60s_ReflectsRecentErrors(t *testing.T) {
+	a := aggregator.New()
+	now := time.Now()
+	for i := 0; i < 5; i++ {
+		a.Add(models.SyscallEvent{Name: "read", Latency: time.Microsecond, Error: "EIO", Time: now})
+	}
+	// A successful call does not count.
+	a.Add(models.SyscallEvent{Name: "read", Latency: time.Microsecond, Time: now})
+	s, _ := a.Get("read")
+	if s.ErrRate60s != 5 {
+		t.Errorf("ErrRate60s: want 5, got %d", s.ErrRate60s)
+	}
+}
+
+func TestErrRate60s_ZeroWhenNoErrors(t *testing.T) {
+	a := aggregator.New()
+	a.Add(ok("write", time.Microsecond))
+	s, _ := a.Get("write")
+	if s.ErrRate60s != 0 {
+		t.Errorf("ErrRate60s should be 0 for error-free syscall, got %d", s.ErrRate60s)
+	}
+}
+
+func TestErrRate60s_ExpiresOldBuckets(t *testing.T) {
+	a := aggregator.New()
+	// Add an error 61 seconds in the past (outside the 60-second window).
+	old := time.Now().Add(-61 * time.Second)
+	a.Add(models.SyscallEvent{Name: "open", Latency: time.Microsecond, Error: "ENOENT", Time: old})
+	// Add a recent error.
+	a.Add(models.SyscallEvent{Name: "open", Latency: time.Microsecond, Error: "ENOENT", Time: time.Now()})
+	s, _ := a.Get("open")
+	if s.ErrRate60s != 1 {
+		t.Errorf("ErrRate60s: want 1 (old error expired), got %d", s.ErrRate60s)
+	}
+}
+
+func TestErrRate60s_SortedPopulates(t *testing.T) {
+	a := aggregator.New()
+	now := time.Now()
+	for i := 0; i < 3; i++ {
+		a.Add(models.SyscallEvent{Name: "stat", Latency: time.Microsecond, Error: "ENOENT", Time: now})
+	}
+	stats := a.Sorted(aggregator.SortByErrors)
+	if len(stats) == 0 {
+		t.Fatal("no stats returned")
+	}
+	if stats[0].ErrRate60s != 3 {
+		t.Errorf("Sorted ErrRate60s: want 3, got %d", stats[0].ErrRate60s)
+	}
+}

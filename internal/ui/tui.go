@@ -546,6 +546,7 @@ func (m model) renderDetail() string {
 	section("LIVE STATISTICS")
 	field("Calls", formatCount(s.Count))
 	field("Errors", fmt.Sprintf("%s  (%.0f%%)", formatCount(s.Errors), s.ErrPct()))
+	field("Errors last 60s", formatCount(s.ErrRate60s))
 	field("Avg latency", formatDur(s.AvgTime()))
 	field("P95 latency", formatDur(s.P95))
 	field("P99 latency", formatDur(s.P99))
