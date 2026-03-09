@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -939,5 +940,122 @@ func TestRenderDetail_CursorClampedToLastRow(t *testing.T) {
 	out := m.renderDetail()
 	if !strings.Contains(out, "read") {
 		t.Errorf("renderDetail cursor clamp: expected 'read' in output, got:\n%s", out)
+	}
+}
+
+// ── Auto-quit when traced process exits ("stuck terminal" regression) ─────────
+//
+// These tests cover the scenario where the user runs:
+//
+//	stracectl run ping -c 1 8.8.8.8
+//
+// and after ping finishes, strace exits, the events channel closes — but the
+// TUI used to stay open, leaving the terminal frozen. The fix is that the done
+// channel (closed by the aggregator goroutine) causes the TUI to quit via
+// processDeadMsg.
+
+// TestProcessDeadMsg_ModelReturnsQuitCmd is the pure unit test: the model must
+// handle processDeadMsg and return tea.Quit so the program loop exits.
+func TestProcessDeadMsg_ModelReturnsQuitCmd(t *testing.T) {
+	m := newTestModel()
+	_, cmd := m.Update(processDeadMsg{})
+	if cmd == nil {
+		t.Fatal("Update(processDeadMsg{}) returned nil cmd — TUI would not quit")
+	}
+	// Execute the command and verify it produces tea.QuitMsg (what tea.Quit returns).
+	produced := cmd()
+	if _, ok := produced.(tea.QuitMsg); !ok {
+		t.Errorf("cmd after processDeadMsg produced %T, want tea.QuitMsg", produced)
+	}
+}
+
+// TestProcessDeadMsg_IgnoresAllState verifies that processDeadMsg quits
+// regardless of which overlay (if any) is currently shown.
+func TestProcessDeadMsg_IgnoresAllState(t *testing.T) {
+	states := []struct {
+		name  string
+		setup func(*model)
+	}{
+		{"normal", func(m *model) {}},
+		{"helpOverlay", func(m *model) { m.helpOverlay = true }},
+		{"detailOverlay", func(m *model) { m.detailOverlay = true }},
+		{"editing", func(m *model) { m.editing = true }},
+	}
+	for _, tc := range states {
+		m := newTestModel()
+		tc.setup(&m)
+		_, cmd := m.Update(processDeadMsg{})
+		if cmd == nil {
+			t.Errorf("[%s] Update(processDeadMsg{}) returned nil cmd — TUI would not quit", tc.name)
+			continue
+		}
+		if _, ok := cmd().(tea.QuitMsg); !ok {
+			t.Errorf("[%s] cmd does not produce tea.QuitMsg", tc.name)
+		}
+	}
+}
+
+// TestRun_QuitsWhenDoneIsClosed is the integration test: Run must return
+// promptly after the done channel is closed (the traced process has exited).
+// Without the fix, this test would time out.
+func TestRun_QuitsWhenDoneIsClosed(t *testing.T) {
+	agg := aggregator.New()
+	done := make(chan struct{})
+
+	// Use an io.Pipe as headless stdin so the program never gets real key
+	// events — it should only exit because done is closed.
+	pr, pw := io.Pipe()
+	defer pw.Close()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- runWithOpts(agg, "ping -c 1 8.8.8.8", done,
+			tea.WithInput(pr),
+			tea.WithOutput(io.Discard),
+		)
+	}()
+
+	// Give the BubbleTea program time to initialise its message loop.
+	time.Sleep(50 * time.Millisecond)
+
+	// Simulate the traced process exiting (events channel drained).
+	close(done)
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("Run returned unexpected error: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run did not return after done was closed — terminal would be stuck")
+	}
+}
+
+// TestRun_NilDoneDoesNotAutoQuit verifies that when done is nil (e.g. stats
+// mode reading from a file), the TUI does not quit on its own — it waits for
+// explicit user input.
+func TestRun_NilDoneDoesNotAutoQuit(t *testing.T) {
+	agg := aggregator.New()
+	pr, pw := io.Pipe()
+	t.Cleanup(func() { pw.Close(); pr.Close() })
+
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		runWithOpts(agg, "trace.log", nil, //nolint:errcheck
+			tea.WithInput(pr),
+			tea.WithOutput(io.Discard),
+		)
+	}()
+
+	// After 100 ms the TUI must still be running — nil done means no auto-quit.
+	// t.Cleanup will close the pipe so BubbleTea's stdin reader unblocks when
+	// the test binary exits; we do not need to wait for the goroutine here.
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-stopped:
+		t.Fatal("Run with nil done quit unexpectedly — stats-file mode would exit immediately after loading")
+	default:
+		// correct: still running
 	}
 }

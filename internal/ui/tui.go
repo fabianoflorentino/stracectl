@@ -73,8 +73,15 @@ type model struct {
 
 func (m model) Init() tea.Cmd { return tick() }
 
+// processDeadMsg is sent to the program when the traced process exits.
+// Handling it in Update (rather than sending tea.QuitMsg directly) makes the
+// auto-quit path unit-testable without a real terminal.
+type processDeadMsg struct{}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case processDeadMsg:
+		return m, tea.Quit
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -766,14 +773,31 @@ func formatCount(n int64) string {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 // Run starts the full-screen TUI backed by agg.
-func Run(agg *aggregator.Aggregator, target string) error {
+// done, if non-nil, should be closed when the traced process exits; the TUI
+// will quit automatically so the terminal is not left in a frozen state.
+func Run(agg *aggregator.Aggregator, target string, done <-chan struct{}) error {
+	return runWithOpts(agg, target, done, tea.WithAltScreen())
+}
+
+// runWithOpts is the internal entry point used by Run and by tests.
+// opts are forwarded to tea.NewProgram, allowing tests to inject headless
+// input/output without a real TTY.
+func runWithOpts(agg *aggregator.Aggregator, target string, done <-chan struct{}, opts ...tea.ProgramOption) error {
 	m := model{
 		agg:     agg,
 		target:  target,
 		sortBy:  aggregator.SortByCount,
 		started: time.Now(),
 	}
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, opts...)
+
+	if done != nil {
+		go func() {
+			<-done
+			p.Send(processDeadMsg{})
+		}()
+	}
+
 	_, err := p.Run()
 	return err
 }
