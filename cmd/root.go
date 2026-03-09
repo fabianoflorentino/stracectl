@@ -31,7 +31,7 @@ report on exit.
 Examples:
   stracectl run curl https://example.com           # trace a command from the start
   stracectl run --report out.html curl google.com  # trace and save an HTML report
-	stracectl run --serve :8080 curl google.com       # open the Web dashboard
+  stracectl run --serve :8080 curl google.com      # open the Web dashboard
   stracectl attach 1234                            # attach to a running process
   stracectl attach --serve :8080 1234              # attach and expose HTTP/Prometheus
   stracectl stats trace.log                        # analyse a saved strace file
