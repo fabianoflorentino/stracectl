@@ -8,6 +8,7 @@ on:
       - 'docs/**'
       - '.github/**'
       - 'scripts/**'
+      - 'site/**'
   pull_request:
     branches: [main]
     paths-ignore:
@@ -15,6 +16,7 @@ on:
       - 'docs/**'
       - '.github/**'
       - 'scripts/**'
+      - 'site/**'
 
 permissions:
   contents: read
