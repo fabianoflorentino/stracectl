@@ -20,16 +20,7 @@ restarts required.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    client["kubectl port-forward<br/>pod/&lt;name&gt;<br/>8080:8080"]
-    subgraph pod["Pod"]
-        sidecar["stracectl sidecar<br/>:8080"]
-        app["app container<br/>PID 42"]
-        sidecar -- "ptrace(2)" --> app
-    end
-    client --> sidecar
-```
+{{< k8s-sidecar-diagram >}}
 
 `ptrace` in attach mode is **non-intrusive**: it observes syscall entry/exit
 without modifying the target process's execution.
