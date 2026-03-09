@@ -22,8 +22,12 @@ import (
 // Tracer.Attach / Tracer.Run. Calling it kills the strace subprocess so the
 // events channel closes promptly after the UI or server has exited.
 func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-chan models.SyscallEvent, agg *aggregator.Aggregator, serveAddr, reportPath, label string) error {
+	// done is closed when the events channel drains (traced process exited).
+	done := make(chan struct{})
+
 	var wg sync.WaitGroup
 	wg.Go(func() {
+		defer close(done)
 		for event := range events {
 			agg.Add(event)
 		}
@@ -35,7 +39,7 @@ func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-cha
 		srv := server.New(serveAddr, agg)
 		runErr = srv.Start(ctx)
 	} else {
-		runErr = ui.Run(agg, label)
+		runErr = ui.Run(agg, label, done)
 	}
 
 	// Kill the strace subprocess now that the UI/server has stopped.
