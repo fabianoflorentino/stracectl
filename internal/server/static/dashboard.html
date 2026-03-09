@@ -33,6 +33,11 @@
   #status{padding:8px 24px;font-size:.75rem;color:#8b949e;border-top:1px solid #30363d;position:fixed;bottom:0;width:100%;background:#0d1117}
   #status.err{color:#f85149}
   .tag{font-size:.7rem;padding:1px 6px;border-radius:8px;margin-left:4px}
+  #alerts-section{display:none;padding:8px 24px;border-bottom:1px solid #30363d}
+  #alerts-hdr{font-size:.75rem;font-weight:700;color:#f85149;margin-bottom:4px;letter-spacing:.05em}
+  .alert-row{font-size:.82rem;padding:3px 0;font-family:monospace}
+  .alert-row.hot{color:#f85149}
+  .alert-row.slow{color:#e3b341}
 </style>
 </head>
 <body>
@@ -46,6 +51,10 @@
   </div>
 </header>
 <div class="bar-wrap" id="cat-bar"></div>
+<div id="alerts-section">
+  <div id="alerts-hdr">⚠ ANOMALY ALERTS</div>
+  <div id="alerts-list"></div>
+</div>
 <div class="wrap">
 <table>
   <thead>
@@ -67,6 +76,57 @@
 <div id="status">Connecting…</div>
 
 <script>
+const escapeHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function alertExplanation(name) {
+  const m = {
+    'ioctl':'terminal control failed — process likely has no TTY (running under sudo or piped)',
+    'openat':'files not found — often normal (dynamic linker searches multiple paths)',
+    'open':'files not found — often normal (dynamic linker searches multiple paths)',
+    'access':'optional files are missing — usually harmless (checking for config files)',
+    'faccessat':'optional files are missing — usually harmless (checking for config files)',
+    'connect':'connection attempts failed — may be Happy Eyeballs (IPv4/IPv6 race) or no route',
+    'recvfrom':'EAGAIN on non-blocking socket — normal for async I/O, not a real error',
+    'recv':'EAGAIN on non-blocking socket — normal for async I/O, not a real error',
+    'recvmsg':'EAGAIN on non-blocking socket — normal for async I/O, not a real error',
+    'sendto':'send failed — peer may have closed the connection',
+    'send':'send failed — peer may have closed the connection',
+    'sendmsg':'send failed — peer may have closed the connection',
+    'madvise':'memory hint rejected by kernel — informational, not a real failure',
+    'prctl':'process control rejected — may lack capabilities (seccomp or container policy)',
+    'statfs':'filesystem stat failed — path may be on a special fs (proc, tmpfs)',
+    'fstatfs':'filesystem stat failed — path may be on a special fs (proc, tmpfs)',
+    'unlink':'tried to delete a non-existent file — may be cleanup of temp files',
+    'unlinkat':'tried to delete a non-existent file — may be cleanup of temp files',
+    'mkdir':'directory already exists — common during first-run initialisation',
+    'mkdirat':'directory already exists — common during first-run initialisation',
+  };
+  return m[name] || '';
+}
+
+function updateAlerts(rows) {
+  const alerts = [];
+  rows.forEach(r => {
+    const errPct = r.Count ? (r.Errors / r.Count * 100) : 0;
+    const avgNs  = r.Count ? Math.round(r.TotalTime / r.Count) : 0;
+    if (errPct >= 50) {
+      const expl = alertExplanation(r.Name);
+      let msg = '⚠  ' + r.Name + ': ' + errPct.toFixed(0) + '% error rate (' + r.Errors + '/' + r.Count + ' calls)';
+      if (expl) msg += ' — ' + expl;
+      alerts.push({type:'hot', msg});
+    } else if (avgNs >= 5e6) {
+      alerts.push({type:'slow', msg: '⚡  ' + r.Name + ': slow avg ' + fmtDur(avgNs) + ' (max ' + fmtDur(r.MaxTime) + ') — kernel spending time in this call'});
+    }
+  });
+  const section = document.getElementById('alerts-section');
+  if (alerts.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  document.getElementById('alerts-hdr').textContent = '⚠  ANOMALY ALERTS (' + alerts.length + ')';
+  document.getElementById('alerts-list').innerHTML = alerts.map(a =>
+    '<div class="alert-row ' + a.type + '">' + escapeHtml(a.msg) + '</div>'
+  ).join('');
+}
+
 const fmtDur = ns => {
   if (!ns) return '—';
   if (ns < 1e3) return ns + 'ns';
@@ -179,6 +239,7 @@ function connect() {
     document.getElementById('m-rate').textContent = fmtN(Math.max(0, rate));
     updateMeta(rows);
     updateCatBar(rows);
+    updateAlerts(rows);
     render(rows);
   };
 
