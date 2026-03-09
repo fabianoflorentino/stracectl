@@ -58,8 +58,8 @@ jobs:
           echo "=== Current tags for $IMAGE ==="
           curl -fsSL \
             -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
-            "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/?page_size=100&ordering=-last_updated" \
-            | jq -r '.results[] | "\(.name)  last_updated=\(.last_updated)"'
+            "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/?page_size=100" \
+            | jq -r '.results | sort_by(.last_updated) | .[] | "\(.name)  last_updated=\(.last_updated)"'
 
       - name: Run cleanup (dry-run)
         if: ${{ inputs.dry_run == 'true' }}
@@ -70,10 +70,10 @@ jobs:
 
           all_tags=$(curl -fsSL \
             -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
-            "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/?page_size=100&ordering=-last_updated" \
-            | jq -r '[.results[] | .name] | .[]')
+            "https://hub.docker.com/v2/repositories/${NAMESPACE}/${REPOSITORY}/tags/?page_size=100" \
+            | jq -r '[.results | sort_by(.last_updated) | .[].name] | .[]')
 
-          latest=$(echo "$all_tags" | grep -v '^latest$' | head -1)
+          latest=$(echo "$all_tags" | grep -v '^latest$' | tail -1)
 
           echo "=== [DRY-RUN] Tag kept: $latest ==="
           echo "=== [DRY-RUN] Would be removed: ==="
