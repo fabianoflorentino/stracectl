@@ -1,0 +1,58 @@
+name: Cleanup Releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (list without removing)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Remove old releases and tags
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate inputs
+        run: |
+          echo "Dry-run: ${{ inputs.dry_run }}"
+          echo "Repository: ${{ github.repository }}"
+
+      - name: List current releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "=== Current releases ==="
+          gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq '.[] | "\(.tag_name)  published_at=\(.published_at)  latest=\(.prerelease | not)"'
+
+      - name: Run cleanup (dry-run)
+        if: ${{ inputs.dry_run == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(gh api "repos/${{ github.repository }}/releases/latest" --jq '.tag_name')
+          echo "=== [DRY-RUN] Release kept: $latest ==="
+          echo "=== [DRY-RUN] Would be removed: ==="
+          gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq --arg keep "$latest" \
+            '[.[] | select(.tag_name != $keep) | .tag_name] | .[]'
+
+      - name: Run cleanup
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/cleanup-releases.sh
+          scripts/cleanup-releases.sh "${{ github.repository }}"
