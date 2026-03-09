@@ -25,6 +25,10 @@ statistics in the TUI.
 Press q or Ctrl+C to stop. On exit, an optional self-contained HTML report can
 be written to a file for sharing or archiving.
 
+When --serve is enabled, stracectl exposes a Web dashboard with live syscall
+log search/filter, anomaly alerts, process metadata, process-exit notification,
+per-errno breakdown, and P95/P99 + rolling error-rate metrics.
+
 Examples:
   sudo stracectl attach 1234
   sudo stracectl attach "$(pgrep nginx | head -1)"

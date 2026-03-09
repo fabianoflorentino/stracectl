@@ -20,13 +20,19 @@ var statsServeAddr string
 var statsReportPath string
 
 var statsCmd = &cobra.Command{
-	Use:   "stats <file>",
+	Use:   "stats [--serve :8080] [--report <path>] <file>",
 	Short: "Analyse a saved strace output file (post-mortem)",
 	Long: `Parse a raw strace output file and display the same aggregated stats
 as the live trace session — without needing the traced process.
 
+This includes per-errno breakdown, rolling error-rate metrics, recent error
+samples, and P95/P99 syscall latency percentiles.
+
 The file must have been captured with strace -T (timing) for latency data.
 All output modes available to the live commands are supported.
+
+When --serve is enabled, stracectl exposes the same Web dashboard used in live
+mode, including live table filtering and anomaly alerts over parsed data.
 
 Examples:
   stracectl stats trace.log                       # analyse in TUI

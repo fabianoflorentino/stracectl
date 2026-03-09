@@ -23,10 +23,15 @@ var runCmd = &cobra.Command{
 Press q or Ctrl+C to stop. On exit, an optional self-contained HTML report can
 be written to a file for sharing or archiving.
 
+When --serve is enabled, stracectl exposes a Web dashboard with live syscall
+log search/filter, anomaly alerts, process metadata, process-exit notification,
+per-errno breakdown, and P95/P99 + rolling error-rate metrics.
+
 Examples:
   sudo stracectl run curl https://example.com
   sudo stracectl run -- python3 app.py --port 8080
   sudo stracectl run --serve :8080 curl https://example.com
+	sudo stracectl run --serve :8080 --report trace.html curl https://example.com
   sudo stracectl run --report trace.html curl https://example.com`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
