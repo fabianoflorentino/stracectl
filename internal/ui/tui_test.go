@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/models"
@@ -634,12 +635,13 @@ func TestCatStyle_AllCategories(t *testing.T) {
 	}
 }
 
-// ── padR / padL truncation ────────────────────────────────────────────────────
+// ── padR / padL ───────────────────────────────────────────────────────────────
 
-func TestPadR_Truncates(t *testing.T) {
+func TestPadR_TooLong(t *testing.T) {
+	// When the input is longer than n, return it unchanged (no truncation/corruption).
 	out := padR("toolongstring", 5)
-	if len(out) != 5 {
-		t.Errorf("padR truncated len = %d, want 5", len(out))
+	if out != "toolongstring" {
+		t.Errorf("padR too-long: got %q, want unchanged string", out)
 	}
 }
 
@@ -650,10 +652,19 @@ func TestPadR_Pads(t *testing.T) {
 	}
 }
 
-func TestPadL_Truncates(t *testing.T) {
+func TestPadR_MultibytePads(t *testing.T) {
+	// "µs" visual width = 2, padded to 5 → should add 3 spaces, total visual 5.
+	out := padR("µs", 5)
+	if lipgloss.Width(out) != 5 {
+		t.Errorf("padR multibyte visual width = %d, want 5", lipgloss.Width(out))
+	}
+}
+
+func TestPadL_TooLong(t *testing.T) {
+	// When the input is longer than n, return it unchanged.
 	out := padL("toolongstring", 5)
-	if len(out) != 5 {
-		t.Errorf("padL truncated len = %d, want 5", len(out))
+	if out != "toolongstring" {
+		t.Errorf("padL too-long: got %q, want unchanged string", out)
 	}
 }
 
@@ -661,6 +672,23 @@ func TestPadL_Pads(t *testing.T) {
 	out := padL("hi", 6)
 	if len(out) != 6 {
 		t.Errorf("padL padded len = %d, want 6", len(out))
+	}
+}
+
+func TestPadL_MultibytePads(t *testing.T) {
+	// "37.3µs" visual width = 6 (µ is 2 bytes but 1 column).
+	// padL to 10 should prepend 4 spaces, total visual width 10.
+	out := padL("37.3µs", 10)
+	if lipgloss.Width(out) != 10 {
+		t.Errorf("padL multibyte visual width = %d, want 10", lipgloss.Width(out))
+	}
+}
+
+func TestPadL_EmDashPads(t *testing.T) {
+	// "—" is 3 bytes but 1 visible column; padL to 8 should produce 7 spaces + —.
+	out := padL("—", 8)
+	if lipgloss.Width(out) != 8 {
+		t.Errorf("padL em-dash visual width = %d, want 8", lipgloss.Width(out))
 	}
 }
 

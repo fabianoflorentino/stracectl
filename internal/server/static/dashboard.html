@@ -39,12 +39,11 @@
   .alert-row{font-size:.82rem;padding:3px 0;font-family:monospace}
   .alert-row.hot{color:#f85149}
   .alert-row.slow{color:#e3b341}
-  /* tab bar */
-  .tabs{display:flex;gap:0;border-bottom:1px solid #30363d;padding:0 24px;background:#0d1117}
-  .tab-btn{font-size:.8rem;padding:7px 16px;cursor:pointer;border:none;background:transparent;
-           color:#8b949e;border-bottom:2px solid transparent;transition:color .1s}
-  .tab-btn.active{color:#e6edf3;border-bottom-color:#58a6ff}
-  .tab-btn:hover{color:#e6edf3}
+  /* tab bar — pill style matching category bar */
+  .tabs{background:#161b22;border-bottom:1px solid #30363d;padding:8px 24px;display:flex;gap:10px;flex-wrap:wrap}
+  .tab-btn{font-size:.75rem;padding:3px 10px;border-radius:10px;background:#21262d;font-weight:600;cursor:pointer;border:none;color:#8b949e;transition:background .15s,color .15s;letter-spacing:.02em}
+  .tab-btn.active{background:#1f6feb;color:#fff}
+  .tab-btn:hover:not(.active){background:#30363d;color:#e6edf3}
   /* log panel */
   #log-panel{display:none;padding:0 24px 60px;overflow-x:auto}
   #log-wrap{max-height:calc(100vh - 180px);overflow-y:auto;margin-top:12px}
@@ -125,7 +124,8 @@ let currentTab = 'stats';
 function switchTab(name) {
   currentTab = name;
   document.getElementById('stats-panel').style.display = name === 'stats' ? '' : 'none';
-  document.getElementById('log-panel').style.display   = name === 'log'   ? '' : 'none';
+  document.getElementById('search-bar').style.display  = name === 'stats' ? 'flex' : 'none';
+  document.getElementById('log-panel').style.display   = name === 'log'   ? 'block' : 'none';
   document.getElementById('tab-stats').classList.toggle('active', name === 'stats');
   document.getElementById('tab-log').classList.toggle('active', name === 'log');
   if (name === 'log') fetchLog();
