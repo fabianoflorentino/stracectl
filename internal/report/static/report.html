@@ -34,6 +34,8 @@ tbody td:first-child{font-weight:600;color:#79c0ff}
 .cat-badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.7rem;font-weight:700;background:#21262d;color:#8b949e}
 .err{color:#f85149}
 .zero{color:#484f58}
+.errno-badges{display:block;font-size:.72rem;color:#8b949e;margin-top:2px;line-height:1.6}
+.errno-badge{display:inline-block;background:#21262d;border-radius:3px;padding:0 4px;margin-right:3px;font-size:.7rem;color:#f85149;white-space:nowrap}
 .footer{text-align:center;color:#484f58;font-size:.75rem;padding:1rem 0;border-top:1px solid #21262d}
 </style>
 </head>
@@ -94,7 +96,7 @@ tbody td:first-child{font-weight:600;color:#79c0ff}
         <td>{{.Max}}</td>
         <td>{{.Total}}</td>
         <td class="{{if gt .Errors 0}}err{{end}}">{{.ErrPct}}</td>
-        <td class="{{if gt .Errors 0}}err{{end}}">{{if gt .Errors 0}}{{.Errors}}{{else}}<span class="zero">0</span>{{end}}</td>
+        <td class="{{if gt .Errors 0}}err{{end}}">{{if gt .Errors 0}}{{.Errors}}{{if .ErrnoBreakdown}}<span class="errno-badges">{{range .ErrnoBreakdown}}<span class="errno-badge">{{.Errno}} ×{{.Count}}</span>{{end}}</span>{{end}}{{else}}<span class="zero">0</span>{{end}}</td>
       </tr>
       {{end}}
     </tbody>

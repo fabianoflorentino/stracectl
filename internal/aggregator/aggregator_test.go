@@ -192,6 +192,119 @@ func TestSorted_ByErrors(t *testing.T) {
 	}
 }
 
+// ── ErrorBreakdown ────────────────────────────────────────────────────────────
+
+func TestErrorBreakdown_PopulatedOnError(t *testing.T) {
+	a := aggregator.New()
+	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
+	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
+	a.Add(event("openat", 1*time.Microsecond, "EACCES"))
+	a.Add(ok("openat", 1*time.Microsecond))
+
+	s, got := a.Get("openat")
+	if !got {
+		t.Fatal("openat not found in aggregator")
+	}
+	if s.ErrorBreakdown == nil {
+		t.Fatal("ErrorBreakdown should not be nil when errors were recorded")
+	}
+	if s.ErrorBreakdown["ENOENT"] != 2 {
+		t.Errorf("ENOENT count: want 2, got %d", s.ErrorBreakdown["ENOENT"])
+	}
+	if s.ErrorBreakdown["EACCES"] != 1 {
+		t.Errorf("EACCES count: want 1, got %d", s.ErrorBreakdown["EACCES"])
+	}
+}
+
+func TestErrorBreakdown_NilWhenNoErrors(t *testing.T) {
+	a := aggregator.New()
+	a.Add(ok("read", 1*time.Microsecond))
+
+	s, found := a.Get("read")
+	if !found {
+		t.Fatal("read not found")
+	}
+	if s.ErrorBreakdown != nil {
+		t.Errorf("ErrorBreakdown should be nil for error-free syscall, got %v", s.ErrorBreakdown)
+	}
+}
+
+func TestTopErrors_SortedDescending(t *testing.T) {
+	a := aggregator.New()
+	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
+	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
+	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
+	a.Add(event("openat", 1*time.Microsecond, "EACCES"))
+	a.Add(event("openat", 1*time.Microsecond, "EPERM"))
+
+	s, found := a.Get("openat")
+	if !found {
+		t.Fatal("openat not found")
+	}
+	top := s.TopErrors(0)
+	if len(top) != 3 {
+		t.Fatalf("TopErrors: want 3 entries, got %d", len(top))
+	}
+	if top[0].Errno != "ENOENT" || top[0].Count != 3 {
+		t.Errorf("TopErrors[0]: want ENOENT×3, got %s×%d", top[0].Errno, top[0].Count)
+	}
+}
+
+func TestTopErrors_LimitN(t *testing.T) {
+	a := aggregator.New()
+	for _, errno := range []string{"ENOENT", "EACCES", "EPERM", "EINVAL"} {
+		a.Add(event("openat", 1*time.Microsecond, errno))
+	}
+	s, _ := a.Get("openat")
+	top := s.TopErrors(2)
+	if len(top) != 2 {
+		t.Errorf("TopErrors(2): want 2 entries, got %d", len(top))
+	}
+}
+
+func TestTopErrors_EmptyWhenNoErrors(t *testing.T) {
+	a := aggregator.New()
+	a.Add(ok("read", 1*time.Microsecond))
+
+	s, _ := a.Get("read")
+	if got := s.TopErrors(0); len(got) != 0 {
+		t.Errorf("TopErrors on no-error syscall: want empty, got %v", got)
+	}
+}
+
+func TestErrorBreakdown_ConcurrentSafe(t *testing.T) {
+	a := aggregator.New()
+	done := make(chan struct{})
+	const goroutines = 10
+	const eventsEach = 200
+
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			for j := 0; j < eventsEach; j++ {
+				if j%2 == 0 {
+					a.Add(event("openat", time.Microsecond, "ENOENT"))
+				} else {
+					a.Add(event("openat", time.Microsecond, "EACCES"))
+				}
+			}
+			done <- struct{}{}
+		}()
+	}
+	for i := 0; i < goroutines; i++ {
+		<-done
+	}
+
+	s, _ := a.Get("openat")
+	total := int64(0)
+	for _, cnt := range s.ErrorBreakdown {
+		total += cnt
+	}
+	want := int64(goroutines * eventsEach)
+	if total != want {
+		t.Errorf("ErrorBreakdown concurrent total: want %d, got %d", want, total)
+	}
+}
+
 // ── Rate ──────────────────────────────────────────────────────────────────────
 
 func TestRate_InitiallyZero(t *testing.T) {
