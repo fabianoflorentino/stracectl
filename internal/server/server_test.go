@@ -337,3 +337,23 @@ func TestLog_ContainsEvents(t *testing.T) {
 		t.Error("expected at least one log entry")
 	}
 }
+
+func TestDashboard_ContainsSearchInput(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "search-input") {
+		t.Error("dashboard HTML should contain search input element (#search-input)")
+	}
+	if !strings.Contains(body, "search-clear") {
+		t.Error("dashboard HTML should contain search clear button (#search-clear)")
+	}
+}

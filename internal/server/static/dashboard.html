@@ -54,6 +54,14 @@
   #log-table td.l-name{color:#79c0ff;width:120px}
   #log-table td.l-ts{width:100px;color:#6e7681}
   #log-table td.l-args{color:#8b949e;max-width:600px;overflow:hidden;text-overflow:ellipsis}
+  /* search bar */
+  #search-bar{padding:8px 24px;background:#0d1117;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px}
+  #search-input{background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-family:monospace;font-size:.82rem;padding:5px 10px;width:220px;outline:none}
+  #search-input:focus{border-color:#58a6ff}
+  #search-label{font-size:.78rem;color:#8b949e}
+  #search-clear{cursor:pointer;color:#8b949e;font-size:.9rem;display:none;background:none;border:none;padding:0 4px;line-height:1}
+  #search-clear:hover{color:#e6edf3}
+  #search-count{font-size:.75rem;color:#8b949e;margin-left:4px}
 </style>
 </head>
 <body>
@@ -75,6 +83,12 @@
 <div class="tabs">
   <button class="tab-btn active" id="tab-stats" onclick="switchTab('stats')">SYSCALL STATS</button>
   <button class="tab-btn" id="tab-log" onclick="switchTab('log')">LIVE LOG</button>
+</div>
+<div id="search-bar">
+  <span id="search-label">FILTER:</span>
+  <input id="search-input" type="text" placeholder="syscall name…" autocomplete="off" spellcheck="false">
+  <button id="search-clear" title="Clear filter">&#x2715;</button>
+  <span id="search-count"></span>
 </div>
 <div class="wrap" id="stats-panel">
 <table>
@@ -217,6 +231,21 @@ const CAT_ORDER = ['I/O','FS','NET','MEM','PROC','SIG','OTHER'];
 
 let sortCol = 'Count', sortDir = -1;
 let lastData = [];
+let filterQuery = '';
+
+document.getElementById('search-input').addEventListener('input', e => {
+  filterQuery = e.target.value.toLowerCase().trim();
+  document.getElementById('search-clear').style.display = filterQuery ? '' : 'none';
+  document.getElementById('search-count').textContent = '';
+  render(lastData);
+});
+document.getElementById('search-clear').addEventListener('click', () => {
+  filterQuery = '';
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').style.display = 'none';
+  document.getElementById('search-count').textContent = '';
+  render(lastData);
+});
 
 function sortData(rows) {
   return [...rows].sort((a,b) => {
@@ -231,9 +260,16 @@ function sortData(rows) {
 }
 
 function render(rows) {
-  const maxCount = rows.reduce((m,r) => Math.max(m, r.Count), 0);
+  const filtered = filterQuery ? rows.filter(r => r.Name.toLowerCase().includes(filterQuery)) : rows;
+  const countEl = document.getElementById('search-count');
+  if (filterQuery) {
+    countEl.textContent = filtered.length + ' / ' + rows.length;
+  } else {
+    countEl.textContent = '';
+  }
+  const maxCount = filtered.reduce((m,r) => Math.max(m, r.Count), 0);
   const tbody = document.getElementById('tbody');
-  const sorted = sortData(rows);
+  const sorted = sortData(filtered);
   tbody.innerHTML = sorted.map(r => {
     const errPct = r.Count ? (r.Errors / r.Count * 100) : 0;
     const avgNs  = r.Count ? Math.round(r.TotalTime / r.Count) : 0;
