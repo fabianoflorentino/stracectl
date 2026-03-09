@@ -10,6 +10,136 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+---
+
+## [1.0.23] — 2026-03-09
+
+### Added
+
+#### Per-Errno Error Breakdown
+
+The aggregator now records a breakdown of errors by errno code
+(`ErrorBreakdown map[string]int64`). The most-frequent errno codes for each
+syscall are surfaced in the web detail page, making it easy to differentiate
+between `ENOENT` (not found), `EACCES` (permission denied), `EAGAIN`
+(non-blocking retry), and other failure modes without inspecting raw strace
+output.
+
+---
+
+#### Recent Error Samples Ring Buffer
+
+A bounded ring buffer (`maxErrorSamples = 50`) captures the most recent failed
+calls, each with a timestamp, errno string, and raw args. Accessible via the
+aggregator and surfaced in the web detail page for deeper post-hoc analysis of
+intermittent failures.
+
+---
+
+#### Web UI — Anomaly Alerts Panel
+
+The web dashboard now shows an anomaly alerts panel that appears automatically
+whenever any syscall crosses a threshold: ≥ 50 % error rate (red) or AVG
+latency ≥ 5 ms (yellow). Each alert includes a plain-English explanation
+matching the behaviour already present in the TUI. The panel is hidden when
+there are no active anomalies.
+
+---
+
+#### P95 / P99 Latency Percentiles
+
+The aggregator maintains a log₂ histogram (`latHist [63]int64`) per syscall,
+enabling O(1) approximate percentile computation. P95 and P99 latencies are
+exposed through the `/api/syscall/{name}` endpoint and shown as dedicated stat
+cards on the web detail page.
+
+---
+
+#### Process Metadata from `/proc`
+
+`/api/status` now includes full process metadata read from `/proc/<pid>/`:
+executable path (`Exe`), full command line (`Cmdline`), and current working
+directory (`Cwd`). The web dashboard header displays the resolved command being
+traced, replacing the bare PID.
+
+---
+
+#### Sliding Window Error Rate (60 s)
+
+The aggregator tracks per-second error counts in a 60-bucket rolling window.
+`ErrRate60s` gives the number of errors in the last minute and is updated
+atomically on every event. The value is displayed in the web dashboard header
+alongside the overall cumulative error count.
+
+---
+
+#### Web UI — Live Log Tab
+
+The web dashboard gains a **LIVE LOG** tab that streams the most recent 500
+syscall events (name, return value, args, timestamp) from a new `/api/log`
+endpoint polled every second. The ring buffer in the aggregator is capped at
+500 entries (`maxLogEntries`) to bound memory use. Switching to the log tab
+hides the filter bar; switching back to **SYSCALL STATS** restores it.
+
+---
+
+#### Web UI — Syscall Search / Filter
+
+A filter bar appears above the syscall stats table. Typing in the input box
+narrows rows in real time (client-side, no round-trip). A clear (`✕`) button
+resets the filter immediately. A match counter shows how many syscalls satisfy
+the current query. The filter bar is hidden while the LIVE LOG tab is active.
+
+---
+
+#### Web UI — Process Exited Notification
+
+When the traced process exits the web dashboard displays an amber banner:
+*"⏹ Process exited — trace complete. Data frozen."* The server closes the
+WebSocket stream on process exit; the banner is shown immediately upon
+connection close so users know the session is complete rather than stalled.
+
+---
+
+### Fixed
+
+#### TUI — Column Misalignment on Multibyte Characters
+
+Column padding helpers (`padR`, `padL`) used `len(s)` (byte count) to compute
+widths. Characters such as `µ` (2 UTF-8 bytes, 1 display column) and `—`
+(3 bytes, 1 column) caused columns to shift left on any terminal where byte
+count ≠ display width.
+
+Fixed by replacing `len(s)` with `lipgloss.Width(s)` throughout the padding
+helpers. The `catTag` and `avgPart` format strings were updated accordingly.
+Existing tests updated; new multibyte and em-dash regression tests added.
+
+---
+
+#### Web UI — Live Log Tab Empty on First Switch
+
+`switchTab` set `log-panel.style.display = ''`, which resolved back to the
+CSS-declared `display: none`, keeping the panel invisible. Fixed by explicitly
+setting `display: 'block'`.
+
+---
+
+#### Web UI — Filter Bar Visible on Wrong Tab
+
+The filter bar was shown regardless of the active tab. `switchTab` now
+explicitly toggles `#search-bar` to `flex` when switching to the stats tab and
+`none` when switching to the log tab.
+
+---
+
+#### Web UI — Filter Bar Alignment
+
+The **FILTER:** label is indented to align exactly with the **SYSCALL** column
+header (`padding-left: 34px` = 24 px wrap margin + 10 px `<th>` cell padding).
+Vertical spacing was also adjusted for a more balanced layout.
+
+---
+
 #### TUI — Terminal Frozen After Traced Process Exits (`fix(ui/tracer)`)
 
 When the traced process finished (e.g. `curl` completing a request), the TUI would

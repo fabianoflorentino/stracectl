@@ -82,20 +82,27 @@ LIVE STATISTICS
 - **Real-time aggregation** — syscalls counted, timed, and grouped as they happen; no log file needed
 - **Merged header bar** — target process, elapsed time, and live stats (syscalls, rate, errors, unique) all in one line
 - **Latency columns** — AVG, MAX, and TOTAL time spent in kernel; MAX exposes outliers that averages hide
+- **P95 / P99 latency percentiles** — log₂ histogram per syscall gives approximate 95th and 99th-percentile kernel times; shown in the web detail page
 - **CALLS & ERRORS columns** — raw count and absolute error count alongside ERR% for quick triage
+- **Per-errno error breakdown** — the aggregator tracks how many failures map to each errno code (`ENOENT`, `EACCES`, `EAGAIN`, …); surfaced in the web detail page
+- **Recent error samples** — a 50-entry ring buffer records the last failed calls with timestamp, errno, and args for post-hoc analysis
+- **Sliding window error rate (60 s)** — per-second error counts in a 60-bucket rolling window; `ErrRate60s` displayed in the web dashboard header
 - **Category bar** — instant overview: I/O · FS · NET · MEM · PROC · SIG · OTHER with percentage
 - **FREQ sparkbar** — visual proportion of each syscall relative to the most-called one
 - **Live rate** — syscalls/second, recalculated every 500 ms
+- **Process metadata** — executable path, full command line, and working directory read from `/proc/<pid>/` and shown in the web dashboard header
 - **Anomaly highlighting** — rows turn yellow when AVG ≥ 5 ms, red when ERR% ≥ 50%, orange when any errors
-- **Smart alerts** — panel at the bottom with human-readable explanation of why the error is happening
-- **Interactive filter** — press `/` and type to narrow down syscalls in real time
+- **Smart alerts** — panel at the bottom with human-readable explanation of why the error is happening (both TUI and web dashboard)
+- **Interactive filter** — press `/` and type to narrow down syscalls in real time (TUI); a search bar above the table provides the same filtering in the web dashboard
 - **Detail overlay** — press `Enter` or `d` on any row to see the syscall's reference (description, signature, args) plus live statistics and anomaly explanation; navigate rows with `↑`/`↓` without leaving the overlay
 - **Cursor navigation** — `↑`/`↓` or `j`/`k` to move between rows without leaving the keyboard
 - **Help overlay** — press `?` for a full in-app reference of every column, colour, and pattern
 - **Multiple sort keys** — count, total time, avg latency, peak latency, errors, name, category
 - **Sidecar mode** — `--serve :8080` replaces the TUI with an HTTP API (JSON, WebSocket, Prometheus) and a live HTML dashboard at `/`; also works with `stats`
 - **Clickable dashboard rows** — click any syscall row in the web dashboard to navigate to its dedicated detail page
-- **Web detail page** — `/syscall/<name>` shows 7 live stat cards (calls, avg/min/max latency, total time, errors, error rate) plus a reference panel (description, C signature, arguments, return values, common errno codes, notes) for ~80 well-known Linux syscalls; unknown syscalls fall back to a `man 2 <name>` hint
+- **Web detail page** — `/syscall/<name>` shows 9 live stat cards (calls, avg/min/max/P95/P99 latency, total time, errors, error rate), errno breakdown, recent error samples, and a full reference panel (~80 well-known Linux syscalls)
+- **Web live log tab** — a dedicated **LIVE LOG** tab streams the most recent 500 syscall events in real time from `/api/log`, polled every second
+- **Web process exited notification** — an amber banner appears in the web dashboard the moment the traced process exits, indicating the data is frozen
 - **PID auto-discovery** — `stracectl discover <container-name>` finds the target PID inside a shared-PID-namespace Pod
 - **Post-mortem analysis** — `stracectl stats <file>` reads a saved `strace -T -o` log file and displays the same aggregated TUI or HTTP API — no need to re-run the process
 - **HTML report export** — `--report <path>` on any trace command (or `stats`) writes a self-contained, sortable HTML file suitable for sharing, archiving, and offline analysis; no external dependencies
@@ -218,6 +225,10 @@ the table in real time, with no page reload needed:
 - Category pills use the same colour coding as the TUI (blue = I/O, green = FS, orange = NET, purple = MEM, red = PROC)
 - Syscall names shown in blue; error counts and ERR% highlighted in red; slow AVG in yellow (≥ 5 ms)
 - The spark bar scales relative to the most-called syscall in the current snapshot
+- **Search / filter bar** — type to narrow syscalls in real time; a `✕` button clears the filter
+- **Live Log tab** — streams the 500 most recent syscall events (name, return value, args, timestamp) from `/api/log`
+- **Process exited banner** — amber notification when the traced process finishes so you know the data is frozen
+- **Anomaly alerts panel** — human-readable explanations for high error rates and slow latencies, matching TUI behaviour
 - Auto-reconnects if the server restarts or the connection drops
 - Status bar at the bottom shows connection state
 
@@ -225,13 +236,15 @@ Available endpoints:
 
 | Endpoint | Description |
 | ---------- | ------------- |
-| `GET /` | Live HTML dashboard with WebSocket-powered table and category pills |
-| `GET /syscall/{name}` | Per-syscall detail page: 7 live stat cards + full reference panel |
+| `GET /` | Live HTML dashboard with WebSocket-powered table, category pills, filter bar, and live log tab |
+| `GET /syscall/{name}` | Per-syscall detail page: 9 live stat cards (incl. P95/P99), errno breakdown, recent error samples, and full reference panel |
 | `GET /healthz` | Liveness probe — always returns `ok` |
+| `GET /api/status` | JSON process metadata (PID, command, exe, cwd, elapsed, error rate, done flag) |
 | `GET /api/stats` | JSON snapshot of all syscall stats, sorted by count |
 | `GET /api/categories` | JSON breakdown by category |
-| `GET /api/syscall/{name}` | JSON stats for a single syscall by name (404 if not yet seen) |
-| `WS /stream` | WebSocket push — fresh snapshot every second |
+| `GET /api/syscall/{name}` | JSON stats for a single syscall by name, including P95/P99 and errno breakdown (404 if not yet seen) |
+| `GET /api/log` | JSON array of the 500 most recent syscall events (name, return value, args, timestamp) |
+| `WS /stream` | WebSocket push — fresh snapshot every second; closed server-side when the process exits |
 | `GET /metrics` | Prometheus exposition format |
 
 ### Per-syscall detail page
@@ -245,11 +258,19 @@ Click any row in the web dashboard to open a dedicated detail page at
 | ---- | ----------- |
 | Calls | Total number of times this syscall was called |
 | Avg Latency | Mean kernel time per call (yellow when ≥ 5 ms) |
+| P95 Latency | 95th-percentile kernel time (approximate, log₂ histogram) |
+| P99 Latency | 99th-percentile kernel time |
 | Min Latency | Lowest observed kernel time |
 | Max Latency | Peak observed kernel time |
 | Total Time | Cumulative kernel time across all calls |
 | Errors | Absolute count of failed calls (red) |
 | Error Rate | Percentage of calls that returned an error (red) |
+
+**Errno breakdown** — bar chart of the most frequent errno codes (`ENOENT`,
+`EACCES`, `EAGAIN`, …) so you can see at a glance which error dominates.
+
+**Recent error samples** — last 50 failed calls with timestamp, errno, and
+raw args for investigating intermittent failures.
 
 **Syscall reference panel** (static, rendered immediately from an embedded table):
 
