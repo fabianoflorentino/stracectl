@@ -105,6 +105,12 @@
   <table class="errno-table" id="errno-table"></table>
 </div>
 
+<!-- recent error samples (populated from live WebSocket data) -->
+<div class="errno-section" id="samples-section" style="display:none">
+  <div class="sec-hdr" style="margin-top:0">RECENT ERROR SAMPLES</div>
+  <table class="errno-table" id="samples-table"></table>
+</div>
+
 <div id="status">Connecting…</div>
 
 <script>
@@ -346,6 +352,23 @@ function update(r) {
     sec.style.display = '';
   } else {
     sec.style.display = 'none';
+  }
+
+  // recent error samples
+  const samples = r.RecentErrors;
+  const samplesSec = document.getElementById('samples-section');
+  const samplesTbl = document.getElementById('samples-table');
+  if (samples && samples.length > 0) {
+    samplesTbl.innerHTML = samples.map(s => {
+      const ts = s.Time ? new Date(s.Time).toLocaleTimeString() : '';
+      const args = s.Args ? esc(s.Args.length > 80 ? s.Args.slice(0,77)+'…' : s.Args) : '—';
+      return '<tr><td style="color:#8b949e;font-family:monospace">' + esc(ts) + '</td>' +
+             '<td>' + esc(s.Errno) + '</td>' +
+             '<td style="color:#8b949e;font-family:monospace;font-size:.78rem;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + args + '</td></tr>';
+    }).join('');
+    samplesSec.style.display = '';
+  } else {
+    samplesSec.style.display = 'none';
   }
 }
 

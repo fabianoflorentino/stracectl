@@ -1,6 +1,7 @@
 package aggregator_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -302,6 +303,56 @@ func TestErrorBreakdown_ConcurrentSafe(t *testing.T) {
 	want := int64(goroutines * eventsEach)
 	if total != want {
 		t.Errorf("ErrorBreakdown concurrent total: want %d, got %d", want, total)
+	}
+}
+
+// ── RecentErrors (ring buffer) ────────────────────────────────────────────────
+
+func TestRecentErrors_CappedAtMax(t *testing.T) {
+	a := aggregator.New()
+	// Add 15 error events — ring buffer caps at 10
+	for i := 0; i < 15; i++ {
+		e := models.SyscallEvent{
+			Name:    "openat",
+			Args:    fmt.Sprintf("arg%d", i),
+			Error:   "ENOENT",
+			Latency: time.Microsecond,
+			Time:    time.Now(),
+		}
+		a.Add(e)
+	}
+	s, _ := a.Get("openat")
+	if len(s.RecentErrors) > 10 {
+		t.Errorf("RecentErrors should be capped at 10, got %d", len(s.RecentErrors))
+	}
+}
+
+func TestRecentErrors_ContainsLatestArgs(t *testing.T) {
+	a := aggregator.New()
+	// Fill ring buffer past capacity so only the last 10 remain
+	for i := 0; i < 15; i++ {
+		e := models.SyscallEvent{
+			Name:    "openat",
+			Args:    fmt.Sprintf("path%d", i),
+			Error:   "ENOENT",
+			Latency: time.Microsecond,
+			Time:    time.Now(),
+		}
+		a.Add(e)
+	}
+	s, _ := a.Get("openat")
+	last := s.RecentErrors[len(s.RecentErrors)-1]
+	if last.Args != "path14" {
+		t.Errorf("RecentErrors last args: want path14, got %s", last.Args)
+	}
+}
+
+func TestRecentErrors_EmptyWhenNoErrors(t *testing.T) {
+	a := aggregator.New()
+	a.Add(ok("read", 1*time.Microsecond))
+	s, _ := a.Get("read")
+	if len(s.RecentErrors) != 0 {
+		t.Errorf("RecentErrors should be empty for error-free syscall, got %v", s.RecentErrors)
 	}
 }
 

@@ -178,6 +178,8 @@ type SyscallStat struct {
 	// ErrorBreakdown counts occurrences of each distinct errno (e.g. "ENOENT").
 	// It is non-nil only when at least one error has been recorded.
 	ErrorBreakdown map[string]int64
+	// RecentErrors is a ring buffer of the last maxErrorSamples failed calls.
+	RecentErrors []ErrorSample
 }
 
 // TopErrors returns the errno breakdown sorted descending by count.
@@ -195,6 +197,15 @@ func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
 		out = out[:n]
 	}
 	return out
+}
+
+const maxErrorSamples = 10 // max recent error samples retained per syscall
+
+// ErrorSample captures args and context of a single failed syscall call.
+type ErrorSample struct {
+	Args  string
+	Errno string
+	Time  time.Time
 }
 
 // ErrnoCount pairs an errno name with its occurrence count.
@@ -299,6 +310,15 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 				s.ErrorBreakdown = make(map[string]int64)
 			}
 			s.ErrorBreakdown[e.Error]++
+		}
+		// ring buffer: keep the most recent maxErrorSamples samples
+		sample := ErrorSample{Args: e.Args, Errno: e.Error, Time: e.Time}
+		if len(s.RecentErrors) < maxErrorSamples {
+			s.RecentErrors = append(s.RecentErrors, sample)
+		} else {
+			// shift left and append
+			copy(s.RecentErrors, s.RecentErrors[1:])
+			s.RecentErrors[maxErrorSamples-1] = sample
 		}
 	}
 
