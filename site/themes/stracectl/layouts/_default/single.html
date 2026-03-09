@@ -1,0 +1,24 @@
+{{ define "main" }}
+<div class="inner-page">
+  <div class="container inner-layout">
+    {{ if eq .Section "docs" }}
+    <aside class="docs-sidebar">
+      <nav class="docs-nav">
+        <p class="docs-nav-label">Documentation</p>
+        {{ $section := .Site.GetPage "section" "docs" }}
+        {{ range $section.Pages.ByWeight }}
+        <a href="{{ .RelPermalink }}" class="{{ if eq $.RelPermalink .RelPermalink }}active{{ end }}">{{ .Title }}</a>
+        {{ end }}
+      </nav>
+    </aside>
+    {{ end }}
+    <article class="prose">
+      <header class="page-header">
+        <h1>{{ .Title }}</h1>
+        {{ with .Params.description }}<p class="page-description">{{ . }}</p>{{ end }}
+      </header>
+      {{ .Content }}
+    </article>
+  </div>
+</div>
+{{ end }}

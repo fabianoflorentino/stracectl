@@ -1,0 +1,282 @@
+{{ define "main" }}
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section class="hero" id="hero">
+  <canvas id="particle-canvas" aria-hidden="true"></canvas>
+  <div class="hero-inner container">
+    <div class="hero-text">
+      <div class="hero-badge reveal">
+        <span class="badge-dot"></span>
+        <span>v{{ .Site.Params.version }} — Latest Release</span>
+      </div>
+      <h1 class="hero-headline reveal">
+        Modern <span class="gradient-text">strace</span>.<br>
+        Real-time <span class="gradient-text">TUI</span>.<br>
+        Kubernetes&#8209;ready.
+      </h1>
+      <p class="hero-sub reveal">
+        Aggregate syscalls live — counts, latencies, errors, anomalies —
+        in an interactive htop-style dashboard or HTTP sidecar for your Pods.
+      </p>
+      <div class="hero-actions reveal">
+        <a href="/docs/" class="btn btn-primary">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          Get Started
+        </a>
+        <a href="{{ .Site.Params.github }}" target="_blank" rel="noopener" class="btn btn-outline">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.39-1.33-1.76-1.33-1.76-1.08-.74.08-.73.08-.73 1.2.08 1.82 1.23 1.82 1.23 1.06 1.81 2.78 1.29 3.46.98.11-.76.42-1.28.76-1.58-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.93.43.37.81 1.1.81 2.22v3.29c0 .32.21.7.82.58C20.56 21.8 24 17.3 24 12 24 5.37 18.63 0 12 0z"/></svg>
+          GitHub
+        </a>
+      </div>
+      <div class="hero-install reveal">
+        <div class="install-snippet">
+          <code>go install github.com/fabianoflorentino/stracectl@latest</code>
+          <button class="copy-btn" data-copy="go install github.com/fabianoflorentino/stracectl@latest" aria-label="Copy command">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="hero-terminal reveal-right">
+      <div class="terminal-window" id="tui-terminal">
+        <div class="terminal-chrome">
+          <div class="terminal-dots">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </div>
+          <div class="terminal-title">stracectl — zsh</div>
+        </div>
+        <div class="terminal-body" id="terminal-body">
+          <div class="terminal-prompt" id="terminal-prompt">
+            <span class="prompt-symbol">$</span>
+            <span class="prompt-text" id="prompt-text"></span>
+            <span class="cursor-block" id="typing-cursor">▋</span>
+          </div>
+          <div class="tui-output hidden" id="tui-output" aria-live="polite">
+            <div class="tui-header-bar" id="tui-header-bar">
+              <span class="tui-name">stracectl</span>
+              <span class="tui-cmd">curl https://example.com</span>
+              <span class="tui-elapsed" id="tui-elapsed">+0s</span>
+              <span class="tui-stats">
+                syscalls: <span id="tui-syscalls" class="stat-num">0</span>&nbsp;
+                rate: <span id="tui-rate" class="stat-num">0</span>/s&nbsp;
+                errors: <span id="tui-errors" class="stat-err">0</span>&nbsp;
+                unique: <span id="tui-unique" class="stat-num">0</span>
+              </span>
+            </div>
+            <div class="tui-divider">────────────────────────────────────────────────────────────────────────</div>
+            <div class="tui-catbar" id="tui-catbar">
+              <span class="cat cat-io" style="--w:38%">I/O <em>38%</em></span>
+              <span class="cat cat-fs" style="--w:25%">FS <em>25%</em></span>
+              <span class="cat cat-net" style="--w:20%">NET <em>20%</em></span>
+              <span class="cat cat-mem" style="--w:9%">MEM <em>9%</em></span>
+              <span class="cat cat-proc" style="--w:5%">PROC <em>5%</em></span>
+              <span class="cat cat-other" style="--w:3%">OTHER <em>3%</em></span>
+            </div>
+            <div class="tui-divider">────────────────────────────────────────────────────────────────────────</div>
+            <div class="tui-table-header">
+              <span class="col-name">SYSCALL</span>
+              <span class="col-cat">CAT</span>
+              <span class="col-calls">CALLS</span>
+              <span class="col-freq">FREQ</span>
+              <span class="col-avg">AVG</span>
+              <span class="col-max">MAX</span>
+              <span class="col-err">ERRORS</span>
+              <span class="col-erp">ERR%</span>
+            </div>
+            <div class="tui-divider">────────────────────────────────────────────────────────────────────────</div>
+            <div class="tui-rows" id="tui-rows"></div>
+            <div class="tui-divider">────────────────────────────────────────────────────────────────────────</div>
+            <div class="tui-alert" id="tui-alert">
+              <span class="alert-icon">⚠</span>
+              <span id="tui-alert-text">connect: 50% error rate — Happy Eyeballs: IPv4/IPv6 race, loser fails</span>
+            </div>
+            <div class="tui-divider">────────────────────────────────────────────────────────────────────────</div>
+            <div class="tui-keybar">q:quit&nbsp; c:calls▼&nbsp; t:total&nbsp; a:avg&nbsp; x:max&nbsp; e:errors&nbsp; /:filter&nbsp; ↑↓:move&nbsp; enter:details&nbsp; ?:help</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-scroll-hint" aria-hidden="true">
+    <span></span>
+  </div>
+</section>
+
+<!-- ============================================================
+     FEATURES
+     ============================================================ -->
+<section class="features-section" id="features">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title reveal">Everything you need to<br><span class="gradient-text">understand your syscalls</span></h2>
+      <p class="section-sub reveal">Built for developers and SREs who need signal, not noise.</p>
+    </div>
+    <div class="features-grid">
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">📊</div>
+        <h3>Real-time Aggregation</h3>
+        <p>Syscalls counted, timed, and grouped as they happen. No log file, no post-processing — just live signal.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">⏱</div>
+        <h3>Latency Columns</h3>
+        <p>AVG, MAX, TOTAL, P95, and P99 per syscall. MAX exposes outliers that averages always hide.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">🚨</div>
+        <h3>Smart Anomaly Detection</h3>
+        <p>Rows turn red when ERR% ≥ 50 %, yellow when AVG ≥ 5 ms. Human-readable explanations at the bottom.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">🌐</div>
+        <h3>HTTP Sidecar Mode</h3>
+        <p><code>--serve :8080</code> exposes JSON, WebSocket, and Prometheus endpoints. Live HTML dashboard included.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">☸️</div>
+        <h3>Kubernetes-Ready</h3>
+        <p>Dockerfile, raw manifests, and a Helm chart with hardened sidecar security context. Discover PIDs across namespace boundaries.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">📄</div>
+        <h3>HTML Report Export</h3>
+        <p><code>--report report.html</code> writes a self-contained, sortable HTML file — no server, no CDN, no stracectl needed to view it.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔍</div>
+        <h3>Per-errno Breakdown</h3>
+        <p>See exactly how many failures map to ENOENT, EACCES, EAGAIN — not just the aggregate error count.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔄</div>
+        <h3>Post-mortem Analysis</h3>
+        <p><code>stracectl stats trace.log</code> replays any <code>strace -T -o</code> log through the same TUI and HTTP API — no live process needed.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔎</div>
+        <h3>Interactive Filter</h3>
+        <p>Press <kbd>/</kbd> in the TUI to narrow down syscalls in real time. The web dashboard has a search bar above the table.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     MODES
+     ============================================================ -->
+<section class="modes-section" id="modes">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title reveal">Three modes,<br><span class="gradient-text">one tool</span></h2>
+    </div>
+    <div class="modes-grid">
+      <div class="mode-card reveal">
+        <div class="mode-number">01</div>
+        <h3>TUI Mode</h3>
+        <p>Run or attach to any process. The htop-style dashboard updates live every 500 ms — sort, filter, explore details without leaving the terminal.</p>
+        <div class="mode-code">
+          <code>sudo stracectl run nginx</code><br>
+          <code>sudo stracectl attach 1234</code>
+        </div>
+      </div>
+      <div class="mode-card reveal">
+        <div class="mode-number">02</div>
+        <h3>Sidecar / HTTP API Mode</h3>
+        <p>Add <code>--serve :8080</code> to replace the TUI with an HTTP server — JSON at <code>/api/syscalls</code>, WebSocket live feed, Prometheus metrics, and a React-free live dashboard at <code>/</code>.</p>
+        <div class="mode-code">
+          <code>sudo stracectl attach --serve :8080 1234</code>
+        </div>
+      </div>
+      <div class="mode-card reveal">
+        <div class="mode-number">03</div>
+        <h3>Post-mortem / Stats Mode</h3>
+        <p>Already have a <code>strace -T -o</code> log? Feed it to <code>stracectl stats</code> for the same TUI, HTTP API, or HTML report — no live process needed.</p>
+        <div class="mode-code">
+          <code>stracectl stats --report out.html trace.log</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     QUICK INSTALL
+     ============================================================ -->
+<section class="install-section" id="install">
+  <div class="container">
+    <div class="install-inner">
+      <div class="install-text reveal">
+        <h2>Up and running<br><span class="gradient-text">in seconds</span></h2>
+        <p>Linux only (uses <code>ptrace</code> via the <code>strace</code> binary). Requires Go 1.26+ or pull the pre-built container image.</p>
+        <a href="/docs/install/" class="btn btn-primary">Full install guide →</a>
+      </div>
+      <div class="install-blocks reveal-right">
+        <div class="install-tab-group">
+          <button class="install-tab active" data-target="tab-go">Go</button>
+          <button class="install-tab" data-target="tab-clone">Build from source</button>
+          <button class="install-tab" data-target="tab-docker">Docker</button>
+        </div>
+        <div class="install-tab-content active" id="tab-go">
+          <div class="code-block">
+            <pre><code>go install github.com/fabianoflorentino/stracectl@latest</code></pre>
+            <button class="copy-btn" data-copy="go install github.com/fabianoflorentino/stracectl@latest">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="install-tab-content" id="tab-clone">
+          <div class="code-block">
+            <pre><code>git clone https://github.com/fabianoflorentino/stracectl
+cd stracectl
+go build -o stracectl .
+sudo mv stracectl /usr/local/bin/</code></pre>
+            <button class="copy-btn" data-copy="git clone https://github.com/fabianoflorentino/stracectl && cd stracectl && go build -o stracectl . && sudo mv stracectl /usr/local/bin/">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="install-tab-content" id="tab-docker">
+          <div class="code-block">
+            <pre><code>docker pull ghcr.io/fabianoflorentino/stracectl:latest</code></pre>
+            <button class="copy-btn" data-copy="docker pull ghcr.io/fabianoflorentino/stracectl:latest">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CTA
+     ============================================================ -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-inner reveal">
+      <h2>Ready to see inside<br>your processes?</h2>
+      <p>Open source. MIT licensed. Built with Go and Bubble Tea.</p>
+      <div class="cta-actions">
+        <a href="{{ .Site.Params.github }}" target="_blank" rel="noopener" class="btn btn-primary btn-lg">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.39-1.33-1.76-1.33-1.76-1.08-.74.08-.73.08-.73 1.2.08 1.82 1.23 1.82 1.23 1.06 1.81 2.78 1.29 3.46.98.11-.76.42-1.28.76-1.58-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.93.43.37.81 1.1.81 2.22v3.29c0 .32.21.7.82.58C20.56 21.8 24 17.3 24 12 24 5.37 18.63 0 12 0z"/></svg>
+          Star on GitHub
+        </a>
+        <a href="/docs/" class="btn btn-ghost btn-lg">Read the docs →</a>
+      </div>
+    </div>
+  </div>
+</section>
+{{ end }}
