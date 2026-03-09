@@ -14,15 +14,15 @@
       </div>
       <div class="footer-col">
         <p class="footer-col-title">Docs</p>
-        <a href="{{ "/docs/install/" | relURL }}">Install</a>
-        <a href="{{ "/docs/usage/" | relURL }}">Usage</a>
-        <a href="{{ "/docs/kubernetes/" | relURL }}">Kubernetes</a>
-        <a href="{{ "/docs/api/" | relURL }}">HTTP API</a>
+        <a href="{{ "/docs/install/" | absURL }}">Install</a>
+        <a href="{{ "/docs/usage/" | absURL }}">Usage</a>
+        <a href="{{ "/docs/kubernetes/" | absURL }}">Kubernetes</a>
+        <a href="{{ "/docs/api/" | absURL }}">HTTP API</a>
       </div>
       <div class="footer-col">
         <p class="footer-col-title">More</p>
-        <a href="{{ "/changelog/" | relURL }}">Changelog</a>
-        <a href="{{ "/roadmap/" | relURL }}">Roadmap</a>
+        <a href="{{ "/changelog/" | absURL }}">Changelog</a>
+        <a href="{{ "/roadmap/" | absURL }}">Roadmap</a>
         <a href="{{ .Site.Params.github }}/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
       </div>
     </div>
