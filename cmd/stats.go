@@ -51,7 +51,7 @@ Capture a trace file with strace:
 				return err
 			}
 		} else {
-			if err := ui.Run(agg, args[0]); err != nil {
+			if err := ui.Run(agg, args[0], nil); err != nil {
 				return err
 			}
 		}
@@ -79,6 +79,7 @@ func loadAggFromFile(path string) (*aggregator.Aggregator, error) {
 	agg := aggregator.New()
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 512*1024), 512*1024) // match live-tracer buffer size
+
 	for scanner.Scan() {
 		event, parseErr := parser.Parse(scanner.Text(), 0)
 		if parseErr != nil {
@@ -88,12 +89,14 @@ func loadAggFromFile(path string) (*aggregator.Aggregator, error) {
 			agg.Add(*event)
 		}
 	}
+
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
 	if agg.Total() == 0 {
 		return nil, fmt.Errorf("no syscall events found in %s — make sure the file was produced by strace", path)
 	}
+
 	return agg, nil
 }
 
