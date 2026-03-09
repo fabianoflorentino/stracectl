@@ -51,7 +51,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build --no-cache --rm \
+          docker build --no-cache --rm --target production \
             -t ${{ github.repository }}:v1.0.${{ github.run_number }} \
             -f ./Dockerfile .
 
