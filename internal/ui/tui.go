@@ -554,6 +554,19 @@ func (m model) renderDetail() string {
 		}
 	}
 
+	if len(s.RecentErrors) > 0 {
+		section("RECENT ERROR SAMPLES")
+		for _, es := range s.RecentErrors {
+			ts := es.Time.Format("15:04:05")
+			args := es.Args
+			if len(args) > w-42 {
+				args = args[:w-45] + "…"
+			}
+			line := fmt.Sprintf("  %s  %-10s  %s", ts, es.Errno, args)
+			sb.WriteString(detailDimStyle.Render(line) + "\n")
+		}
+	}
+
 	if expl := alertExplanation(s.Name); expl != "" && s.ErrPct() >= hotErrPct {
 		section("ANOMALY EXPLANATION")
 		for _, line := range wordWrap(expl, w-22) {
