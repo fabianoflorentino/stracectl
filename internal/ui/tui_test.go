@@ -954,24 +954,41 @@ func TestRenderDetail_CursorClampedToLastRow(t *testing.T) {
 // channel (closed by the aggregator goroutine) causes the TUI to quit via
 // processDeadMsg.
 
-// TestProcessDeadMsg_ModelReturnsQuitCmd is the pure unit test: the model must
-// handle processDeadMsg and return tea.Quit so the program loop exits.
-func TestProcessDeadMsg_ModelReturnsQuitCmd(t *testing.T) {
+// TestProcessDeadMsg_SetsProcessDoneFlag is the pure unit test: the model must
+// handle processDeadMsg by setting processDone=true so the footer banner is shown.
+// The TUI must NOT quit automatically — the user reviews the data first.
+func TestProcessDeadMsg_SetsProcessDoneFlag(t *testing.T) {
 	m := newTestModel()
-	_, cmd := m.Update(processDeadMsg{})
-	if cmd == nil {
-		t.Fatal("Update(processDeadMsg{}) returned nil cmd — TUI would not quit")
+	next, cmd := m.Update(processDeadMsg{})
+	got := next.(model)
+	if !got.processDone {
+		t.Error("Update(processDeadMsg{}) did not set processDone=true")
 	}
-	// Execute the command and verify it produces tea.QuitMsg (what tea.Quit returns).
-	produced := cmd()
-	if _, ok := produced.(tea.QuitMsg); !ok {
-		t.Errorf("cmd after processDeadMsg produced %T, want tea.QuitMsg", produced)
+	if cmd != nil {
+		// Should NOT return tea.Quit — user must be able to inspect the final data.
+		if msg := cmd(); msg != nil {
+			if _, isQuit := msg.(tea.QuitMsg); isQuit {
+				t.Error("Update(processDeadMsg{}) returned tea.Quit — TUI must stay open after process exits")
+			}
+		}
 	}
 }
 
-// TestProcessDeadMsg_IgnoresAllState verifies that processDeadMsg quits
-// regardless of which overlay (if any) is currently shown.
-func TestProcessDeadMsg_IgnoresAllState(t *testing.T) {
+// TestProcessDeadMsg_ShowsBanner verifies the footer shows the "process exited" banner
+// and the user can still quit with q after the process has finished.
+func TestProcessDeadMsg_ShowsBanner(t *testing.T) {
+	m := newTestModel()
+	m.processDone = true
+	addEvent(m.agg, "read", 1*time.Microsecond, "")
+	out := m.View()
+	if !strings.Contains(out, "process exited") {
+		t.Errorf("View() with processDone=true should show 'process exited' banner, got:\n%s", out)
+	}
+}
+
+// TestProcessDeadMsg_SetsProcessDoneFlagRegardlessOfState verifies processDone
+// is set regardless of which overlay is currently shown.
+func TestProcessDeadMsg_SetsProcessDoneFlagRegardlessOfState(t *testing.T) {
 	states := []struct {
 		name  string
 		setup func(*model)
@@ -984,32 +1001,30 @@ func TestProcessDeadMsg_IgnoresAllState(t *testing.T) {
 	for _, tc := range states {
 		m := newTestModel()
 		tc.setup(&m)
-		_, cmd := m.Update(processDeadMsg{})
-		if cmd == nil {
-			t.Errorf("[%s] Update(processDeadMsg{}) returned nil cmd — TUI would not quit", tc.name)
-			continue
-		}
-		if _, ok := cmd().(tea.QuitMsg); !ok {
-			t.Errorf("[%s] cmd does not produce tea.QuitMsg", tc.name)
+		next, _ := m.Update(processDeadMsg{})
+		got := next.(model)
+		if !got.processDone {
+			t.Errorf("[%s] Update(processDeadMsg{}) did not set processDone=true", tc.name)
 		}
 	}
 }
 
-// TestRun_QuitsWhenDoneIsClosed is the integration test: Run must return
-// promptly after the done channel is closed (the traced process has exited).
-// Without the fix, this test would time out.
-func TestRun_QuitsWhenDoneIsClosed(t *testing.T) {
+// TestRun_StaysOpenWhenDoneIsClosed is the integration test for the "stuck
+// terminal" fix: after done is closed (traced process exited), the TUI must
+// stay alive (showing the "process exited" banner) and only exit when the user
+// presses q. Without the processDeadMsg handling the user had no indication
+// the process had finished; with auto-quit they couldn't see the results.
+func TestRun_StaysOpenWhenDoneIsClosed(t *testing.T) {
 	agg := aggregator.New()
 	done := make(chan struct{})
 
-	// Use an io.Pipe as headless stdin so the program never gets real key
-	// events — it should only exit because done is closed.
 	pr, pw := io.Pipe()
-	defer pw.Close()
+	t.Cleanup(func() { pw.Close(); pr.Close() })
 
-	errCh := make(chan error, 1)
+	stopped := make(chan struct{})
 	go func() {
-		errCh <- runWithOpts(agg, "ping -c 1 8.8.8.8", done,
+		defer close(stopped)
+		runWithOpts(agg, "ping -c 1 8.8.8.8", done, //nolint:errcheck
 			tea.WithInput(pr),
 			tea.WithOutput(io.Discard),
 		)
@@ -1021,13 +1036,23 @@ func TestRun_QuitsWhenDoneIsClosed(t *testing.T) {
 	// Simulate the traced process exiting (events channel drained).
 	close(done)
 
+	// After done is closed the TUI must NOT auto-quit — it should show the
+	// banner and wait for user input.
+	time.Sleep(100 * time.Millisecond)
 	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Errorf("Run returned unexpected error: %v", err)
-		}
+	case <-stopped:
+		t.Fatal("Run auto-quit after done was closed — user cannot inspect final results")
+	default:
+		// correct: still running, showing banner
+	}
+
+	// Now send q: the TUI must exit promptly.
+	pw.Write([]byte("q")) //nolint:errcheck
+	select {
+	case <-stopped:
+		// exited cleanly after q
 	case <-time.After(3 * time.Second):
-		t.Fatal("Run did not return after done was closed — terminal would be stuck")
+		t.Fatal("Run did not exit after q was pressed")
 	}
 }
 
