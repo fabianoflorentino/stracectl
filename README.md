@@ -215,6 +215,10 @@ the table in real time, with no page reload needed:
 
 [![Web dashboard screenshot](docs/img/dashboard.png)](docs/img/dashboard.png)
 
+### LOG
+
+[![Live log screenshot](docs/img/log.png)](docs/img/log.png)
+
 ### DETAIL
 
 [![Detail overlay screenshot](docs/img/detail.png)](docs/img/detail.png)
