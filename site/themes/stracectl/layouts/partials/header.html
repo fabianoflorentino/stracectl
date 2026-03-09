@@ -11,7 +11,7 @@
     <ul class="nav-links" id="nav-links" role="list">
       {{ range .Site.Menus.main }}
       <li>
-        <a href="{{ .URL | relURL }}" {{ if eq $.RelPermalink (.URL | relURL) }}aria-current="page"{{ end }}>{{ .Name }}</a>
+        <a href="{{ .URL | absURL }}" {{ if eq $.RelPermalink (.URL | relURL) }}aria-current="page"{{ end }}>{{ .Name }}</a>
       </li>
       {{ end }}
     </ul>
