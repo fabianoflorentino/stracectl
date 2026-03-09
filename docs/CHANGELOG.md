@@ -10,6 +10,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+#### TUI — Terminal Frozen After Traced Process Exits (`fix(ui/tracer)`)
+
+When the traced process finished (e.g. `curl` completing a request), the TUI would
+either exit immediately (before the user could inspect the results) or appear frozen
+with no indication of what had happened.
+
+Two root causes were fixed:
+
+**1. Process group not killed on `q` for long-running commands (`fix(tracer)`)**
+
+When the user pressed `q`, `exec.CommandContext` sent `SIGKILL` only to the `strace`
+process. For commands that run indefinitely (e.g. `ping`), the traced child process
+survived as an orphan, keeping the stderr pipe open. The aggregator goroutine's scanner
+blocked on EOF that never arrived, causing `wg.Wait()` in `runTrace` to hang and
+leaving the terminal frozen.
+
+Fixed by setting `Setpgid: true` on the `strace` command so it and all its children
+share a new process group, and providing a custom `cmd.Cancel` that sends `SIGKILL` to
+the entire group (`Kill(-pgid, SIGKILL)`) on context cancellation.
+
+**2. TUI exited immediately when `done` channel closed (`fix(ui)`)**
+
+A previous attempt at the freeze fix sent `tea.QuitMsg` directly when the `done`
+channel closed, causing the TUI to vanish before the user could read the final data.
+
+Changed to send `processDeadMsg` instead, which sets a `processDone` flag on the
+model. The footer line changes to an amber *"✔  process exited — press q to quit"*
+banner, letting the user review the results and exit at their own pace.
+
+Tests added / updated in `internal/ui/tui_test.go`:
+
+- `TestProcessDeadMsg_SetsProcessDoneFlag` — model sets flag without auto-quitting
+- `TestProcessDeadMsg_ShowsBanner` — View() renders the "process exited" footer
+- `TestProcessDeadMsg_SetsProcessDoneFlagRegardlessOfState` — flag is set in all overlay states
+- `TestRun_StaysOpenWhenDoneIsClosed` — integration: TUI stays alive after done closes, exits on `q`
+- `TestRun_NilDoneDoesNotAutoQuit` — stats-file mode (nil done) never auto-quits
+
+---
+
 #### Stats Command — Scanner Buffer Too Small for Large Strace Lines (`fix(cmd/stats)`)
 
 The default `bufio.Scanner` token buffer is 64 KiB. `strace` output lines can exceed
