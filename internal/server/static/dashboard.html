@@ -54,6 +54,9 @@
   #log-table td.l-name{color:#79c0ff;width:120px}
   #log-table td.l-ts{width:100px;color:#6e7681}
   #log-table td.l-args{color:#8b949e;max-width:600px;overflow:hidden;text-overflow:ellipsis}
+  /* process exited banner */
+  #done-banner{display:none;padding:8px 24px;background:#3d2f00;border-bottom:2px solid #e3b341;
+               font-size:.82rem;color:#e3b341;font-weight:600;letter-spacing:.03em}
   /* search bar */
   #search-bar{padding:8px 24px;background:#0d1117;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px}
   #search-input{background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-family:monospace;font-size:.82rem;padding:5px 10px;width:220px;outline:none}
@@ -75,6 +78,7 @@
     <span>unique: <b id="m-unique">—</b></span>
   </div>
 </header>
+<div id="done-banner">&#x23F9; Process exited — trace complete. Data frozen.</div>
 <div class="bar-wrap" id="cat-bar"></div>
 <div id="alerts-section">
   <div id="alerts-hdr">⚠ ANOMALY ALERTS</div>
@@ -328,6 +332,17 @@ document.getElementById('tbody').addEventListener('click', e => {
 
 // rate from successive snapshots
 let prevTotal = 0, prevTs = Date.now();
+let processExited = false;
+
+function showDoneBanner() {
+  processExited = true;
+  const b = document.getElementById('done-banner');
+  const ts = new Date().toLocaleTimeString();
+  b.textContent = '\u23F9 Process exited at ' + ts + ' — trace complete. Data frozen.';
+  b.style.display = 'block';
+  document.getElementById('status').textContent = 'Process exited — data frozen';
+  document.getElementById('status').classList.remove('err');
+}
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -340,7 +355,14 @@ function connect() {
   };
 
   ws.onmessage = e => {
-    const rows = JSON.parse(e.data) || [];
+    const msg = JSON.parse(e.data);
+    // Sentinel: server signals the traced process has exited.
+    if (msg && !Array.isArray(msg) && msg.done === true) {
+      showDoneBanner();
+      ws.close();
+      return;
+    }
+    const rows = Array.isArray(msg) ? msg : [];
     lastData = rows;
     const now = Date.now();
     const total = rows.reduce((s,r) => s + r.Count, 0);
@@ -354,12 +376,13 @@ function connect() {
   };
 
   ws.onerror = () => {
-    document.getElementById('status').textContent = 'WebSocket error — retrying…';
+    document.getElementById('status').textContent = 'WebSocket error — retrying\u2026';
     document.getElementById('status').classList.add('err');
   };
 
   ws.onclose = () => {
-    document.getElementById('status').textContent = 'Disconnected — reconnecting in 2 s…';
+    if (processExited) return; // process exited cleanly — do not reconnect
+    document.getElementById('status').textContent = 'Disconnected — reconnecting in 2 s\u2026';
     document.getElementById('status').classList.add('err');
     setTimeout(connect, 2000);
   };

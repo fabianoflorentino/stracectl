@@ -398,6 +398,7 @@ type Aggregator struct {
 	rate     float64 // syscalls/s, updated every snapshot
 	procInfo ProcInfo
 	logBuf   []LogEntry // ring buffer of recent raw events
+	done     bool       // true when the traced process has exited
 }
 
 type rateSnapshot struct {
@@ -613,4 +614,18 @@ func (a *Aggregator) RecentLog() []LogEntry {
 	out := make([]LogEntry, len(a.logBuf))
 	copy(out, a.logBuf)
 	return out
+}
+
+// SetDone marks the traced process as having exited.
+func (a *Aggregator) SetDone() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.done = true
+}
+
+// IsDone reports whether the traced process has exited.
+func (a *Aggregator) IsDone() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.done
 }
