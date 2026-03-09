@@ -3,12 +3,16 @@
 # Stages / targets:
 #   base          — downloads modules and compiles the binary (internal)
 #   development   — standalone Go SDK image with air and strace for live-reload
+#   site-dev      — Hugo development server with live-reload for the docs site
 #   strace-src    — provides the glibc-linked strace binary (internal)
 #   production    — distroless runtime with strace; runs as nonroot (default)
 #
 # Build examples:
 #   # Development (via docker compose):
 #   docker compose up
+#
+#   # Site development:
+#   docker compose up site
 #
 #   # Development (standalone):
 #   docker build --target development -t stracectl:dev .
@@ -50,7 +54,33 @@ EXPOSE 8080
 ENTRYPOINT ["/go/bin/air"]
 CMD ["-c", "/app/.air.toml"]
 
-# ── Stage 3: strace-src ───────────────────────────────────────────────────────
+# ── Stage 3: site-dev ────────────────────────────────────────────────────────
+# Hugo development server with live-reload for the documentation site.
+# Equivalent to `air` for Go — Hugo has built-in watch + browser live-reload.
+#
+#   docker compose up site
+#   open http://localhost:1313/stracectl/
+FROM alpine:3.23 AS site
+
+ARG HUGO_VERSION=0.157.0
+
+# git: required by Hugo for .GitInfo / .Lastmod
+# libc6-compat + libstdc++: required by the Hugo extended binary (SCSS support)
+RUN apk add --no-cache git libc6-compat libstdc++ \
+  && wget -q -O /tmp/hugo.tar.gz \
+       "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz" \
+  && tar -xzf /tmp/hugo.tar.gz -C /usr/local/bin hugo \
+  && rm /tmp/hugo.tar.gz \
+  && hugo version
+
+WORKDIR /site
+
+EXPOSE 1313
+
+ENTRYPOINT ["hugo"]
+CMD ["server", "--bind", "0.0.0.0", "--disableFastRender", "--buildDrafts"]
+
+# ── Stage 4: strace-src ───────────────────────────────────────────────────────
 # Provides a glibc-linked strace binary for the production stage.
 # distroless/base includes glibc, so the binary runs correctly.
 FROM debian:bookworm-slim AS strace-src
@@ -59,7 +89,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends strace \
   && rm -rf /var/lib/apt/lists/*
 
-# ── Stage 4: production ───────────────────────────────────────────────────────
+# ── Stage 5: production ───────────────────────────────────────────────────────
 # distroless/base (not static) is required because strace is glibc-linked.
 FROM gcr.io/distroless/base:nonroot AS production
 
