@@ -68,6 +68,8 @@ type model struct {
 	editing       bool
 	helpOverlay   bool
 	detailOverlay bool
+	logOverlay    bool
+	logOffset     int
 	processDone   bool
 	cursor        int
 	width         int
@@ -123,6 +125,22 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	// in the log overlay: scroll or close
+	if m.logOverlay {
+		switch msg.String() {
+		case "up", "k":
+			if m.logOffset > 0 {
+				m.logOffset--
+			}
+		case "down", "j":
+			m.logOffset++
+		case "q", "Q", "ctrl+c":
+			return m, tea.Quit
+		default:
+			m.logOverlay = false
+		}
+		return m, nil
+	}
 	switch msg.String() {
 	case "q", "Q", "ctrl+c":
 		return m, tea.Quit
@@ -156,6 +174,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor++ // clamped in View() after slice is built
 	case "d", "D", "enter", " ":
 		m.detailOverlay = true
+	case "l", "L":
+		m.logOverlay = true
+		m.logOffset = -1 // -1 signals "scroll to bottom" on first render
 	}
 	return m, nil
 }
@@ -186,6 +207,9 @@ func (m model) View() string {
 	if m.detailOverlay {
 		return m.renderDetail()
 	}
+	if m.logOverlay {
+		return m.renderLog()
+	}
 
 	w := m.width
 	cw := colWidths(w)
@@ -215,7 +239,7 @@ func (m model) View() string {
 	div := divStyle.Render(strings.Repeat("─", w))
 	hdr := renderHeader(cw, m.sortBy)
 
-	shortcuts := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  ?:help  esc:clear"
+	shortcuts := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  l:log  ?:help  esc:clear"
 	if m.filter != "" {
 		shortcuts += fmt.Sprintf("   [filter: %q]", m.filter)
 	}
@@ -610,6 +634,83 @@ func wordWrap(text string, maxWidth int) []string {
 		lines = append(lines, current)
 	}
 	return lines
+}
+
+// ── Log overlay ───────────────────────────────────────────────────────────────
+
+func (m model) renderLog() string {
+	w := m.width
+	if w == 0 {
+		w = 80
+	}
+	h := m.height
+	if h == 0 {
+		h = 24
+	}
+
+	entries := m.agg.RecentLog()
+	n := len(entries)
+
+	div := divStyle.Render(strings.Repeat("─", w))
+	title := detailTitleStyle.Width(w).Render(fmt.Sprintf(" stracectl  live log  (%d entries) ", n))
+	footer := footerStyle.Render(" any key:return  ↑↓/jk:scroll  q:quit ")
+
+	// Visible body height: total height minus title, div, footer.
+	bodyH := h - 3
+	if bodyH < 1 {
+		bodyH = 1
+	}
+
+	// On first open (logOffset == -1) pin to the bottom.
+	if m.logOffset < 0 || m.logOffset > n-bodyH {
+		m.logOffset = n - bodyH
+	}
+	if m.logOffset < 0 {
+		m.logOffset = 0
+	}
+
+	var sb strings.Builder
+	sb.WriteString(title + "\n")
+	sb.WriteString(div + "\n")
+
+	end := m.logOffset + bodyH
+	if end > n {
+		end = n
+	}
+	visible := entries[m.logOffset:end]
+
+	maxNameW := 16
+	for _, e := range visible {
+		ts := e.Time.Format("15:04:05.000")
+		errTag := "   "
+		if e.Error != "" {
+			errTag = detailDimStyle.Render("ERR")
+		}
+		name := e.Name
+		if len(name) > maxNameW {
+			name = name[:maxNameW]
+		}
+		args := e.Args
+		avail := w - 15 - maxNameW - 6 - 4 // ts + padding + name + errTag + separators
+		if avail < 10 {
+			avail = 10
+		}
+		if len(args) > avail {
+			args = args[:avail-1] + "…"
+		}
+		line := fmt.Sprintf("%s  %s  %-*s  %s", ts, errTag, maxNameW, name, args)
+		if e.Error != "" {
+			sb.WriteString(errNumStyle.Render(line) + "\n")
+		} else {
+			sb.WriteString(detailDimStyle.Render(line) + "\n")
+		}
+	}
+	// Pad to bodyH if fewer lines.
+	for i := len(visible); i < bodyH; i++ {
+		sb.WriteString("\n")
+	}
+	sb.WriteString(footer)
+	return sb.String()
 }
 
 // ── Help overlay ─────────────────────────────────────────────────────────────

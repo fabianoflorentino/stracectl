@@ -39,6 +39,21 @@
   .alert-row{font-size:.82rem;padding:3px 0;font-family:monospace}
   .alert-row.hot{color:#f85149}
   .alert-row.slow{color:#e3b341}
+  /* tab bar */
+  .tabs{display:flex;gap:0;border-bottom:1px solid #30363d;padding:0 24px;background:#0d1117}
+  .tab-btn{font-size:.8rem;padding:7px 16px;cursor:pointer;border:none;background:transparent;
+           color:#8b949e;border-bottom:2px solid transparent;transition:color .1s}
+  .tab-btn.active{color:#e6edf3;border-bottom-color:#58a6ff}
+  .tab-btn:hover{color:#e6edf3}
+  /* log panel */
+  #log-panel{display:none;padding:0 24px 60px;overflow-x:auto}
+  #log-wrap{max-height:calc(100vh - 180px);overflow-y:auto;margin-top:12px}
+  #log-table{width:100%;border-collapse:collapse;font-size:.78rem;font-family:monospace}
+  #log-table td{padding:2px 8px;white-space:nowrap;color:#8b949e}
+  #log-table tr.error td{color:#f85149}
+  #log-table td.l-name{color:#79c0ff;width:120px}
+  #log-table td.l-ts{width:100px;color:#6e7681}
+  #log-table td.l-args{color:#8b949e;max-width:600px;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -57,7 +72,11 @@
   <div id="alerts-hdr">⚠ ANOMALY ALERTS</div>
   <div id="alerts-list"></div>
 </div>
-<div class="wrap">
+<div class="tabs">
+  <button class="tab-btn active" id="tab-stats" onclick="switchTab('stats')">SYSCALL STATS</button>
+  <button class="tab-btn" id="tab-log" onclick="switchTab('log')">LIVE LOG</button>
+</div>
+<div class="wrap" id="stats-panel">
 <table>
   <thead>
     <tr>
@@ -75,9 +94,47 @@
   <tbody id="tbody"></tbody>
 </table>
 </div>
+<div id="log-panel">
+  <div id="log-wrap">
+    <table id="log-table"><tbody id="log-tbody"></tbody></table>
+  </div>
+</div>
 <div id="status">Connecting…</div>
 
 <script>
+let currentTab = 'stats';
+
+function switchTab(name) {
+  currentTab = name;
+  document.getElementById('stats-panel').style.display = name === 'stats' ? '' : 'none';
+  document.getElementById('log-panel').style.display   = name === 'log'   ? '' : 'none';
+  document.getElementById('tab-stats').classList.toggle('active', name === 'stats');
+  document.getElementById('tab-log').classList.toggle('active', name === 'log');
+  if (name === 'log') fetchLog();
+}
+
+function fetchLog() {
+  fetch('/api/log').then(r => r.json()).then(entries => {
+    if (!entries) return;
+    const tbody = document.getElementById('log-tbody');
+    tbody.innerHTML = entries.slice(-500).map(e => {
+      const ts   = e.Time ? new Date(e.Time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3}) : '';
+      const args = e.Args ? (e.Args.length > 120 ? e.Args.slice(0,117)+'\u2026' : e.Args) : '';
+      return '<tr' + (e.Error ? ' class="error"' : '') + '>' +
+        '<td class="l-ts">' + esc(ts) + '</td>' +
+        '<td class="l-name">' + esc(e.Name) + '</td>' +
+        '<td class="l-args">' + esc(args) + (e.Error ? ' \u2192 <b>' + esc(e.Error) + '</b>' : '') + '</td>' +
+        '</tr>';
+    }).join('');
+    // auto-scroll to bottom
+    const wrap = document.getElementById('log-wrap');
+    wrap.scrollTop = wrap.scrollHeight;
+  }).catch(() => {});
+}
+
+// poll log when tab is visible
+setInterval(() => { if (currentTab === 'log') fetchLog(); }, 1000);
+
 function fetchStatus() {
   fetch('/api/status').then(r => r.json()).then(s => {
     const p = s.Proc;
@@ -92,6 +149,7 @@ function fetchStatus() {
 }
 
 const escapeHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const esc = escapeHtml;
 
 function alertExplanation(name) {
   const m = {

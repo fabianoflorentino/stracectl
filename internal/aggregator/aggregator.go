@@ -252,6 +252,17 @@ func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
 }
 
 const maxErrorSamples = 10 // max recent error samples retained per syscall
+const maxLogEntries = 500  // max raw events kept in the live log ring buffer
+
+// LogEntry is one line in the live-log ring buffer.
+type LogEntry struct {
+	Time   time.Time
+	PID    int
+	Name   string
+	Args   string
+	RetVal string
+	Error  string
+}
 
 // errWindowSize is the number of 1-second buckets kept for the sliding error-rate window.
 const errWindowSize = 60
@@ -386,6 +397,7 @@ type Aggregator struct {
 	prevRate rateSnapshot
 	rate     float64 // syscalls/s, updated every snapshot
 	procInfo ProcInfo
+	logBuf   []LogEntry // ring buffer of recent raw events
 }
 
 type rateSnapshot struct {
@@ -465,6 +477,15 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 			a.rate = float64(a.total-a.prevRate.total) / dt
 		}
 		a.prevRate = rateSnapshot{total: a.total, at: now}
+	}
+
+	// Append to live-log ring buffer.
+	entry := LogEntry{Time: e.Time, PID: e.PID, Name: e.Name, Args: e.Args, RetVal: e.RetVal, Error: e.Error}
+	if len(a.logBuf) < maxLogEntries {
+		a.logBuf = append(a.logBuf, entry)
+	} else {
+		copy(a.logBuf, a.logBuf[1:])
+		a.logBuf[maxLogEntries-1] = entry
 	}
 }
 
@@ -583,4 +604,13 @@ func (a *Aggregator) GetProcInfo() ProcInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.procInfo
+}
+
+// RecentLog returns a copy of the live-log ring buffer (oldest first).
+func (a *Aggregator) RecentLog() []LogEntry {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	out := make([]LogEntry, len(a.logBuf))
+	copy(out, a.logBuf)
+	return out
 }

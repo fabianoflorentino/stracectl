@@ -43,6 +43,7 @@ func New(addr string, agg *aggregator.Aggregator) *Server {
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/api/status", s.handleStatus)
 	s.mux.HandleFunc("/api/stats", s.handleStats)
+	s.mux.HandleFunc("/api/log", s.handleLog)
 	s.mux.HandleFunc("/api/categories", s.handleCategories)
 	s.mux.HandleFunc("/api/syscall/{name}", s.handleSyscallStat)
 	s.mux.HandleFunc("/syscall/{name}", s.handleSyscallDetail)
@@ -123,6 +124,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		Elapsed: time.Since(s.agg.StartTime()).Round(time.Second).String(),
 	}
 	writeJSON(w, resp)
+}
+
+func (s *Server) handleLog(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, s.agg.RecentLog())
 }
 
 func (s *Server) handleCategories(w http.ResponseWriter, _ *http.Request) {
