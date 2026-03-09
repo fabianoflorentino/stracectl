@@ -12,7 +12,8 @@ on:
       - 'docs/**'
       - '.github/**'
       - '**/*.md'
-
+      - 'scripts/**'
+      
 jobs:
   scan:
     name: Trivy vulnerability scan
