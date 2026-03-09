@@ -44,20 +44,20 @@ sudo mv stracectl /usr/local/bin/
 
 ## Container image
 
-Pre-built images are published to the GitHub Container Registry on every release:
+Pre-built images are published to Docker Hub on every release:
 
 ```bash
-docker pull ghcr.io/fabianoflorentino/stracectl:latest
+docker pull fabianoflorentino/stracectl:latest
 
 # Pin to a specific version
-docker pull ghcr.io/fabianoflorentino/stracectl:v1.0.23
+docker pull fabianoflorentino/stracectl:v1.0.23
 ```
 
 Run inside a privileged container (required for `ptrace`):
 
 ```bash
 docker run --rm --privileged \
-  ghcr.io/fabianoflorentino/stracectl:latest \
+  fabianoflorentino/stracectl:latest \
   run curl https://example.com
 ```
 

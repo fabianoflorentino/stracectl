@@ -2,7 +2,7 @@
 # Override with: helm install stracectl ./deploy/helm/stracectl -f my-values.yaml
 
 image:
-  repository: ghcr.io/fabianoflorentino/stracectl
+  repository: fabianoflorentino/stracectl
   tag: latest
   pullPolicy: IfNotPresent
 

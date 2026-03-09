@@ -43,7 +43,7 @@ If the vulnerability is declined, you will receive an explanation of why it was 
 The following are considered in scope:
 
 - Code within this repository (`cmd/`, `internal/`, `main.go`).
-- The official Docker image published to `ghcr.io/fabianoflorentino/stracectl`.
+- The official Docker image published to `fabianoflorentino/stracectl` on Docker Hub.
 - The Helm chart under `deploy/helm/stracectl`.
 
 Dependencies (Go modules, base Docker images) that are vulnerable should be reported to their respective upstream projects. We keep dependencies up to date via [Dependabot](.github/dependabot.yml).
