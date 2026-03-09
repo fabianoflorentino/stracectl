@@ -316,7 +316,7 @@ func (m model) View() string {
 
 	for i, s := range stats {
 		bar := sparkBar(s.Count, maxCount, cw.bar)
-		catTag := catStyle(s.Category).Render(fmt.Sprintf("%-5s", s.Category.String()))
+		catTag := catStyle(s.Category).Render(fmt.Sprintf("%-*s", cw.cat, s.Category.String()))
 
 		cursor := "  "
 		if i+scrollOffset == m.cursor {
@@ -327,8 +327,9 @@ func (m model) View() string {
 		avgDur := s.AvgTime()
 		var avgPart string
 		if avgDur >= slowAvgThreshold {
-			pad := max(0, cw.avg-len(formatDur(avgDur)))
-			avgPart = strings.Repeat(" ", pad) + slowAvgStyle.Render(formatDur(avgDur))
+			durStr := formatDur(avgDur)
+			pad := max(0, cw.avg-lipgloss.Width(durStr))
+			avgPart = strings.Repeat(" ", pad) + slowAvgStyle.Render(durStr)
 		} else {
 			avgPart = padL(formatDur(avgDur), cw.avg)
 		}
@@ -873,17 +874,19 @@ func catStyle(c aggregator.Category) lipgloss.Style {
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 func padR(s string, n int) string {
-	if len(s) >= n {
-		return s[:n-1] + " "
+	w := lipgloss.Width(s)
+	if w >= n {
+		return s
 	}
-	return s + strings.Repeat(" ", n-len(s))
+	return s + strings.Repeat(" ", n-w)
 }
 
 func padL(s string, n int) string {
-	if len(s) >= n {
-		return s[:n-1] + " "
+	w := lipgloss.Width(s)
+	if w >= n {
+		return s
 	}
-	return strings.Repeat(" ", n-len(s)) + s
+	return strings.Repeat(" ", n-w) + s
 }
 
 func formatDur(d time.Duration) string {
