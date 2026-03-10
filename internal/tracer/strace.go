@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -65,14 +66,26 @@ func (t *StraceTracer) Run(ctx context.Context, program string, args []string) (
 	// is killed atomically. Without this, the traced child (e.g. a long-running
 	// "ping") survives strace being SIGKILL'd, keeping the stderr pipe open
 	// and making the terminal appear frozen while wg.Wait() blocks.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	if setpgid := reflect.ValueOf(cmd.SysProcAttr).Elem().FieldByName("Setpgid"); setpgid.IsValid() && setpgid.CanSet() && setpgid.Kind() == reflect.Bool {
+		setpgid.SetBool(true)
+	}
 	cmd.Cancel = func() error {
 		if cmd.Process == nil {
 			return nil
 		}
-		// When Setpgid is true the PGID equals strace's PID, so Kill(-pid)
-		// delivers SIGKILL to strace and all its children (e.g. ping).
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+
+		// When Setpgid is available and true, the PGID equals strace's PID,
+		// so Kill(-pid) reaches strace and all children. On targets where
+		// Setpgid does not exist, fall back to killing only the tracer process.
+		killPID := cmd.Process.Pid
+		if cmd.SysProcAttr != nil {
+			if setpgid := reflect.ValueOf(cmd.SysProcAttr).Elem().FieldByName("Setpgid"); setpgid.IsValid() && setpgid.Kind() == reflect.Bool && setpgid.Bool() {
+				killPID = -killPID
+			}
+		}
+
+		_ = syscall.Kill(killPID, syscall.SIGKILL)
 		return nil
 	}
 
