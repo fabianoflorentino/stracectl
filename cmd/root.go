@@ -33,11 +33,12 @@ Examples:
   stracectl run --report out.html curl google.com  # trace and save an HTML report
   stracectl run --serve :8080 curl google.com      # open the Web dashboard
   stracectl attach 1234                            # attach to a running process
+  stracectl attach --container myapp               # auto-discover PID in a Pod
   stracectl attach --serve :8080 1234              # attach and expose HTTP/Prometheus
   stracectl stats trace.log                        # analyse a saved strace file
   stracectl stats --serve :8080 trace.log          # serve stats from a saved file
   stracectl stats --report report.html trace.log   # analyse and export an HTML report
-  stracectl discover myapp                         # find container PID in a Pod`,
+  stracectl discover myapp                         # find container PID manually`,
 }
 
 func Execute() {
