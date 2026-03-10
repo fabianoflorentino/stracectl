@@ -40,6 +40,7 @@ func New(addr string, agg *aggregator.Aggregator) *Server {
 	s.registerMetrics(reg)
 
 	s.mux.HandleFunc("/", s.handleDashboard)
+	s.mux.HandleFunc("/static/dashboard.js", s.handleDashboardJS)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/api/status", s.handleStatus)
 	s.mux.HandleFunc("/api/stats", s.handleStats)
@@ -99,6 +100,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(dashboardHTML)
+}
+
+func (s *Server) handleDashboardJS(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/static/dashboard.js" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	_, _ = w.Write(dashboardJS)
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, _ *http.Request) {
@@ -282,6 +292,9 @@ func writeJSON(w http.ResponseWriter, v any) {
 
 //go:embed static/dashboard.html
 var dashboardHTML []byte
+
+//go:embed static/dashboard.js
+var dashboardJS []byte
 
 //go:embed static/syscall_detail.html
 var syscallDetailHTML []byte
