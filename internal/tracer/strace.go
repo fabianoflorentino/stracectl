@@ -150,6 +150,7 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 	return ch, nil
 }
 
+// checkStrace verifies that the strace binary is available in PATH.
 func checkStrace() error {
 	if _, err := exec.LookPath("strace"); err != nil {
 		return fmt.Errorf("strace not found in PATH — install it with: apt install strace")
