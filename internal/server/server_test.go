@@ -16,6 +16,90 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/server"
 )
 
+func TestStream_WebSocket_WithValidToken(t *testing.T) {
+	agg := newPopulatedAgg()
+	token := "supersecret"
+	srv := server.New(":0", agg, token)
+
+	ts := httptest.NewServer(srv)
+	defer ts.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/stream?token=" + token
+	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("failed to connect WebSocket with valid token: %v", err)
+	}
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	defer conn.Close()
+
+	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	var stats []aggregator.SyscallStat
+	if err := conn.ReadJSON(&stats); err != nil {
+		t.Fatalf("failed to read WebSocket message: %v", err)
+	}
+	if len(stats) == 0 {
+		t.Fatal("expected at least one stat from WebSocket")
+	}
+
+	// Test via Authorization header
+	header := http.Header{}
+	header.Set("Authorization", "Bearer "+token)
+	conn2, resp2, err2 := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(ts.URL, "http")+"/stream", header)
+	if err2 != nil {
+		t.Fatalf("failed to connect WebSocket with valid Authorization header: %v", err2)
+	}
+	if resp2 != nil {
+		defer resp2.Body.Close()
+	}
+	defer conn2.Close()
+	conn2.SetReadDeadline(time.Now().Add(3 * time.Second))
+	var stats2 []aggregator.SyscallStat
+	if err := conn2.ReadJSON(&stats2); err != nil {
+		t.Fatalf("failed to read WebSocket message: %v", err)
+	}
+	if len(stats2) == 0 {
+		t.Fatal("expected at least one stat from WebSocket (header)")
+	}
+}
+
+func TestStream_WebSocket_WithInvalidToken(t *testing.T) {
+	agg := newPopulatedAgg()
+	token := "supersecret"
+	srv := server.New(":0", agg, token)
+
+	ts := httptest.NewServer(srv)
+	defer ts.Close()
+
+	// Wrong token via query
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/stream?token=wrongtoken"
+	_, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("expected WebSocket connection to fail with invalid token (query)")
+	}
+	if resp != nil && resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
+	}
+
+	// Wrong token via header
+	header := http.Header{}
+	header.Set("Authorization", "Bearer wrongtoken")
+	_, resp2, err2 := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(ts.URL, "http")+"/stream", header)
+	if resp2 != nil {
+		defer resp2.Body.Close()
+	}
+	if err2 == nil {
+		t.Fatal("expected WebSocket connection to fail with invalid token (header)")
+	}
+	if resp2 != nil && resp2.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", resp2.StatusCode)
+	}
+}
+
 func newPopulatedAgg() *aggregator.Aggregator {
 	agg := aggregator.New()
 	agg.Add(models.SyscallEvent{Name: "read", Latency: 100 * time.Microsecond})
@@ -27,7 +111,7 @@ func newPopulatedAgg() *aggregator.Aggregator {
 
 func TestHealthz(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/healthz", nil)
 	rr := httptest.NewRecorder()
@@ -43,7 +127,7 @@ func TestHealthz(t *testing.T) {
 
 func TestDashboard(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
@@ -65,7 +149,7 @@ func TestDashboard(t *testing.T) {
 
 func TestDashboardJS(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/static/dashboard.js", nil)
 	rr := httptest.NewRecorder()
@@ -88,7 +172,7 @@ func TestDashboardJS(t *testing.T) {
 
 func TestDashboard_UnknownPath(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/no/such/path", nil)
 	rr := httptest.NewRecorder()
@@ -101,7 +185,7 @@ func TestDashboard_UnknownPath(t *testing.T) {
 
 func TestStats(t *testing.T) {
 	agg := newPopulatedAgg()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/stats", nil)
 	rr := httptest.NewRecorder()
@@ -129,7 +213,7 @@ func TestStats(t *testing.T) {
 
 func TestCategories(t *testing.T) {
 	agg := newPopulatedAgg()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/categories", nil)
 	rr := httptest.NewRecorder()
@@ -150,7 +234,7 @@ func TestCategories(t *testing.T) {
 
 func TestMetrics(t *testing.T) {
 	agg := newPopulatedAgg()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/metrics", nil)
 	rr := httptest.NewRecorder()
@@ -173,7 +257,7 @@ func TestMetrics(t *testing.T) {
 
 func TestStream_WebSocket(t *testing.T) {
 	agg := newPopulatedAgg()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
@@ -200,7 +284,7 @@ func TestStream_WebSocket(t *testing.T) {
 
 func TestStart_Shutdown(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New("127.0.0.1:0", agg) // port 0 = random free port
+	srv := server.New("127.0.0.1:0", agg, "") // port 0 = random free port
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
@@ -213,7 +297,7 @@ func TestStart_Shutdown(t *testing.T) {
 
 func TestSyscallStat_Found(t *testing.T) {
 	agg := newPopulatedAgg()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/syscall/read", nil)
 	rr := httptest.NewRecorder()
@@ -240,7 +324,7 @@ func TestSyscallStat_Found(t *testing.T) {
 
 func TestSyscallStat_NotFound(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/syscall/nonexistent", nil)
 	rr := httptest.NewRecorder()
@@ -253,7 +337,7 @@ func TestSyscallStat_NotFound(t *testing.T) {
 
 func TestSyscallDetail(t *testing.T) {
 	agg := newPopulatedAgg()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/syscall/read", nil)
 	rr := httptest.NewRecorder()
@@ -279,7 +363,7 @@ func TestSyscallDetail(t *testing.T) {
 
 func TestStatus_DefaultEmpty(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)
 	rr := httptest.NewRecorder()
@@ -300,7 +384,7 @@ func TestStatus_DefaultEmpty(t *testing.T) {
 func TestStatus_WithProcInfo(t *testing.T) {
 	agg := aggregator.New()
 	agg.SetProcInfo(aggregator.ProcInfo{PID: 42, Comm: "nginx", Exe: "/usr/sbin/nginx"})
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)
 	rr := httptest.NewRecorder()
@@ -328,7 +412,7 @@ func TestStatus_WithProcInfo(t *testing.T) {
 
 func TestLog_Empty(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/log", nil)
 	rr := httptest.NewRecorder()
@@ -346,7 +430,7 @@ func TestLog_Empty(t *testing.T) {
 
 func TestLog_ContainsEvents(t *testing.T) {
 	agg := newPopulatedAgg()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/log", nil)
 	rr := httptest.NewRecorder()
@@ -366,7 +450,7 @@ func TestLog_ContainsEvents(t *testing.T) {
 
 func TestDashboard_ContainsSearchInput(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
@@ -386,7 +470,7 @@ func TestDashboard_ContainsSearchInput(t *testing.T) {
 
 func TestStatus_DoneFalseByDefault(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)
 	rr := httptest.NewRecorder()
@@ -407,7 +491,7 @@ func TestStatus_DoneFalseByDefault(t *testing.T) {
 func TestStatus_DoneTrueAfterSetDone(t *testing.T) {
 	agg := aggregator.New()
 	agg.SetDone()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)
 	rr := httptest.NewRecorder()
@@ -427,7 +511,7 @@ func TestStatus_DoneTrueAfterSetDone(t *testing.T) {
 
 func TestDashboard_ContainsDoneBanner(t *testing.T) {
 	agg := aggregator.New()
-	srv := server.New(":0", agg)
+	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
