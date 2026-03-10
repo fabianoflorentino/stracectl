@@ -30,6 +30,12 @@ func TestMain(m *testing.M) {
 		// One failed syscall.
 		fmt.Fprintln(os.Stderr, `[pid 1] openat(AT_FDCWD, "/no/such/file", O_RDONLY) = -1 ENOENT (No such file or directory) <0.000008>`)
 		os.Exit(0)
+	case "unfinished":
+		// Interleaved incomplete and resumed lines simulating strace -f output for multi-threaded processes.
+		fmt.Fprintln(os.Stderr, `[pid 1000] read(3, "partial", <unfinished ...>`)
+		fmt.Fprintln(os.Stderr, `[pid 1001] write(1, "ok\n", 3) = 3 <0.000010>`)
+		fmt.Fprintln(os.Stderr, `[pid 1000] <... read resumed>256) = 15 <0.000100>`)
+		os.Exit(0)
 	case "garbage":
 		// Non-syscall noise followed by one real line.
 		fmt.Fprintln(os.Stderr, "strace: Process 1 attached")
@@ -176,6 +182,33 @@ func TestStart_WellFormedLines_EmitsEvents(t *testing.T) {
 		if names[i] != want[i] {
 			t.Errorf("event[%d] = %q, want %q", i, names[i], want[i])
 		}
+	}
+}
+
+func TestStart_UnfinishedLines_EmitsEvents(t *testing.T) {
+	tr := NewStraceTracer()
+	ch, err := tr.start(fakeCmd(t, "unfinished"), 1)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	var events []models.SyscallEvent
+	for e := range ch {
+		events = append(events, e)
+	}
+
+	if len(events) != 2 {
+		t.Fatalf("got %d events, want 2", len(events))
+	}
+
+	// First completed event should be the interleaved write from pid 1001
+	if events[0].Name != "write" || events[0].PID != 1001 {
+		t.Errorf("event[0] = %+v, want write from pid 1001", events[0])
+	}
+
+	// Second completed event should be the resumed read from pid 1000
+	if events[1].Name != "read" || events[1].PID != 1000 || events[1].RetVal != "15" {
+		t.Errorf("event[1] = %+v, want read from pid 1000 with retval 15", events[1])
 	}
 }
 

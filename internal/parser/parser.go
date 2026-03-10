@@ -13,10 +13,26 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fabianoflorentino/stracectl/internal/models"
 )
+
+// Parser holds state across multiple Parse calls.
+// This is necessary to stitch together `<unfinished ...>` and `<... resumed>`
+// syscall lines that are interleaved when tracing multiple threads with `-f`.
+type Parser struct {
+	mu           sync.Mutex
+	pendingLines map[int]string
+}
+
+// New creates a new stateful Parser.
+func New() *Parser {
+	return &Parser{
+		pendingLines: make(map[int]string),
+	}
+}
 
 var (
 	// pidRe matches the optional "[pid N] " prefix added by strace -f.
@@ -36,14 +52,9 @@ var (
 
 // Parse parses a single line of strace output.
 // Returns nil, nil for non-syscall lines (signals, exit messages, unfinished stubs).
-func Parse(line string, defaultPID int) (*models.SyscallEvent, error) {
+func (p *Parser) Parse(line string, defaultPID int) (*models.SyscallEvent, error) {
 	line = strings.TrimSpace(line)
 	if line == "" {
-		return nil, nil
-	}
-
-	// Skip unfinished stubs; they will appear again as "resumed" lines.
-	if strings.Contains(line, "<unfinished ...>") {
 		return nil, nil
 	}
 
@@ -59,10 +70,35 @@ func Parse(line string, defaultPID int) (*models.SyscallEvent, error) {
 		line = line[len(m[0]):]
 	}
 
+	// Skip unfinished stubs; save them to pendingLines to be joined later.
+	if idx := strings.Index(line, "<unfinished ...>"); idx != -1 {
+		p.mu.Lock()
+		p.pendingLines[pid] = line[:idx]
+		p.mu.Unlock()
+		return nil, nil
+	}
+
 	// Handle "resumed" lines: <... syscall resumed> rest
 	if strings.HasPrefix(line, "<...") {
 		if m := resumedRe.FindStringSubmatch(line); m != nil {
-			line = m[1] + "(" + m[2] // reconstruct enough to match retRe
+			suffix := m[2]
+
+			p.mu.Lock()
+			prefix, ok := p.pendingLines[pid]
+			if ok {
+				delete(p.pendingLines, pid)
+			}
+			p.mu.Unlock()
+
+			if ok {
+				// Reconstruct the full line using the stored prefix and resumed suffix.
+				// The prefix comes from the initial call and looks like: `syscall(arg1, arg2, `
+				// The suffix comes from resumed and looks like: `arg3) = retval <latency>`
+				line = prefix + suffix
+			} else {
+				// Fallback if we missed the start: reconstruct enough to match retRe
+				line = m[1] + "(" + suffix
+			}
 		} else {
 			return nil, nil
 		}

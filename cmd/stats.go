@@ -86,8 +86,10 @@ func loadAggFromFile(path string) (*aggregator.Aggregator, error) {
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 512*1024), 512*1024) // match live-tracer buffer size
 
+	straceParser := parser.New()
+
 	for scanner.Scan() {
-		event, parseErr := parser.Parse(scanner.Text(), 0)
+		event, parseErr := straceParser.Parse(scanner.Text(), 0)
 		if parseErr != nil {
 			continue // skip malformed lines silently
 		}

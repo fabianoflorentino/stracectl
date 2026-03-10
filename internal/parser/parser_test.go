@@ -109,7 +109,8 @@ func TestParse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := parser.Parse(tc.line, tc.defaultPID)
+			p := parser.New()
+			got, err := p.Parse(tc.line, tc.defaultPID)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -144,5 +145,54 @@ func TestParse(t *testing.T) {
 				t.Errorf("Latency: want >= %v, got %v", tc.wantMinLat, got.Latency)
 			}
 		})
+	}
+}
+
+func TestParse_Unfinished(t *testing.T) {
+	t.Parallel()
+
+	p := parser.New()
+
+	// Initial unfinished line
+	line1 := `[pid 1000] read(3, "partial", <unfinished ...>`
+	got1, err := p.Parse(line1, 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got1 != nil {
+		t.Fatalf("expected nil for unfinished line, got %+v", got1)
+	}
+
+	// Another interleaved thread doing something else
+	line2 := `[pid 1001] write(1, "ok\n", 3) = 3 <0.000010>`
+	got2, err := p.Parse(line2, 1001)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got2 == nil || got2.Name != "write" {
+		t.Fatalf("expected write from interleaved thread")
+	}
+
+	// Resumed line for pid 1000
+	line3 := `[pid 1000] <... read resumed>256) = 15 <0.000100>`
+	got3, err := p.Parse(line3, 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got3 == nil {
+		t.Fatalf("expected non-nil event for resumed line, got nil")
+	}
+
+	if got3.Name != "read" {
+		t.Errorf("Name: want %q, got %q", "read", got3.Name)
+	}
+	if got3.PID != 1000 {
+		t.Errorf("PID: want %d, got %d", 1000, got3.PID)
+	}
+	if got3.RetVal != "15" {
+		t.Errorf("RetVal: want %q, got %q", "15", got3.RetVal)
+	}
+	if got3.Args != `3, "partial", 256` {
+		t.Errorf("Args: want %q, got %q", `3, "partial", 256`, got3.Args)
 	}
 }
