@@ -441,6 +441,62 @@ The knowledge base covers ~80 common Linux syscalls. Unknown syscalls receive a 
 Press `?` at any time to open a full in-app reference covering every column,
 colour, category, common pattern, and keyboard shortcut. Press any key to return.
 
+## Syscall Reference
+
+stracectl ships a built-in reference for ~50 canonical Linux syscalls (covering ~80 names via aliases).
+The detail overlay (`Enter`/`d`) and the web detail page (`/syscall/<name>`) surface this information inline.
+
+| Name | Category | Aliases | Description |
+| ---- | -------- | ------- | ----------- |
+| `read` | I/O | — | Read bytes from a file descriptor |
+| `write` | I/O | — | Write bytes to a file descriptor |
+| `openat` | I/O | `open` | Open or create a file |
+| `close` | I/O | — | Close a file descriptor |
+| `pipe` | I/O | `pipe2` | Create an anonymous pipe |
+| `dup` | I/O | `dup2`, `dup3` | Duplicate a file descriptor |
+| `sendfile` | I/O | `copy_file_range` | Zero-copy transfer between two fds |
+| `fcntl` | FS | — | Miscellaneous fd operations (flags, locks) |
+| `fstat` | FS | `stat`, `lstat`, `newfstatat`, `statx` | File metadata (size, permissions, inode) |
+| `getdents64` | FS | `getdents` | Read directory entries |
+| `access` | FS | `faccessat`, `faccessat2` | Check file access permissions |
+| `lseek` | FS | `llseek` | Reposition read/write offset |
+| `statfs` | FS | `fstatfs` | Filesystem statistics (free space, type) |
+| `socket` | NET | — | Create a socket |
+| `bind` | NET | — | Assign local address to socket |
+| `listen` | NET | — | Mark socket as passive |
+| `connect` | NET | — | Initiate a connection |
+| `accept4` | NET | `accept` | Accept incoming connection |
+| `recvfrom` | NET | `recv`, `recvmsg`, `recvmmsg` | Receive data from socket |
+| `sendto` | NET | `send`, `sendmsg`, `sendmmsg` | Send data through socket |
+| `setsockopt` | NET | `getsockopt` | Socket options |
+| `getsockname` | NET | `getpeername` | Get socket local/remote address |
+| `epoll_wait` | NET | `epoll_pwait` | Wait for I/O events |
+| `epoll_ctl` | NET | — | Manage epoll fd set |
+| `poll` | NET | `ppoll` | Wait for events on fds |
+| `mmap` | MEM | `mmap2` | Map memory or files |
+| `munmap` | MEM | — | Remove memory mapping |
+| `mprotect` | MEM | — | Change memory protection |
+| `madvise` | MEM | — | Memory usage hints to kernel |
+| `brk` | MEM | — | Adjust heap boundary |
+| `clone` | PROC | `clone3` | Create process or thread |
+| `execve` | PROC | `execveat` | Execute a program |
+| `exit_group` | PROC | `exit` | Terminate all threads in process |
+| `wait4` | PROC | `waitpid`, `waitid` | Wait for child state change |
+| `getpid` | PROC | — | Get process ID |
+| `getuid` | PROC | `geteuid`, `getgid`, `getegid` | Get user/group ID |
+| `prctl` | PROC | — | Control process attributes |
+| `prlimit64` | PROC | — | Get/set resource limits |
+| `set_tid_address` | PROC | — | Set thread exit cleanup address |
+| `arch_prctl` | PROC | — | Architecture-specific thread state (TLS) |
+| `rt_sigaction` | SIG | `sigaction` | Install signal handler |
+| `rt_sigprocmask` | SIG | `sigprocmask` | Block or unblock signals |
+| `eventfd` | SIG | `eventfd2` | Event notification file descriptor |
+| `futex` | OTHER | — | Fast user-space mutex / condvar |
+| `ioctl` | OTHER | — | Device-specific control operations |
+| `getrandom` | OTHER | — | Cryptographic random bytes from kernel |
+
+For full details — signatures, argument descriptions, return values, common errno codes, and diagnostic notes — see [site/content/docs/syscalls.md](site/content/docs/syscalls.md).
+
 ## Deploying as a Kubernetes sidecar
 
 ### Prerequisites
