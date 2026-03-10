@@ -185,26 +185,90 @@ function render(rows) {
   const tbody = document.getElementById('tbody');
   const sorted = sortData(filtered);
 
-  tbody.innerHTML = sorted.map(r => {
+  // Clear existing rows
+  tbody.textContent = '';
+
+  sorted.forEach(r => {
     const errPct = r.Count ? (r.Errors / r.Count * 100) : 0;
     const avgNs = r.Count ? Math.round(r.TotalTime / r.Count) : 0;
     const pct = maxCount ? Math.round(r.Count / maxCount * 100) : 0;
     const slow = avgNs >= 5e6;
-    const safeName = escapeHtml(r.Name);
-    const safeCategory = escapeHtml(r.Category);
-    const safeErrors = r.Errors != null ? escapeHtml(String(r.Errors)) : '';
-    return '<tr data-name="' + safeName + '">' +
-      '<td class="name">' + safeName + '</td>' +
-      '<td><span class="cat-pill ' + catClass(r.Category) + '">' + safeCategory + '</span></td>' +
-      '<td class="num">' + fmtN(r.Count) + '</td>' +
-      '<td><div class="spark"><div class="spark-fill" style="width:' + pct + '%"></div></div></td>' +
-      '<td class="num' + (slow ? ' slow' : '') + '">' + fmtDur(avgNs) + '</td>' +
-      '<td class="num">' + fmtDur(r.MaxTime) + '</td>' +
-      '<td class="num">' + fmtDur(r.TotalTime) + '</td>' +
-      '<td class="num err">' + (r.Errors ? safeErrors : '\u2014') + '</td>' +
-      '<td class="num err">' + (r.Errors ? errPct.toFixed(0) + '%' : '\u2014') + '</td>' +
-      '</tr>';
-  }).join('');
+
+    const tr = document.createElement('tr');
+    // data-name attribute (use raw value; attribute assignment is not parsed as HTML)
+    tr.setAttribute('data-name', r.Name != null ? String(r.Name) : '');
+
+    // Name cell
+    const tdName = document.createElement('td');
+    tdName.className = 'name';
+    tdName.textContent = r.Name != null ? String(r.Name) : '';
+    tr.appendChild(tdName);
+
+    // Category cell with pill
+    const tdCat = document.createElement('td');
+    const spanCat = document.createElement('span');
+    spanCat.className = 'cat-pill ' + catClass(r.Category);
+    spanCat.textContent = r.Category != null ? String(r.Category) : '';
+    tdCat.appendChild(spanCat);
+    tr.appendChild(tdCat);
+
+    // Count cell
+    const tdCount = document.createElement('td');
+    tdCount.className = 'num';
+    tdCount.textContent = fmtN(r.Count);
+    tr.appendChild(tdCount);
+
+    // Spark bar cell
+    const tdSpark = document.createElement('td');
+    const divSpark = document.createElement('div');
+    divSpark.className = 'spark';
+    const divSparkFill = document.createElement('div');
+    divSparkFill.className = 'spark-fill';
+    divSparkFill.style.width = pct + '%';
+    divSpark.appendChild(divSparkFill);
+    tdSpark.appendChild(divSpark);
+    tr.appendChild(tdSpark);
+
+    // Avg time cell
+    const tdAvg = document.createElement('td');
+    tdAvg.className = 'num' + (slow ? ' slow' : '');
+    tdAvg.textContent = fmtDur(avgNs);
+    tr.appendChild(tdAvg);
+
+    // Max time cell
+    const tdMax = document.createElement('td');
+    tdMax.className = 'num';
+    tdMax.textContent = fmtDur(r.MaxTime);
+    tr.appendChild(tdMax);
+
+    // Total time cell
+    const tdTotal = document.createElement('td');
+    tdTotal.className = 'num';
+    tdTotal.textContent = fmtDur(r.TotalTime);
+    tr.appendChild(tdTotal);
+
+    // Errors count cell
+    const tdErrCount = document.createElement('td');
+    tdErrCount.className = 'num err';
+    if (r.Errors) {
+      tdErrCount.textContent = r.Errors != null ? String(r.Errors) : '';
+    } else {
+      tdErrCount.textContent = '\u2014';
+    }
+    tr.appendChild(tdErrCount);
+
+    // Error percentage cell
+    const tdErrPct = document.createElement('td');
+    tdErrPct.className = 'num err';
+    if (r.Errors) {
+      tdErrPct.textContent = errPct.toFixed(0) + '%';
+    } else {
+      tdErrPct.textContent = '\u2014';
+    }
+    tr.appendChild(tdErrPct);
+
+    tbody.appendChild(tr);
+  });
 }
 
 function updateMeta(rows) {
