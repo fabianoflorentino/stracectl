@@ -294,6 +294,7 @@ function render(rows) {
     const slow   = avgNs >= 5e6;
     const safeName = escapeHtml(r.Name);
     const safeCategory = escapeHtml(r.Category);
+    const safeErrors = r.Errors != null ? escapeHtml(String(r.Errors)) : '';
     return '<tr data-name="' + safeName + '">' +
       '<td class="name">' + safeName + '</td>' +
       '<td><span class="cat-pill ' + catClass(r.Category) + '">' + safeCategory + '</span></td>' +
@@ -302,7 +303,7 @@ function render(rows) {
       '<td class="num' + (slow?' slow':'') + '">' + fmtDur(avgNs) + '</td>' +
       '<td class="num">' + fmtDur(r.MaxTime) + '</td>' +
       '<td class="num">' + fmtDur(r.TotalTime) + '</td>' +
-      '<td class="num err">' + (r.Errors || '—') + '</td>' +
+      '<td class="num err">' + (r.Errors ? safeErrors : '—') + '</td>' +
       '<td class="num err">' + (r.Errors ? errPct.toFixed(0)+'%' : '—') + '</td>' +
       '</tr>';
   }).join('');
