@@ -8,6 +8,7 @@ import (
 	_ "embed"
 
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -30,12 +31,13 @@ type Server struct {
 	mux      *http.ServeMux
 	httpSrv  *http.Server
 	registry *prometheus.Registry
+	wsToken  string
 }
 
 // New creates a Server listening on addr (e.g. ":8080").
-func New(addr string, agg *aggregator.Aggregator) *Server {
+func New(addr string, agg *aggregator.Aggregator, wsToken string) *Server {
 	reg := prometheus.NewRegistry()
-	s := &Server{agg: agg, registry: reg, mux: http.NewServeMux()}
+	s := &Server{agg: agg, registry: reg, mux: http.NewServeMux(), wsToken: wsToken}
 
 	s.registerMetrics(reg)
 
@@ -170,6 +172,29 @@ func (s *Server) handleSyscallDetail(w http.ResponseWriter, _ *http.Request) {
 
 // handleStream upgrades to WebSocket and pushes a JSON stats snapshot every second.
 func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
+	// Token validation if wsToken is set
+	if s.wsToken != "" {
+		token := ""
+		// Check Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			token = authHeader[7:]
+		} else {
+			// Fallback to query param
+			token = r.URL.Query().Get("token")
+		}
+		// Secure compare
+		if len(token) != len(s.wsToken) ||
+			subtle.ConstantTimeCompare([]byte(token), []byte(s.wsToken)) != 1 {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Header().Set("Content-Type", "text/plain")
+
+			if _, err := w.Write([]byte("unauthorized: invalid or missing token")); err != nil {
+				return
+			}
+		}
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
