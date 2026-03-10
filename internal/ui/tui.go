@@ -158,6 +158,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.sortBy = aggregator.SortByTotal
 	case "a":
 		m.sortBy = aggregator.SortByAvg
+	case "m":
+		m.sortBy = aggregator.SortByMin
 	case "x":
 		m.sortBy = aggregator.SortByMax
 	case "e":
@@ -239,7 +241,7 @@ func (m model) View() string {
 	div := divStyle.Render(strings.Repeat("─", w))
 	hdr := renderHeader(cw, m.sortBy)
 
-	shortcuts := " q:quit  c:calls▼  t:total  a:avg  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  l:log  ?:help  esc:clear"
+	shortcuts := " q:quit  c:calls▼  t:total  a:avg  m:min  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  l:log  ?:help  esc:clear"
 	if m.filter != "" {
 		shortcuts += fmt.Sprintf("   [filter: %q]", m.filter)
 	}
@@ -334,6 +336,10 @@ func (m model) View() string {
 			avgPart = padL(formatDur(avgDur), cw.avg)
 		}
 
+		// Min time cell
+		minDur := s.MinTime
+		minPart := padL(formatDur(minDur), cw.min)
+
 		var errCountPart, errPctPart string
 		if s.Errors > 0 {
 			cs := formatCount(s.Errors)
@@ -350,6 +356,7 @@ func (m model) View() string {
 			padL(formatCount(s.Count), cw.count) +
 			" " + barFillStyle.Render(bar) + " " +
 			avgPart +
+			minPart +
 			padL(formatDur(s.MaxTime), cw.max) +
 			padL(formatDur(s.TotalTime), cw.total) +
 			errCountPart +
@@ -804,17 +811,17 @@ func (m model) renderHelp() string {
 // ── Column layout ─────────────────────────────────────────────────────────────
 
 type cols struct {
-	name, cat, count, bar, avg, max, total, errors, errpct int
+	name, cat, count, bar, avg, min, max, total, errors, errpct int
 }
 
 func colWidths(w int) cols {
-	cat, count, avg, max, total, errors, errpct := 6, 9, 10, 10, 11, 8, 7
+	cat, count, avg, min, max, total, errors, errpct := 6, 9, 10, 10, 10, 11, 8, 7
 	barW := 12
-	name := w - cat - count - barW - 2 - avg - max - total - errors - errpct
+	name := w - cat - count - barW - 2 - avg - min - max - total - errors - errpct
 	if name < 14 {
 		name = 14
 	}
-	return cols{name, cat, count, barW, avg, max, total, errors, errpct}
+	return cols{name, cat, count, barW, avg, min, max, total, errors, errpct}
 }
 
 func renderHeader(cw cols, sortBy aggregator.SortField) string {
@@ -830,6 +837,7 @@ func renderHeader(cw cols, sortBy aggregator.SortField) string {
 			padL(mark(aggregator.SortByCount, "CALLS"), cw.count) +
 			" " + padR("FREQ", cw.bar+1) +
 			padL(mark(aggregator.SortByAvg, "AVG"), cw.avg) +
+			padL(mark(aggregator.SortByMin, "MIN"), cw.min) +
 			padL(mark(aggregator.SortByMax, "MAX"), cw.max) +
 			padL(mark(aggregator.SortByTotal, "TOTAL"), cw.total) +
 			padL(mark(aggregator.SortByErrors, "ERRORS"), cw.errors) +
