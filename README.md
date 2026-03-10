@@ -152,8 +152,6 @@ sudo stracectl run --report report.html curl https://example.com
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release history |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned improvements |
 
-
-
 ## Syscall Reference
 
 stracectl ships a built-in reference for ~50 canonical Linux syscalls (covering ~80 names via aliases).

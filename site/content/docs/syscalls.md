@@ -21,7 +21,7 @@ entry) are listed for each syscall where they exist.
 ## Categories at a glance
 
 | Category | Label | Syscalls included |
-|----------|-------|-------------------|
+| ---------- | ------- | ------------------- |
 | File descriptor I/O | **I/O** | `read`, `write`, `openat`, `close`, `pipe`, `dup`, `sendfile`, `fcntl` |
 | Filesystem metadata | **FS** | `fstat`, `getdents64`, `access`, `lseek`, `statfs` |
 | Networking & sockets | **NET** | `socket`, `bind`, `listen`, `connect`, `accept4`, `recvfrom`, `sendto`, `setsockopt`, `getsockname`, `epoll_wait`, `epoll_ctl`, `poll` |
@@ -41,7 +41,7 @@ Read bytes from a file descriptor into a buffer.
 **Signature:** `read(fd, buf, count) → bytes_read`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `fd` | open file descriptor to read from |
 | `buf` | destination buffer in user space |
 | `count` | maximum number of bytes to read |
@@ -59,7 +59,7 @@ Write bytes from a buffer to a file descriptor.
 **Signature:** `write(fd, buf, count) → bytes_written`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `fd` | open file descriptor to write to |
 | `buf` | source buffer in user space |
 | `count` | number of bytes to write |
@@ -78,7 +78,7 @@ Open or create a file, returning a file descriptor.
 **Aliases:** `open`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `dirfd` | `AT_FDCWD` or directory fd for relative paths |
 | `pathname` | path to file |
 | `flags` | `O_RDONLY`, `O_WRONLY`, `O_CREAT`, `O_TRUNC`, … |
@@ -97,7 +97,7 @@ Close a file descriptor, releasing the kernel resource.
 **Signature:** `close(fd) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `fd` | file descriptor to close |
 
 **Returns:** `0`  
@@ -114,7 +114,7 @@ Create a unidirectional data channel between two file descriptors.
 **Aliases:** `pipe2`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `pipefd` | `[0]` = read end, `[1]` = write end |
 | `flags` | `O_CLOEXEC`, `O_NONBLOCK`, `O_DIRECT` |
 
@@ -130,7 +130,7 @@ Duplicate a file descriptor.
 **Aliases:** `dup2`, `dup3`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `oldfd` | fd to duplicate |
 | `newfd` | desired fd number (closed first if already open) |
 
@@ -156,7 +156,7 @@ Perform miscellaneous operations on a file descriptor (flags, locks, async I/O).
 **Signature:** `fcntl(fd, cmd, arg) → value`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `cmd` | `F_GETFL`, `F_SETFL` (`O_NONBLOCK`), `F_GETFD`, `F_SETFD` (`FD_CLOEXEC`), `F_DUPFD`, `F_SETLK`, … |
 
 ---
@@ -171,7 +171,7 @@ Retrieve file metadata (size, permissions, timestamps, inode).
 **Aliases:** `stat`, `lstat`, `newfstatat`, `statx`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `fd` / `pathname` | file descriptor or path to inspect |
 | `statbuf` | `struct stat` to fill in |
 
@@ -189,7 +189,7 @@ Read directory entries from an open directory file descriptor.
 **Aliases:** `getdents`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `fd` | directory fd |
 | `dirp` | buffer for `linux_dirent64` structs |
 | `count` | buffer size |
@@ -208,7 +208,7 @@ Check whether the calling process can access a file.
 **Aliases:** `faccessat`, `faccessat2`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `pathname` | path to check |
 | `mode` | `F_OK` (exists?), `R_OK`, `W_OK`, `X_OK` |
 
@@ -226,7 +226,7 @@ Reposition the read/write offset of a file descriptor.
 **Aliases:** `llseek`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `whence` | `SEEK_SET` (absolute), `SEEK_CUR` (relative), `SEEK_END` (from end) |
 
 **Returns:** resulting file offset  
@@ -242,7 +242,7 @@ Get filesystem statistics (type, free space, block size, inode counts).
 **Aliases:** `fstatfs`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `pathname` | path on the filesystem to inspect |
 | `buf` | `struct statfs` to fill |
 
@@ -261,7 +261,7 @@ Create a communication endpoint (socket).
 **Signature:** `socket(domain, type, protocol) → fd`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `domain` | `AF_INET`, `AF_INET6`, `AF_UNIX`, `AF_NETLINK`, … |
 | `type` | `SOCK_STREAM`, `SOCK_DGRAM`, `SOCK_RAW` \| `SOCK_NONBLOCK` \| `SOCK_CLOEXEC` |
 | `protocol` | `0` (auto), `IPPROTO_TCP`, `IPPROTO_UDP`, … |
@@ -277,7 +277,7 @@ Assign a local address to a socket.
 **Signature:** `bind(sockfd, addr, addrlen) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `addr` | local address (port + IP, or Unix socket path) |
 
 **Returns:** `0`  
@@ -292,7 +292,7 @@ Mark a socket as passive, ready to accept connections.
 **Signature:** `listen(sockfd, backlog) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `backlog` | max length of the pending connection queue |
 
 **Returns:** `0`
@@ -306,7 +306,7 @@ Initiate a connection on a socket.
 **Signature:** `connect(sockfd, addr, addrlen) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `sockfd` | open socket fd |
 | `addr` | target address (`sockaddr_in`, `sockaddr_un`, …) |
 | `addrlen` | `sizeof(*addr)` |
@@ -325,7 +325,7 @@ Accept a new incoming connection on a listening socket.
 **Aliases:** `accept`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `sockfd` | listening socket fd |
 | `addr` | filled with the peer address |
 | `flags` | `SOCK_NONBLOCK`, `SOCK_CLOEXEC` |
@@ -343,7 +343,7 @@ Receive data from a socket.
 **Aliases:** `recv`, `recvmsg`, `recvmmsg`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `sockfd` | connected or unconnected socket |
 | `buf` | receive buffer |
 | `flags` | `MSG_DONTWAIT`, `MSG_PEEK`, `MSG_WAITALL`, … |
@@ -362,7 +362,7 @@ Send data through a socket.
 **Aliases:** `send`, `sendmsg`, `sendmmsg`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `sockfd` | socket fd |
 | `buf` | data to send |
 | `flags` | `MSG_DONTWAIT`, `MSG_NOSIGNAL`, … |
@@ -380,7 +380,7 @@ Set or get socket options (timeouts, buffers, `TCP_NODELAY`, `SO_REUSEADDR`, …
 **Aliases:** `getsockopt`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `level` | `SOL_SOCKET`, `IPPROTO_TCP`, `IPPROTO_IP`, … |
 | `optname` | `SO_REUSEADDR`, `SO_KEEPALIVE`, `TCP_NODELAY`, `SO_RCVBUF`, … |
 
@@ -403,7 +403,7 @@ Wait for I/O events on an epoll file descriptor.
 **Aliases:** `epoll_pwait`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `epfd` | epoll instance fd |
 | `events` | array of `epoll_event` structs to fill |
 | `maxevents` | max events to return per call |
@@ -421,7 +421,7 @@ Add, modify, or remove a file descriptor from an epoll instance.
 **Signature:** `epoll_ctl(epfd, op, fd, event) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `op` | `EPOLL_CTL_ADD`, `EPOLL_CTL_MOD`, `EPOLL_CTL_DEL` |
 | `fd` | target file descriptor |
 | `event` | `epoll_event` with events mask and user data |
@@ -439,7 +439,7 @@ Wait for events on a set of file descriptors.
 **Aliases:** `ppoll`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `fds` | array of `pollfd` structs |
 | `nfds` | number of fds to monitor |
 | `timeout` | milliseconds (`-1` = block indefinitely) |
@@ -458,7 +458,7 @@ Map files or devices into memory, or allocate anonymous memory.
 **Aliases:** `mmap2`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `addr` | hint for mapping address (`0` = kernel decides) |
 | `length` | size in bytes |
 | `prot` | `PROT_READ` \| `PROT_WRITE` \| `PROT_EXEC` |
@@ -479,7 +479,7 @@ Remove a memory mapping created by `mmap`.
 **Signature:** `munmap(addr, length) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `addr` | start of the mapping (must be page-aligned) |
 | `length` | size to unmap |
 
@@ -495,7 +495,7 @@ Change memory protection attributes on a mapped region.
 **Signature:** `mprotect(addr, len, prot) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `addr` | page-aligned start address |
 | `len` | length in bytes |
 | `prot` | `PROT_NONE` \| `PROT_READ` \| `PROT_WRITE` \| `PROT_EXEC` |
@@ -513,7 +513,7 @@ Give the kernel hints on expected memory usage patterns.
 **Signature:** `madvise(addr, length, advice) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `addr` | page-aligned start |
 | `length` | region size |
 | `advice` | `MADV_NORMAL`, `MADV_SEQUENTIAL`, `MADV_DONTNEED`, `MADV_FREE`, … |
@@ -531,7 +531,7 @@ Adjust the end of the data segment (heap boundary).
 **Signature:** `brk(addr) → new_brk`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `addr` | new end of heap (`0` = query current value) |
 
 **Returns:** current break address  
@@ -549,7 +549,7 @@ Create a new process or thread with fine-grained control over shared resources.
 **Aliases:** `clone3`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `flags` | `CLONE_THREAD`, `CLONE_VM`, `CLONE_FS`, `SIGCHLD`, … |
 | `stack` | new stack pointer for the child (`0` = copy parent stack) |
 
@@ -566,7 +566,7 @@ Replace the current process image with a new program.
 **Aliases:** `execveat`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `pathname` | path to the executable |
 | `argv` | argument vector (NULL-terminated array of strings) |
 | `envp` | environment strings |
@@ -584,7 +584,7 @@ Terminate the calling thread (`exit`) or all threads in the thread group (`exit_
 **Aliases:** `exit`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `status` | exit code (low 8 bits visible to `waitpid`) |
 
 **Notes:** `exit_group` is what `libc exit(3)` calls. It ensures all threads in the process terminate cleanly.
@@ -599,7 +599,7 @@ Wait for a child process to change state.
 **Aliases:** `waitpid`, `waitid`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `pid` | `-1` = any child; `>0` = specific PID |
 | `options` | `WNOHANG` (non-blocking), `WUNTRACED`, `WCONTINUED` |
 
@@ -635,7 +635,7 @@ Control various process attributes (name, seccomp, capabilities, …).
 **Signature:** `prctl(option, arg2, arg3, arg4, arg5) → 0 or value`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `option` | `PR_SET_NAME`, `PR_SET_SECCOMP`, `PR_CAP_AMBIENT`, `PR_SET_DUMPABLE`, … |
 
 **Returns:** `0` or option-specific value  
@@ -651,7 +651,7 @@ Get or set resource limits (CPU time, memory, open files, …) for a process.
 **Signature:** `prlimit64(pid, resource, new_limit, old_limit) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `resource` | `RLIMIT_NOFILE`, `RLIMIT_AS`, `RLIMIT_STACK`, `RLIMIT_CORE`, … |
 | `pid` | `0` = calling process |
 
@@ -674,7 +674,7 @@ Set architecture-specific thread state (e.g. FS/GS segment base for TLS).
 **Signature:** `arch_prctl(code, addr) → 0`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `code` | `ARCH_SET_FS` (set FS base for thread-local storage), `ARCH_GET_FS`, … |
 
 **Notes:** Called once per thread by `glibc` to initialise thread-local storage (TLS). Normal during process startup.
@@ -691,7 +691,7 @@ Install or query a signal handler.
 **Aliases:** `sigaction`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `signum` | signal number (`SIGINT`, `SIGSEGV`, …) |
 | `act` | new `sigaction` struct (`NULL` = query only) |
 | `oldact` | previous handler (`NULL` = discard) |
@@ -708,7 +708,7 @@ Block, unblock, or query the set of blocked signals.
 **Aliases:** `sigprocmask`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `how` | `SIG_BLOCK`, `SIG_UNBLOCK`, `SIG_SETMASK` |
 | `set` | new signal mask (`NULL` = query only) |
 | `oldset` | previous mask |
@@ -725,7 +725,7 @@ Create a file descriptor for event notification between threads or processes.
 **Aliases:** `eventfd2`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `initval` | initial counter value |
 | `flags` | `EFD_NONBLOCK`, `EFD_CLOEXEC`, `EFD_SEMAPHORE` |
 
@@ -742,7 +742,7 @@ Fast user-space locking primitive — the kernel backing for mutexes and conditi
 **Signature:** `futex(uaddr, op, val, timeout, uaddr2, val3) → 0 or value`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `uaddr` | address of the futex word (shared between threads) |
 | `op` | `FUTEX_WAIT`, `FUTEX_WAKE`, `FUTEX_LOCK_PI`, … |
 | `val` | expected value (for `WAIT`) or wake count (for `WAKE`) |
@@ -758,7 +758,7 @@ Device-specific control operations on a file descriptor.
 **Signature:** `ioctl(fd, request, argp) → 0 or value`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `fd` | open file descriptor (device, socket, terminal, …) |
 | `request` | device-specific command code (`TIOCGWINSZ`, `FIONREAD`, …) |
 | `argp` | pointer to in/out argument |
@@ -776,7 +776,7 @@ Obtain cryptographically secure random bytes from the kernel entropy pool.
 **Signature:** `getrandom(buf, buflen, flags) → bytes_filled`
 
 | Argument | Description |
-|----------|-------------|
+| ---------- | ----------- |
 | `flags` | `0` (block until entropy ready), `GRND_NONBLOCK`, `GRND_RANDOM` |
 
 **Returns:** number of bytes filled  
@@ -789,7 +789,7 @@ Obtain cryptographically secure random bytes from the kernel entropy pool.
 The following names are automatically normalised to their canonical entry.
 
 | Alias | Canonical |
-|-------|-----------|
+| ------- | ----------- |
 | `open` | `openat` |
 | `mmap2` | `mmap` |
 | `stat`, `lstat`, `newfstatat`, `statx` | `fstat` |
