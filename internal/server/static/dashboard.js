@@ -37,8 +37,8 @@ function fetchStatus() {
     const p = s.Proc;
     const el = document.getElementById('proc-info');
     if (p && p.Comm) {
-      let label = p.Comm + '[' + p.PID + ']';
-      if (p.Cwd) label += '  \u2022  ' + escapeHtml(p.Cwd);
+        let label = p.Comm + '[' + p.PID + ']';
+        if (p.Cwd) label += '  \u2022  ' + p.Cwd;
       el.textContent = label;
       el.title = p.Cmdline || '';
     }
