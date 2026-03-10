@@ -172,6 +172,12 @@
         <p>Press <kbd>/</kbd> in the TUI to narrow down syscalls in real time. The web dashboard has a search bar above the table.</p>
       </div>
 
+      <div class="feature-card reveal">
+        <div class="feature-icon">📖</div>
+        <h3>Built-in Syscall Reference</h3>
+        <p>Every tracked syscall ships with its C signature, argument descriptions, common <code>errno</code> codes, and diagnostic notes — inline in the TUI and web detail page, no browser tab needed.</p>
+      </div>
+
     </div>
   </div>
 </section>
@@ -325,6 +331,82 @@
           <code>stracectl stats --report out.html trace.log</code>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SYSCALL REFERENCE PREVIEW
+     ============================================================ -->
+<section class="features-section" id="syscall-ref">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title reveal">Not just counts —<br><span class="gradient-text">built-in explanations</span></h2>
+      <p class="section-sub reveal">
+        Press <kbd>Enter</kbd> on any row to see the syscall's signature, arguments, errno codes, and diagnostic notes — inline, without leaving the terminal. The same reference is available on every web detail page.
+      </p>
+    </div>
+
+    <div class="features-grid" style="grid-template-columns: repeat(3, 1fr)">
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem">
+          <span style="font-family:var(--font-mono); font-size:1rem; font-weight:700; color:#79c0ff">openat</span>
+          <span class="cat cat-io" style="font-size:0.7rem; padding:0.15rem 0.5rem; border-radius:4px">I/O</span>
+          <span style="font-size:0.68rem; color:var(--muted); margin-left:auto">alias: <code>open</code></span>
+        </div>
+        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:0.6rem">
+          Open or create a file, returning a file descriptor.
+        </p>
+        <code style="display:block; font-size:0.75rem; color:var(--primary); background:var(--primary-dim); padding:0.4rem 0.6rem; border-radius:5px; margin-bottom:0.75rem">
+          openat(dirfd, pathname, flags, mode) → fd
+        </code>
+        <p style="font-size:0.8rem; color:var(--muted); border-left:2px solid rgba(210,153,34,0.5); padding-left:0.6rem">
+          💡 High <code>ENOENT</code> rates are normal — the dynamic linker probes many paths when loading shared libraries.
+        </p>
+      </div>
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem">
+          <span style="font-family:var(--font-mono); font-size:1rem; font-weight:700; color:#79c0ff">connect</span>
+          <span class="cat cat-net" style="font-size:0.7rem; padding:0.15rem 0.5rem; border-radius:4px">NET</span>
+        </div>
+        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:0.6rem">
+          Initiate a connection on a socket to a target address.
+        </p>
+        <code style="display:block; font-size:0.75rem; color:var(--primary); background:var(--primary-dim); padding:0.4rem 0.6rem; border-radius:5px; margin-bottom:0.75rem">
+          connect(sockfd, addr, addrlen) → 0
+        </code>
+        <p style="font-size:0.8rem; color:var(--muted); border-left:2px solid rgba(210,153,34,0.5); padding-left:0.6rem">
+          💡 ~50% error rate is expected with Happy Eyeballs (RFC 8305) — IPv4 and IPv6 race in parallel; the loser always fails.
+        </p>
+      </div>
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem">
+          <span style="font-family:var(--font-mono); font-size:1rem; font-weight:700; color:#79c0ff">futex</span>
+          <span class="cat cat-other" style="font-size:0.7rem; padding:0.15rem 0.5rem; border-radius:4px">OTHER</span>
+        </div>
+        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:0.6rem">
+          Fast user-space locking — the kernel backing for mutexes and condition variables.
+        </p>
+        <code style="display:block; font-size:0.75rem; color:var(--primary); background:var(--primary-dim); padding:0.4rem 0.6rem; border-radius:5px; margin-bottom:0.75rem">
+          futex(uaddr, op, val, timeout, …) → 0
+        </code>
+        <p style="font-size:0.8rem; color:var(--muted); border-left:2px solid rgba(210,153,34,0.5); padding-left:0.6rem">
+          💡 High syscall counts suggest lock contention — futex only enters the kernel when a thread must actually sleep.
+        </p>
+      </div>
+
+    </div>
+
+    <div class="reveal" style="text-align:center; margin-top:2.5rem">
+      <p style="font-size:0.9rem; color:var(--muted); margin-bottom:1rem">
+        ~50 canonical syscalls documented — signatures, arguments, errno codes, and real-world diagnostic notes.
+      </p>
+      <a href="{{ "docs/syscalls/" | absURL }}" class="btn btn-outline">
+        View full syscall reference →
+      </a>
     </div>
   </div>
 </section>
