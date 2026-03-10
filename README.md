@@ -105,7 +105,7 @@ LIVE STATISTICS
 - **Web detail page** — `/syscall/<name>` shows 9 live stat cards (calls, avg/min/max/P95/P99 latency, total time, errors, error rate), errno breakdown, recent error samples, and a full reference panel (~80 well-known Linux syscalls)
 - **Web live log tab** — a dedicated **LIVE LOG** tab streams the most recent 500 syscall events in real time from `/api/log`, polled every second
 - **Web process exited notification** — an amber banner appears in the web dashboard the moment the traced process exits, indicating the data is frozen
-- **PID auto-discovery** — `stracectl discover <container-name>` finds the target PID inside a shared-PID-namespace Pod
+- **PID auto-discovery** — use `--container <name>` on `attach` to automatically find the target PID inside a shared-PID-namespace Pod
 - **Post-mortem analysis** — `stracectl stats <file>` reads a saved `strace -T -o` log file and displays the same aggregated TUI or HTTP API — no need to re-run the process
 - **HTML report export** — `--report <path>` on any trace command (or `stats`) writes a self-contained, sortable HTML file suitable for sharing, archiving, and offline analysis; no external dependencies
 - **Kubernetes-ready** — ships with a Dockerfile, raw manifests, and a Helm chart with a hardened sidecar security context
@@ -159,6 +159,7 @@ sudo stracectl run --report report.html curl https://example.com
 ```bash
 sudo stracectl attach 1234
 sudo stracectl attach "$(pgrep nginx | head -1)"
+sudo stracectl attach --container myapp
 ```
 
 Save a report on exit:
@@ -295,17 +296,18 @@ A **← Dashboard** button in the header returns to the main view.
 ### Discover a container PID (Kubernetes sidecar)
 
 When `shareProcessNamespace: true` is set on a Pod, all container processes
-are visible from the sidecar. Use `discover` to find the right PID:
+are visible from the sidecar. Use the `--container` flag to automatically attach
+to the right PID:
+
+```bash
+stracectl attach --serve :8080 --container myapp
+```
+
+You can also still use the `discover` subcommand if you need to script around the PID:
 
 ```bash
 stracectl discover myapp
 # prints the lowest PID whose cgroup path matches "myapp"
-```
-
-Then attach:
-
-```bash
-stracectl attach --serve :8080 "$(stracectl discover myapp)"
 ```
 
 > **Permissions:** `strace` requires `CAP_SYS_PTRACE`.
@@ -453,8 +455,7 @@ colour, category, common pattern, and keyboard shortcut. Press any key to return
 ### Quick start with raw manifests
 
 ```bash
-# 1. Edit the target PID in deploy/k8s/sidecar-pod.yaml
-#    (or use `stracectl discover <container-name>` at runtime)
+# 1. Edit the target container in deploy/k8s/sidecar-pod.yaml
 kubectl apply -f deploy/k8s/sidecar-pod.yaml
 
 # 2. Forward the port
@@ -474,7 +475,6 @@ your existing Deployment:
 ```bash
 # Install the chart (creates a ServiceMonitor if serviceMonitor.enabled=true)
 helm install stracectl ./deploy/helm/stracectl \
-  --set targetPID=1 \
   --set targetContainer=myapp \
   --set serviceMonitor.enabled=true
 ```
@@ -565,8 +565,7 @@ flowchart TD
 | Limitation | Impact |
 | --- | --- |
 | **`strace` binary dependency** — not eBPF; shells out to the system `strace` at runtime | Must be installed on the host (`apt install strace`) or use the container image |
-| **`<unfinished ...>` lines not merged** — when `-f` (follow threads) splits a syscall across two output lines, the args from the first half are lost | Call counts and latency are unaffected; only `Args` for those calls is incomplete |
-| **Hardcoded PID `"1"` in the sidecar manifest** — `deploy/k8s/sidecar-pod.yaml` uses `"1"` as a placeholder | Replace it at deploy time or use `stracectl discover <container-name>` inside the sidecar to get the real PID before attaching |
+| **Hardcoded PID `"1"` in the sidecar manifest** — `deploy/k8s/sidecar-pod.yaml` uses `--container app` | Replace it at deploy time to match the real application container name |
 | **Sidecar must run as root** — `ptrace` is a kernel-level capability; `runAsNonRoot: false` is required | Limit exposure by deploying only in debug/staging namespaces and protecting the Pod with `PodSecurityAdmission` |
 | **WebSocket `/stream` has no authentication** — `CheckOrigin` accepts any origin unconditionally | Safe for in-cluster / port-forward usage; do not expose the port externally without an auth proxy or network policy |
 | **`MinTime` not in `/api/stats`** — the aggregator tracks minimum syscall latency but the bulk stats endpoint does not expose it | The value is visible in the TUI detail overlay (`d` key) and in the web detail page (`/syscall/{name}`) |
