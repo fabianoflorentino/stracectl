@@ -42,39 +42,6 @@ This document tracks planned features, known technical debt, and the implementat
 
 ---
 
-### Fix `<unfinished ...>` line merging in the parser
-
-**Goal:** preserve argument data for blocking syscalls in multi-threaded processes.
-
-**Current state:** `<unfinished ...>` lines are discarded; `<... resumed>` lines are handled and latency is correctly captured from them. `Count` and `Latency` are therefore accurate. Only `Args` from the first (unfinished) line are lost — they are replaced by the suffix arguments from the resumed line.
-
-**Remaining work:**
-
-- Add a `pendingLines map[int]string` keyed by PID to `Parser` (make `Parse` a method on a stateful struct, or pass the map as a parameter)
-- On `<unfinished ...>`: store the partial line in `pendingLines[pid]`; return `nil, nil`
-- On `<... resumed>`: look up `pendingLines[pid]`, splice prefix from stored line + suffix from resumed line, delete the entry, then continue with normal parsing
-- Update `parser_test.go` with multi-thread fixture cases
-
-**Files:** `internal/parser/parser.go`, `internal/parser/parser_test.go`
-
----
-
-### Flag `--container` on `attach` to auto-discover PID
-
-**Goal:** remove the need to manually compose `stracectl discover | stracectl attach` inside a Pod.
-
-**Why:** the sidecar manifest currently uses `"1"` as a placeholder PID, which requires a manual step or init-container workaround before tracing starts.
-
-**Approach:**
-
-- Add `--container <name>` flag to `cmd/attach.go`
-- When set, call `discover.FindPID(name, "/proc")` internally before attaching
-- If no matching process is found, return a clear error
-- Update the sidecar manifest to use `--container app` instead of a hardcoded PID
-
-**Files:** `cmd/attach.go`, `deploy/k8s/sidecar-pod.yaml`, `deploy/helm/stracectl/values.yaml`, `deploy/helm/stracectl/templates/_helpers.tpl`
-
----
 
 ### Optional WebSocket token authentication
 

@@ -52,26 +52,15 @@ with your real image.
 
 **1. Apply the manifest or Helm chart** (see below).
 
-**2. Discover the app's PID** — the YAML uses `"1"` as a placeholder. Find the
-real PID by running `stracectl discover` inside the sidecar:
-
-```bash
-kubectl exec <pod-name> -c stracectl -- stracectl discover myapp
-# → 42
-```
-
-`discover` scans `/proc` for processes whose cgroup path contains the given
-name, handling namespace boundaries automatically.
-
-**3. Attach and serve** — the manifest already passes `--serve :8080` so the
-sidecar starts the HTTP API automatically. To run it manually:
+**2. Attach and serve** — the manifest already passes `--serve :8080 --container app` so the
+sidecar starts the HTTP API automatically and attaches to the container named `app`. To run it manually:
 
 ```bash
 kubectl exec <pod-name> -c stracectl -- \
-  stracectl attach --serve :8080 "$(stracectl discover myapp)"
+  stracectl attach --serve :8080 --container myapp
 ```
 
-**4. Forward the port and explore:**
+**3. Forward the port and explore:**
 
 ```bash
 kubectl port-forward pod/<pod-name> 8080:8080
@@ -104,7 +93,8 @@ spec:
       - attach
       - --serve
       - ":8080"
-      - "1"            # placeholder — use `stracectl discover <name>` for the real PID
+      - --container
+      - app
     ports:
       - name: http
         containerPort: 8080

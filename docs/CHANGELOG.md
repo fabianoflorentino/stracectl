@@ -8,7 +8,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+#### `--container` flag on `attach` — zero-config sidecar auto-discovery
+
+The `attach` command now accepts `--container <name>` as an alternative to a
+positional PID argument. When set, stracectl scans `/proc` cgroups and attaches
+to the lowest PID whose cgroup path matches the given container name. This
+removes the two-step `stracectl discover | stracectl attach` workflow required
+before and makes the Kubernetes sidecar manifest self-contained.
+
+The raw K8s manifest (`deploy/k8s/sidecar-pod.yaml`) and Helm chart template
+(`deploy/helm/stracectl/templates/_helpers.tpl`) have been updated to use
+`--container app` instead of the hardcoded `"1"` PID placeholder.
+
 ### Fixed
+
+#### `<unfinished ...>` line merging in multi-threaded strace output
+
+When strace traces processes with `-f` (follow forks/threads), blocking syscalls
+are split across two output lines:
+
+```
+[pid 1000] read(3, "data", <unfinished ...>
+[pid 1000] <... read resumed>256) = 15 <0.000100>
+```
+
+Previously, the prefix line was discarded and `Args` was reconstructed only
+from the resumed suffix. The parser is now stateful (`Parser` struct with a
+`pendingLines map[int]string` keyed by PID): it stores the partial line on
+`<unfinished ...>` and splices prefix + suffix on `<... resumed>`, producing
+a fully-reconstructed line before the regular parsing logic runs.
+
+This fixes `Args` completeness for all blocking syscalls in multi-threaded
+programs. `Count` and `Latency` were already correct before this change.
 
 ---
 
