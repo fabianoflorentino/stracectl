@@ -14,6 +14,7 @@ import (
 
 var runServeAddr string
 var runReportPath string
+var runWsToken string
 
 var runCmd = &cobra.Command{
 	Use:   "run [--serve :8080] [--report <path>] <command> [args...]",
@@ -51,12 +52,13 @@ Examples:
 			return err
 		}
 
-		return runTrace(ctx, cancelTracer, events, agg, runServeAddr, runReportPath, strings.Join(args, " "))
+		return runTrace(ctx, cancelTracer, events, agg, runServeAddr, runWsToken, runReportPath, strings.Join(args, " "))
 	},
 }
 
 func init() {
 	runCmd.Flags().StringVar(&runServeAddr, "serve", "", `expose HTTP API instead of TUI (e.g. --serve :8080)`)
 	runCmd.Flags().StringVar(&runReportPath, "report", "", "write a self-contained HTML report to this file on exit")
+	runCmd.Flags().StringVar(&runWsToken, "ws-token", "", "require a Bearer token for WebSocket connections")
 	rootCmd.AddCommand(runCmd)
 }
