@@ -63,12 +63,14 @@ CMD ["-c", "/app/.air.toml"]
 FROM alpine:3.23 AS site
 
 ARG HUGO_VERSION=0.157.0
+ARG HUGO_URL="https://github.com/gohugoio/hugo/releases"
+ARG HUGO_PKG="hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
 
 # git: required by Hugo for .GitInfo / .Lastmod
 # libc6-compat + libstdc++: required by the Hugo extended binary (SCSS support)
 RUN apk add --no-cache git libc6-compat libstdc++ \
   && wget -q -O /tmp/hugo.tar.gz \
-       "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz" \
+       "${HUGO_URL}/download/v${HUGO_VERSION}/${HUGO_PKG}" \
   && tar -xzf /tmp/hugo.tar.gz -C /usr/local/bin hugo \
   && rm /tmp/hugo.tar.gz \
   && hugo version
