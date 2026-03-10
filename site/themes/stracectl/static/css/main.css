@@ -184,7 +184,10 @@ code, pre, kbd {
   background: rgba(10, 14, 23, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 1px 0 var(--border-2);
+  box-shadow:
+    0 1px 0 var(--border-2),
+    0 4px 24px rgba(0, 0, 0, 0.55),
+    0 1px 6px rgba(0, 212, 170, 0.06);
 }
 
 .nav {
