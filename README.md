@@ -263,6 +263,47 @@ flowchart TD
     C -->|"--serve flag"| E
 ```
 
+
+## WebSocket Token Authentication (`/stream`)
+
+> **New in vX.Y.Z** — Optional authentication for the `/stream` WebSocket endpoint.
+
+To prevent unauthorized access to the WebSocket API (especially if the port is exposed fora do cluster), você pode exigir um token de autenticação compartilhado:
+
+### Como ativar
+
+- Adicione a flag `--ws-token <token>` ao iniciar o servidor (em qualquer comando com `--serve`).
+- O valor do token é definido por você (exemplo: `--ws-token SUPER_SECRET_TOKEN`).
+- O mesmo token deve ser enviado pelo cliente ao conectar no WebSocket.
+
+### Como o cliente autentica
+
+O token pode ser enviado de duas formas:
+
+- Header HTTP: `Authorization: Bearer <token>`
+- Query string: `?token=<token>`
+
+Exemplo usando [wscat](https://github.com/websockets/wscat):
+
+```bash
+wscat -c ws://localhost:8080/stream -H "Authorization: Bearer SUPER_SECRET_TOKEN"
+# ou
+wscat -c ws://localhost:8080/stream?token=SUPER_SECRET_TOKEN
+```
+
+Se o token estiver incorreto ou ausente, a conexão será recusada com erro 401 Unauthorized.
+
+### Segurança
+
+- O token funciona como uma "pré-senha" compartilhada: qualquer cliente precisa saber o valor exato para acessar o WebSocket.
+- O token **não é gerado automaticamente** — você define e gerencia o segredo.
+- Em ambientes Kubernetes, recomenda-se injetar o token via Secret/variável de ambiente.
+- Se `--ws-token` não for definido, o endpoint permanece aberto (comportamento antigo).
+
+> **Atenção:** O dashboard web padrão ainda não solicita token. O recurso protege apenas o endpoint WebSocket cru (API). Para proteger o dashboard, utilize um proxy reverso com autenticação ou contribua com melhorias na UI.
+
+---
+
 ## Known Limitations
 
 | Limitation | Impact |
@@ -270,7 +311,7 @@ flowchart TD
 | **`strace` binary dependency** — not eBPF; shells out to the system `strace` at runtime | Must be installed on the host (`apt install strace`) or use the container image |
 | **Hardcoded PID `"1"` in the sidecar manifest** — `deploy/k8s/sidecar-pod.yaml` uses `--container app` | Replace it at deploy time to match the real application container name |
 | **Sidecar must run as root** — `ptrace` is a kernel-level capability; `runAsNonRoot: false` is required | Limit exposure by deploying only in debug/staging namespaces and protecting the Pod with `PodSecurityAdmission` |
-| **WebSocket `/stream` has no authentication** — `CheckOrigin` accepts any origin unconditionally | Safe for in-cluster / port-forward usage; do not expose the port externally without an auth proxy or network policy |
+| **WebSocket `/stream` token authentication is optional** — If `--ws-token` is not set, the endpoint is open. | Always set a strong token if exposing the port externally. |
 | **`MinTime` not in `/api/stats`** — the aggregator tracks minimum syscall latency but the bulk stats endpoint does not expose it | The value is visible in the TUI detail overlay (`d` key) and in the web detail page (`/syscall/{name}`) |
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the implementation plan addressing each of these items.
