@@ -265,6 +265,17 @@ function sortData(rows) {
   });
 }
 
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\//g, '&#x2F;');
+}
+
 function render(rows) {
   const filtered = filterQuery ? rows.filter(r => r.Name.toLowerCase().includes(filterQuery)) : rows;
   const countEl = document.getElementById('search-count');
@@ -281,9 +292,11 @@ function render(rows) {
     const avgNs  = r.Count ? Math.round(r.TotalTime / r.Count) : 0;
     const pct    = maxCount ? Math.round(r.Count / maxCount * 100) : 0;
     const slow   = avgNs >= 5e6;
-    return '<tr data-name="' + r.Name + '">' +
-      '<td class="name">' + r.Name + '</td>' +
-      '<td><span class="cat-pill ' + catClass(r.Category) + '">' + r.Category + '</span></td>' +
+    const safeName = escapeHtml(r.Name);
+    const safeCategory = escapeHtml(r.Category);
+    return '<tr data-name="' + safeName + '">' +
+      '<td class="name">' + safeName + '</td>' +
+      '<td><span class="cat-pill ' + catClass(r.Category) + '">' + safeCategory + '</span></td>' +
       '<td class="num">' + fmtN(r.Count) + '</td>' +
       '<td><div class="spark"><div class="spark-fill" style="width:' + pct + '%"></div></div></td>' +
       '<td class="num' + (slow?' slow':'') + '">' + fmtDur(avgNs) + '</td>' +
