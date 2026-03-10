@@ -25,7 +25,7 @@ function fetchLog() {
     }).join('');
     const wrap = document.getElementById('log-wrap');
     wrap.scrollTop = wrap.scrollHeight;
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 setInterval(() => {
@@ -37,12 +37,12 @@ function fetchStatus() {
     const p = s.Proc;
     const el = document.getElementById('proc-info');
     if (p && p.Comm) {
-        let label = p.Comm + '[' + p.PID + ']';
-        if (p.Cwd) label += '  \u2022  ' + p.Cwd;
+      let label = p.Comm + '[' + p.PID + ']';
+      if (p.Cwd) label += '  \u2022  ' + p.Cwd;
       el.textContent = label;
       el.title = p.Cmdline || '';
     }
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 function alertExplanation(name) {
@@ -191,6 +191,7 @@ function render(rows) {
   sorted.forEach(r => {
     const errPct = r.Count ? (r.Errors / r.Count * 100) : 0;
     const avgNs = r.Count ? Math.round(r.TotalTime / r.Count) : 0;
+    const minNs = r.MinTime || 0;
     const pct = maxCount ? Math.round(r.Count / maxCount * 100) : 0;
     const slow = avgNs >= 5e6;
 
@@ -234,6 +235,12 @@ function render(rows) {
     tdAvg.className = 'num' + (slow ? ' slow' : '');
     tdAvg.textContent = fmtDur(avgNs);
     tr.appendChild(tdAvg);
+
+    // Min time cell
+    const tdMin = document.createElement('td');
+    tdMin.className = 'num';
+    tdMin.textContent = fmtDur(minNs);
+    tr.appendChild(tdMin);
 
     // Max time cell
     const tdMax = document.createElement('td');
