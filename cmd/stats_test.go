@@ -14,7 +14,7 @@ import (
 
 // newTestServer wraps server.New so tests don't depend on internal package layout.
 func newTestServer(addr string, agg *aggregator.Aggregator) *server.Server {
-	return server.New(addr, agg)
+	return server.New(addr, agg, "")
 }
 
 func TestLoadAggFromFile_NotFound(t *testing.T) {
