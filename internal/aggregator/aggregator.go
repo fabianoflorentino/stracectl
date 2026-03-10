@@ -375,6 +375,7 @@ const (
 	SortByCount    SortField = iota // default: most frequent first
 	SortByTotal                     // highest cumulative time first
 	SortByAvg                       // highest average latency first
+	SortByMin                       // lowest min latency first
 	SortByMax                       // highest peak latency first
 	SortByErrors                    // most errors first
 	SortByName                      // alphabetical
@@ -511,6 +512,9 @@ func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 			return out[i].TotalTime > out[j].TotalTime
 		case SortByAvg:
 			return out[i].AvgTime() > out[j].AvgTime()
+		case SortByMin:
+			// Sort by lowest min latency (ascending, so smallest first)
+			return out[i].MinTime < out[j].MinTime
 		case SortByMax:
 			return out[i].MaxTime > out[j].MaxTime
 		case SortByErrors:
