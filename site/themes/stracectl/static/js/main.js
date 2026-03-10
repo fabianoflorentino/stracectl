@@ -400,3 +400,22 @@
     })
     .catch(function () { /* keep default text on error */ });
 })();
+
+/* ──────────────────────────────────────────────────────────
+ * Back-to-top button
+ * ──────────────────────────────────────────────────────────*/
+(function () {
+  'use strict';
+  var btn = document.getElementById('back-to-top');
+  if (!btn) return;
+
+  var THRESHOLD = 300;
+
+  window.addEventListener('scroll', function () {
+    btn.classList.toggle('visible', window.scrollY >= THRESHOLD);
+  }, { passive: true });
+
+  btn.addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
