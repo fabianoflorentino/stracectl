@@ -9,12 +9,9 @@ image:
 # Port the HTTP API listens on inside the container.
 port: 8080
 
-# PID to trace inside the target container.
-# Set to 1 to attach to the container's init process, or use
-# `stracectl discover <container-name>` to find the correct PID first.
-targetPID: "1"
-
-# Target container name (used with the discover subcommand; informational here).
+# Target container name — the sidecar will scan /proc cgroups and attach to
+# the lowest PID whose cgroup path contains this name.
+# Requires shareProcessNamespace: true on the Pod spec.
 targetContainer: "app"
 
 resources:

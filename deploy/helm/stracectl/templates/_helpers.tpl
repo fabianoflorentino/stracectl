@@ -15,7 +15,8 @@ And add to spec.template.spec:
     - attach
     - --serve
     - ":{{ .Values.port }}"
-    - {{ .Values.targetPID | quote }}
+    - --container
+    - {{ .Values.targetContainer | quote }}
   ports:
     - name: http
       containerPort: {{ .Values.port }}

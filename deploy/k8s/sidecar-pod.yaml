@@ -37,8 +37,8 @@ spec:
         - attach
         - --serve
         - ":8080"
-        # Find the app PID with:  kubectl exec <pod> -c stracectl -- stracectl discover app
-        - "1"   # replace with actual PID or use discover subcommand
+        - --container
+        - app
       ports:
         - name: http
           containerPort: 8080
