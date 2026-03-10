@@ -120,9 +120,11 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 		// Increase buffer for lines with large read/write buffers in args.
 		scanner.Buffer(make([]byte, 512*1024), 512*1024)
 
+		straceParser := parser.New()
+
 		for scanner.Scan() {
 			line := scanner.Text()
-			event, err := parser.Parse(line, defaultPID)
+			event, err := straceParser.Parse(line, defaultPID)
 			if err != nil {
 				log.Printf("parse error: %v", err)
 				continue
