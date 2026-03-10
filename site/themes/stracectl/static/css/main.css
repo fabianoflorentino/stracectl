@@ -1184,6 +1184,8 @@ code, pre, kbd {
   grid-template-columns: 240px 1fr;
   gap: 3.5rem;
   align-items: start;
+  /* leave room for the fixed back-to-top button on the right */
+  padding-right: 4rem;
 }
 
 /* Single page without sidebar */
@@ -1606,6 +1608,7 @@ code, pre, kbd {
   .install-inner  { grid-template-columns: 1fr; gap: 2rem; }
   .inner-layout   { grid-template-columns: 1fr; }
   .docs-sidebar   { display: none; }
+  .inner-layout   { padding-right: 0; }
   .footer-inner   { grid-template-columns: 1fr 1fr; }
   .footer-brand   { grid-column: 1 / -1; }
   .list-cards     { grid-template-columns: 1fr; }
