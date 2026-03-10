@@ -58,6 +58,32 @@ func TestDashboard(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), "stracectl") {
 		t.Fatal("expected dashboard HTML to contain 'stracectl'")
 	}
+	if !strings.Contains(rr.Body.String(), "/static/dashboard.js") {
+		t.Fatal("expected dashboard HTML to load external dashboard.js")
+	}
+}
+
+func TestDashboardJS(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/static/dashboard.js", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/javascript; charset=utf-8" {
+		t.Fatalf("expected JavaScript content-type, got %q", ct)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "function switchTab(name)") {
+		t.Fatal("expected dashboard JS to contain switchTab")
+	}
+	if !strings.Contains(body, "connect();") {
+		t.Fatal("expected dashboard JS to bootstrap connection")
+	}
 }
 
 func TestDashboard_UnknownPath(t *testing.T) {
