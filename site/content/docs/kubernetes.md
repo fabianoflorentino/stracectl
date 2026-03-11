@@ -60,6 +60,14 @@ kubectl exec <pod-name> -c stracectl -- \
   stracectl attach --serve :8080 --container myapp
 ```
 
+To enable verbose tracer diagnostics for troubleshooting, include `--debug` in the
+command (either when exec'ing into the sidecar or in the container `args`):
+
+```bash
+kubectl exec <pod-name> -c stracectl -- \
+  stracectl attach --debug --serve :8080 --container myapp
+```
+
 **3. Forward the port and explore:**
 
 ```bash
@@ -91,6 +99,7 @@ spec:
     image: fabianoflorentino/stracectl:v1.0.38
     args:
       - attach
+      - --debug                # optional: enable verbose tracer diagnostics
       - --serve
       - ":8080"
       - --container
