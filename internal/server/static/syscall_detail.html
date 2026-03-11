@@ -34,6 +34,7 @@
   .row .v.code{font-family:monospace;color:#79c0ff;font-size:.8rem}
   .row .v.dim{color:#8b949e}
   .row .v.warn{color:#e3b341}
+  .no-data{color:#6e7681;font-style:italic}
   .args-table{width:100%;border-collapse:collapse;font-size:.8rem;margin:4px 0}
   .args-table td{padding:4px 10px 4px 0;vertical-align:top;color:#e6edf3}
   .args-table td:first-child{font-family:monospace;color:#79c0ff;width:160px;padding-left:2px}
@@ -378,10 +379,10 @@ function update(r) {
       const ts = s.Time ? new Date(s.Time).toLocaleTimeString() : '';
       const raw = (s.Args !== undefined && s.Args !== null) ? s.Args : '';
       const truncated = raw.length > 80 ? raw.slice(0,77) + '…' : (raw || '<no data>');
-      const args = esc(truncated);
+      const argsHtml = (truncated === '<no data>') ? ('<span class="no-data">' + esc(truncated) + '</span>') : esc(truncated);
       return '<tr><td style="color:#8b949e;font-family:monospace">' + esc(ts) + '</td>' +
              '<td>' + esc(s.Errno) + '</td>' +
-             '<td style="color:#8b949e;font-family:monospace;font-size:.78rem;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + args + '</td></tr>';
+             '<td style="color:#8b949e;font-family:monospace;font-size:.78rem;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + argsHtml + '</td></tr>';
     }).join('');
     samplesSec.style.display = '';
   } else {
