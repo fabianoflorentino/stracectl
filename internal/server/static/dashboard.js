@@ -15,7 +15,13 @@ function fetchLog() {
     if (!entries) return;
     const tbody = document.getElementById('log-tbody');
     tbody.innerHTML = entries.slice(-500).map(e => {
-      const ts = e.Time ? new Date(e.Time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }) : '';
+      let ts = '';
+      if (e.Time) {
+        const d = new Date(e.Time);
+        const pad2 = n => String(n).padStart(2, '0');
+        const ms = String(d.getMilliseconds()).padStart(3, '0');
+        ts = pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) + '.' + ms;
+      }
       const args = e.Args ? (e.Args.length > 120 ? e.Args.slice(0, 117) + '\u2026' : e.Args) : '';
       return '<tr' + (e.Error ? ' class="error"' : '') + '>' +
         '<td class="l-ts">' + esc(ts) + '</td>' +
