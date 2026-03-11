@@ -6,6 +6,15 @@ weight: 2
 
 ## Trace a command from the start
 
+### Global flags
+
+These flags are available to all commands (place before the subcommand):
+
+- `--ws-token <token>` — require a Bearer token for WebSocket connections when using `--serve`.
+- `--debug` — enable verbose tracer diagnostics. When set, `stracectl` will emit
+	raw strace lines useful for diagnosing parser edge cases (use only for troubleshooting).
+
+
 ```bash
 sudo stracectl run curl https://example.com
 sudo stracectl run -- python3 app.py --port 8080
