@@ -140,6 +140,14 @@ sudo stracectl run --serve :8080 curl https://example.com
 sudo stracectl run --report report.html curl https://example.com
 ```
 
+**Global flags:** `--ws-token` and `--debug` are available to all commands. Use
+`--debug` to enable verbose tracer diagnostics (emits raw strace lines helpful
+for diagnosing parser edge cases). Example:
+
+```bash
+sudo stracectl --debug run --serve :8080 curl https://example.com
+```
+
 > Full usage guide — all commands, HTTP API endpoints, keyboard shortcuts, dashboard reading guide, and common patterns: **[docs/USAGE.md](docs/USAGE.md)**
 
 ## Documentation
