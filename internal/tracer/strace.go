@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
 	"reflect"
 	"strconv"
@@ -33,6 +32,11 @@ type StraceTracer struct{}
 
 // NewStraceTracer creates a new StraceTracer instance.
 func NewStraceTracer() *StraceTracer { return &StraceTracer{} }
+
+// Debug enables verbose tracer diagnostics (gated by the CLI `--debug` flag).
+// When true, the tracer will emit noisy raw-strace diagnostics useful for
+// debugging parser edge cases (e.g. EAGAIN with empty args).
+var Debug bool
 
 // Attach attaches to a running process by PID.
 // The caller must have sufficient privileges (CAP_SYS_PTRACE or ptrace scope 0).
@@ -158,8 +162,8 @@ func (t *StraceTracer) start(cmd *exec.Cmd, defaultPID int) (<-chan models.Sysca
 			// log the raw strace line to aid diagnosing parser edge cases.
 			if event.IsError() && event.Error == "EAGAIN" && event.Args == "" {
 				// Only log this noisy diagnostic when the operator explicitly enables
-				// verbose debug output via the STRACECTL_DEBUG environment variable.
-				if os.Getenv("STRACECTL_DEBUG") == "1" {
+				// verbose debug output via the `--debug` CLI flag.
+				if Debug {
 					log.Printf("debug: EAGAIN with empty args — raw strace line: %q", line)
 				}
 			}
