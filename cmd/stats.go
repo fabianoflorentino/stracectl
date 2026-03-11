@@ -14,6 +14,7 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/parser"
 	"github.com/fabianoflorentino/stracectl/internal/server"
+	"github.com/fabianoflorentino/stracectl/internal/tracer"
 	"github.com/fabianoflorentino/stracectl/internal/ui"
 )
 
@@ -99,8 +100,8 @@ func loadAggFromFile(path string) (*aggregator.Aggregator, error) {
 			// Debug: if the parsed event is an EAGAIN with empty Args,
 			// log the raw line for offline inspection.
 			if event.IsError() && event.Error == "EAGAIN" && event.Args == "" {
-				// Gate noisy debug output behind STRACECTL_DEBUG so operators can opt-in.
-				if os.Getenv("STRACECTL_DEBUG") == "1" {
+				// Gate noisy debug output behind the global `--debug` flag.
+				if tracer.Debug {
 					log.Printf("debug: EAGAIN with empty args in file %s — raw line: %q", path, line)
 				}
 			}

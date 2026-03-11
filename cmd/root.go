@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/fabianoflorentino/stracectl/internal/tracer"
 )
 
 const (
@@ -13,6 +15,7 @@ const (
 )
 
 var wsToken string
+var debugFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:   "stracectl",
@@ -52,4 +55,8 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&wsToken, "ws-token", "", "require a Bearer token for WebSocket connections")
+	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "enable verbose debug logging (gates raw strace diagnostics)")
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		tracer.Debug = debugFlag
+	}
 }
