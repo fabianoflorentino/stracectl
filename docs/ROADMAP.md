@@ -42,7 +42,6 @@ This document tracks planned features, known technical debt, and the implementat
 
 ---
 
-
 ### Optional WebSocket token authentication
 
 **Goal:** prevent unauthenticated access to the `/stream` endpoint when the port is accidentally exposed outside the cluster.
