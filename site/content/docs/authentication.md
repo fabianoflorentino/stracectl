@@ -88,4 +88,4 @@ command: ["/bin/sh", "-c", "exec /usr/local/bin/stracectl --serve --ws-token \"$
 
 Use `wscat`, `websocat` or a small Node.js script (above) to verify token-based authentication.
 
-For further reading, see the [Usage Guide](/docs/usage) and [docs/ROADMAP.md](../../docs/ROADMAP.md).
+For further reading, see the [Usage Guide]({{< relref "usage.md" >}}) and the [ROADMAP](https://github.com/fabianoflorentino/stracectl/blob/main/docs/ROADMAP.md).
