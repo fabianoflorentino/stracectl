@@ -4,6 +4,19 @@ This document tracks planned features, known technical debt, and the implementat
 
 ---
 
+## Recent: Debug flag and tracing diagnostics
+
+- **Status:** partially implemented
+- **What changed:** added a global `--debug` CLI flag (registered in `cmd/root.go`) that gates verbose tracer diagnostics via `tracer.Debug`. When enabled, the tracer logs raw strace lines useful for diagnosing parser edge cases (for example, `EAGAIN` with empty `Args`). Noisy diagnostics are gated and only emitted when `--debug` is true.
+- **Files touched:** `cmd/root.go`, `internal/tracer/strace.go`, `cmd/stats.go`, plus documentation updates in `README.md`, `docs/USAGE.md`, and the site under `site/content/docs/`.
+- **Notes & next steps:**
+	- The TUI currently discards standard logger output while in the alternate screen (`internal/ui/tui.go`), so `--debug` messages are not visible inside the TUI by default.
+	- Planned: capture logger output when `--debug` is enabled and forward those messages into the aggregator's live-log buffer so they appear in the TUI log overlay (see `internal/aggregator/aggregator.go` and `internal/ui/tui.go`).
+	- Planned: add optional file-based debug logging when `--debug` is set (useful for offline inspection).
+	- Planned: de-emphasize `"<no data>"` in the UI and left-align timestamps in the logs/detail views.
+	- Planned: add a test asserting `--ws-token` exists as a persistent flag and remove any duplicate flag definitions if present.
+
+
 ## Pending features
 
 ### Direct `ptrace` backend
