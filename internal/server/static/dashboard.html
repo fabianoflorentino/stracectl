@@ -49,12 +49,12 @@
   /* log panel */
   #log-panel{display:none;padding:0 24px 60px;overflow-x:auto}
   #log-wrap{max-height:calc(100vh - 180px);overflow-y:auto;margin-top:12px}
-  #log-table{width:100%;border-collapse:collapse;font-size:.78rem;font-family:monospace}
-  #log-table td{padding:2px 8px;white-space:nowrap;color:#8b949e}
+  #log-table{width:100%;border-collapse:collapse;font-size:.78rem;font-family:monospace;table-layout:fixed}
+  #log-table td{padding:2px 8px;white-space:nowrap;color:#8b949e;overflow:hidden;text-overflow:ellipsis}
   #log-table tr.error td{color:#f85149}
-  #log-table td.l-name{color:#79c0ff;width:120px}
-  #log-table td.l-ts{width:100px;color:#6e7681}
-  #log-table td.l-args{color:#8b949e;max-width:600px;overflow:hidden;text-overflow:ellipsis}
+  #log-table td.l-name{color:#79c0ff;width:160px}
+  #log-table td.l-ts{text-align:right;width:110px;color:#6e7681}
+  #log-table td.l-args{color:#8b949e}
   /* process exited banner */
   #done-banner{display:none;padding:8px 24px;background:#3d2f00;border-bottom:2px solid #e3b341;
                font-size:.82rem;color:#e3b341;font-weight:600;letter-spacing:.03em}
@@ -116,7 +116,14 @@
 </div>
 <div id="log-panel">
   <div id="log-wrap">
-    <table id="log-table"><tbody id="log-tbody"></tbody></table>
+    <table id="log-table">
+      <colgroup>
+        <col style="width:110px">
+        <col style="width:160px">
+        <col>
+      </colgroup>
+      <tbody id="log-tbody"></tbody>
+    </table>
   </div>
 </div>
 <div id="status">Connecting…</div>
