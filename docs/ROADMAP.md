@@ -10,12 +10,11 @@ This document tracks planned features, known technical debt, and the implementat
 - **What changed:** added a global `--debug` CLI flag (registered in `cmd/root.go`) that gates verbose tracer diagnostics via `tracer.Debug`. When enabled, the tracer logs raw strace lines useful for diagnosing parser edge cases (for example, `EAGAIN` with empty `Args`). Noisy diagnostics are gated and only emitted when `--debug` is true.
 - **Files touched:** `cmd/root.go`, `internal/tracer/strace.go`, `cmd/stats.go`, plus documentation updates in `README.md`, `docs/USAGE.md`, and the site under `site/content/docs/`.
 - **Notes & next steps:**
-	- The TUI currently discards standard logger output while in the alternate screen (`internal/ui/tui.go`), so `--debug` messages are not visible inside the TUI by default.
-	- Planned: capture logger output when `--debug` is enabled and forward those messages into the aggregator's live-log buffer so they appear in the TUI log overlay (see `internal/aggregator/aggregator.go` and `internal/ui/tui.go`).
-	- Planned: add optional file-based debug logging when `--debug` is set (useful for offline inspection).
-	- Planned: de-emphasize `"<no data>"` in the UI and left-align timestamps in the logs/detail views.
-	- Planned: add a test asserting `--ws-token` exists as a persistent flag and remove any duplicate flag definitions if present.
-
+  - The TUI currently discards standard logger output while in the alternate screen (`internal/ui/tui.go`), so `--debug` messages are not visible inside the TUI by default.
+  - Planned: capture logger output when `--debug` is enabled and forward those messages into the aggregator's live-log buffer so they appear in the TUI log overlay (see `internal/aggregator/aggregator.go` and `internal/ui/tui.go`).
+  - Planned: add optional file-based debug logging when `--debug` is set (useful for offline inspection).
+  - Planned: de-emphasize `"<no data>"` in the UI and left-align timestamps in the logs/detail views.
+  - Planned: add a test asserting `--ws-token` exists as a persistent flag and remove any duplicate flag definitions if present.
 
 ## Pending features
 
@@ -52,38 +51,6 @@ This document tracks planned features, known technical debt, and the implementat
 - Add `--backend ebpf` flag; make it the default when the kernel supports it
 
 **Files:** `internal/tracer/ebpf.go` (new), `internal/tracer/bpf/syscall.c` (new), `cmd/attach.go`, `cmd/run.go`
-
----
-
-### Optional WebSocket token authentication
-
-**Goal:** prevent unauthenticated access to the `/stream` endpoint when the port is accidentally exposed outside the cluster.
-
-**Why:** `CheckOrigin` currently returns `true` unconditionally; any client on any origin can connect.
-
-**Approach:**
-
-- Add `--ws-token <token>` flag to `server.New()` (and surface it in `cmd/attach.go` / `cmd/run.go`)
-- In `handleStream`: before calling `upgrader.Upgrade()`, check for a `Bearer` token in the `Authorization` header or a `token` query parameter; return `401` if the token does not match
-- When `--ws-token` is not set, keep the current open behaviour (backwards-compatible)
-
-**Files:** `internal/server/server.go`, `cmd/attach.go`, `cmd/run.go`
-
----
-
-### Expose `MinTime` in the main TUI table and bulk API
-
-**Goal:** surface the minimum observed latency per syscall in the primary table view and bulk stats response.
-
-**Current state:** `SyscallStat.MinTime` is computed by the aggregator, returned by `/api/syscall/{name}`, and shown in the TUI detail overlay (`d` key) and in the web detail page (`/syscall/{name}`). It is **not** shown as a column in the main TUI table and is not verified to be present in the `/api/stats` bulk response in a human-readable form (`time.Duration` serialises as integer nanoseconds).
-
-**Remaining work:**
-
-- Add a `MIN` column to the TUI table between `AVG` and `MAX`, with sort key `m`
-- Add `SortByMin` to the `Sorted()` sort fields in the aggregator
-- Decide whether `/api/stats` should format `MinTime` as a string or keep the raw nanosecond integer
-
-**Files:** `internal/aggregator/aggregator.go`, `internal/ui/tui.go`
 
 ---
 
