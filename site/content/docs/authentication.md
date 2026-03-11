@@ -8,38 +8,84 @@ weight: 5
 
 To protect the `/stream` WebSocket endpoint from unauthorized access, you can require a shared authentication token.
 
-### How to enable
+### Quick start
 
-- Add the flag `--ws-token <token>` when starting the server (any command with `--serve`).
-- The token value is defined by you (example: `--ws-token SUPER_SECRET_TOKEN`).
-- The same token must be sent by the client when connecting to the WebSocket.
+- Start the server with `--ws-token <token>` (any command with `--serve`):
 
-### How to authenticate
+```bash
+./stracectl --serve --ws-token "SUPER_SECRET_TOKEN"
+```
 
-The token can be sent in two ways:
+- Or pass the token from an environment variable in the shell:
 
-- HTTP header: `Authorization: Bearer <token>`
-- Query string: `?token=<token>`
+```bash
+WS_TOKEN=SUPER_SECRET_TOKEN ./stracectl --serve --ws-token "$WS_TOKEN"
+```
 
-Example using [wscat](https://github.com/websockets/wscat):
+- If `--ws-token` is not set, the endpoint remains open (default behavior).
+
+### Client examples
+
+Prefer sending the token in the `Authorization: Bearer <token>` header when the client supports headers.
+
+- `wscat` (header):
 
 ```bash
 wscat -c ws://localhost:8080/stream -H "Authorization: Bearer SUPER_SECRET_TOKEN"
-# or
+```
+
+- `wscat` (query string):
+
+```bash
 wscat -c ws://localhost:8080/stream?token=SUPER_SECRET_TOKEN
 ```
 
-If the token is incorrect or missing, the connection will be refused with 401 Unauthorized.
+- Node.js (`ws`):
 
-### Security notes
+```js
+const WebSocket = require('ws');
+const ws = new WebSocket('ws://localhost:8080/stream', {
+  headers: { Authorization: 'Bearer SUPER_SECRET_TOKEN' }
+});
+ws.on('open', () => console.log('connected'));
+```
 
-- The token acts as a shared "pre-password": any client must know the exact value to access the WebSocket.
-- The token is **not generated automatically** — you define and manage the secret.
-- In Kubernetes, inject the token via Secret/environment variable.
-- If `--ws-token` is not set, the endpoint remains open (default behavior).
+- Browser note: browsers do not allow setting custom headers on WebSocket connections. Use the query string or a proxy that injects `Authorization`.
 
-> **Note:** The web dashboard does not prompt for a token. This feature protects only the raw WebSocket API. To protect the dashboard, use a reverse proxy with authentication or contribute improvements to the UI.
+```js
+// Browser example (less secure — query string):
+const ws = new WebSocket('wss://example.com/stream?token=SUPER_SECRET_TOKEN');
+```
 
----
+### Kubernetes / containers (example)
 
-For more details, see the or [Usage Guide](/docs/usage).
+Create a Secret and expose it to the Pod as an environment variable, then expand it in the container command:
+
+```bash
+kubectl create secret generic stracectl-ws-token --from-literal=ws-token=SUPER_SECRET_TOKEN
+```
+
+Example `Deployment` fragment (expand env var in `command`):
+
+```yaml
+env:
+  - name: WS_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: stracectl-ws-token
+        key: ws-token
+command: ["/bin/sh", "-c", "exec /usr/local/bin/stracectl --serve --ws-token \"$WS_TOKEN\""]
+```
+
+### Security considerations
+
+- Prefer the `Authorization: Bearer` header when possible.
+- Tokens in the query string may leak via logs, referer headers, or browser history — if used, always combine with TLS (`wss://`).
+- The token is not generated automatically — store, rotate and rotate securely.
+- The web dashboard does not prompt for the token; protect the dashboard using a reverse proxy or add UI support.
+
+### Testing
+
+Use `wscat`, `websocat` or a small Node.js script (above) to verify token-based authentication.
+
+For further reading, see the [Usage Guide](/docs/usage) and [docs/ROADMAP.md](../../docs/ROADMAP.md).
