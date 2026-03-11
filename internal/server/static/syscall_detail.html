@@ -376,7 +376,9 @@ function update(r) {
   if (samples && samples.length > 0) {
     samplesTbl.innerHTML = samples.map(s => {
       const ts = s.Time ? new Date(s.Time).toLocaleTimeString() : '';
-      const args = s.Args ? esc(s.Args.length > 80 ? s.Args.slice(0,77)+'…' : s.Args) : '—';
+      const raw = (s.Args !== undefined && s.Args !== null) ? s.Args : '';
+      const truncated = raw.length > 80 ? raw.slice(0,77) + '…' : (raw || '<no data>');
+      const args = esc(truncated);
       return '<tr><td style="color:#8b949e;font-family:monospace">' + esc(ts) + '</td>' +
              '<td>' + esc(s.Errno) + '</td>' +
              '<td style="color:#8b949e;font-family:monospace;font-size:.78rem;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + args + '</td></tr>';
