@@ -89,3 +89,17 @@ command: ["/bin/sh", "-c", "exec /usr/local/bin/stracectl --serve --ws-token \"$
 Use `wscat`, `websocat` or a small Node.js script (above) to verify token-based authentication.
 
 For further reading, see the [Usage Guide]({{< relref "usage.md" >}}) and the [ROADMAP](https://github.com/fabianoflorentino/stracectl/blob/main/docs/ROADMAP.md).
+
+### Debugging
+
+If you need verbose tracer diagnostics for parser troubleshooting, add the `--debug`
+flag to the `stracectl` command. This enables noisy raw-strace diagnostics that may
+help diagnose edge cases (for example, `EAGAIN` events with empty argument lists).
+Only enable `--debug` when actively troubleshooting; do not leave it enabled in
+production environments.
+
+Example (debugging mode):
+
+```yaml
+command: ["/bin/sh", "-c", "exec /usr/local/bin/stracectl --serve --debug --ws-token \"$WS_TOKEN\""]
+```
