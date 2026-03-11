@@ -18,10 +18,9 @@ import (
 
 var statsServeAddr string
 var statsReportPath string
-var statsWsToken string
 
 var statsCmd = &cobra.Command{
-	Use:   "stats [--serve :8080] [--report <path>] <file>",
+	Use:   "stats [--serve :8080] [--report <path>] [--ws-token <token>] <file>",
 	Short: "Analyse a saved strace output file (post-mortem)",
 	Long: `Parse a raw strace output file and display the same aggregated stats
 as the live trace session — without needing the traced process.
@@ -53,7 +52,7 @@ Capture a trace file with strace:
 			fmt.Fprintf(os.Stderr, "serving on %s\n", statsServeAddr)
 			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
-			srv := server.New(statsServeAddr, agg, statsWsToken)
+			srv := server.New(statsServeAddr, agg, wsToken)
 			if err := srv.Start(ctx); err != nil {
 				return err
 			}
@@ -112,6 +111,5 @@ func loadAggFromFile(path string) (*aggregator.Aggregator, error) {
 func init() {
 	statsCmd.Flags().StringVar(&statsServeAddr, "serve", "", "expose HTTP API instead of TUI (e.g. --serve :8080)")
 	statsCmd.Flags().StringVar(&statsReportPath, "report", "", "write a self-contained HTML report to this file after analysis")
-	statsCmd.Flags().StringVar(&statsWsToken, "ws-token", "", "require a Bearer token for WebSocket connections")
 	rootCmd.AddCommand(statsCmd)
 }

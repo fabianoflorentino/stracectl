@@ -12,6 +12,8 @@ const (
 	reset = "\033[0m"
 )
 
+var wsToken string
+
 var rootCmd = &cobra.Command{
 	Use:   "stracectl",
 	Short: "A modern strace with real-time TUI",
@@ -46,4 +48,8 @@ func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+func init() {
+	rootCmd.PersistentFlags().StringVar(&wsToken, "ws-token", "", "require a Bearer token for WebSocket connections")
 }
