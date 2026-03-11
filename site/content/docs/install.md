@@ -75,3 +75,19 @@ echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
 > In Kubernetes sidecar pods the `securityContext` in the Helm chart and raw manifests
 > already grants the necessary capabilities.
+
+## Troubleshooting
+
+When diagnosing parsing or tracer issues, run `stracectl` with the `--debug` flag
+to enable verbose tracer diagnostics. This emits additional raw-strace lines that can
+help identify parser edge cases such as `EAGAIN` with empty argument lists.
+
+Example (local):
+
+```bash
+sudo stracectl --debug run --serve :8080 curl https://example.com
+```
+
+When running inside a container or sidecar, pass `--debug` in the container's
+command/args. Only enable `--debug` during troubleshooting — it's intentionally
+noisy and not suitable for long-running production usage.
