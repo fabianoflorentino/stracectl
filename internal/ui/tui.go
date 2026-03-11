@@ -599,6 +599,9 @@ func (m model) renderDetail() string {
 		for _, es := range s.RecentErrors {
 			ts := es.Time.Format("15:04:05")
 			args := es.Args
+			if args == "" {
+				args = "<no data>"
+			}
 			if len(args) > w-42 {
 				args = args[:w-45] + "…"
 			}
