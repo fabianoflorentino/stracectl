@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -89,11 +90,20 @@ func loadAggFromFile(path string) (*aggregator.Aggregator, error) {
 	straceParser := parser.New()
 
 	for scanner.Scan() {
-		event, parseErr := straceParser.Parse(scanner.Text(), 0)
+		line := scanner.Text()
+		event, parseErr := straceParser.Parse(line, 0)
 		if parseErr != nil {
 			continue // skip malformed lines silently
 		}
 		if event != nil {
+			// Debug: if the parsed event is an EAGAIN with empty Args,
+			// log the raw line for offline inspection.
+			if event.IsError() && event.Error == "EAGAIN" && event.Args == "" {
+				// Gate noisy debug output behind STRACECTL_DEBUG so operators can opt-in.
+				if os.Getenv("STRACECTL_DEBUG") == "1" {
+					log.Printf("debug: EAGAIN with empty args in file %s — raw line: %q", path, line)
+				}
+			}
 			agg.Add(*event)
 		}
 	}
