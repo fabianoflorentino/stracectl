@@ -14,14 +14,12 @@ tmp_dir = "/tmp/air"
 
 [build]
   # Compile the binary into a temp location to keep the workspace clean.
-  cmd        = "go build -o /tmp/stracectl ."
+  cmd        = "go build -buildvcs=false -o /tmp/stracectl ."
   bin        = "/tmp/stracectl"
   # Default: run as HTTP server tracing a looping wget workload.
   args_bin   = [
     "run", "--serve", ":8080",
-    "--",
-    "sh", "-c",
-    "while true; do wget -q -O /dev/null https://httpbin.org/get 2>&1; sleep 3; done"
+    "sh", "scripts/loop.sh"
   ]
   # Only rebuild when Go source files change.
   include_ext = ["go"]
