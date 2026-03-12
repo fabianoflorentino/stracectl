@@ -10,7 +10,6 @@ These flags are available to all commands (place before the subcommand):
 - `--debug` — enable verbose tracer diagnostics. When set, `stracectl` will emit
   raw strace lines useful for diagnosing parser edge cases (use only for troubleshooting).
 
-
 ### Trace a command from the start
 
 ```bash
