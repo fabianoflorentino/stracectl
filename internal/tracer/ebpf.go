@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os/exec"
 	"reflect"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -170,10 +171,32 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 
 			latency := time.Duration(raw.ExitNs - raw.EnterNs)
 
+			// Format arguments: show hex for large values (likely pointers),
+			// decimal for small integers.
+			argParts := make([]string, 0, len(raw.Args))
+			for _, a := range raw.Args {
+				argParts = append(argParts, formatArg(a))
+			}
+			argsStr := strings.Join(argParts, ", ")
+
+			// Handle negative returns (kernel returns -ERRNO on failure).
+			retValStr := fmt.Sprintf("%d", raw.Ret)
+			var errnoStr string
+			if raw.Ret < 0 {
+				// strace reports -1 and a symbolic errno; show the same.
+				retValStr = "-1"
+				errnoStr = ErrnoName(int(-raw.Ret))
+				if errnoStr == "" {
+					errnoStr = fmt.Sprintf("ERR%d", -raw.Ret)
+				}
+			}
+
 			ch <- models.SyscallEvent{
 				PID:     int(raw.PID),
 				Name:    name,
-				RetVal:  fmt.Sprintf("%d", raw.Ret),
+				Args:    argsStr,
+				RetVal:  retValStr,
+				Error:   errnoStr,
 				Latency: latency,
 				Time:    time.Now(),
 			}
@@ -181,4 +204,17 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 	}()
 
 	return ch, nil
+}
+
+// formatArg formats a raw syscall argument value in a readable form.
+// Heuristic: show as hex if the value looks like a pointer or is large.
+func formatArg(v uint64) string {
+	if v == 0 {
+		return "0"
+	}
+	// If the value looks like an address or is large, display in hex.
+	if v > 0xffff {
+		return fmt.Sprintf("0x%x", v)
+	}
+	return fmt.Sprintf("%d", v)
 }
