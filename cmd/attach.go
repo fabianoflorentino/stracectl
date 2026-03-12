@@ -20,10 +20,19 @@ var attachContainer string
 var backend string
 
 var attachCmd = &cobra.Command{
-	Use:   "attach [--serve :8080] [--report <path>] [--ws-token <token>] [--container <name> | <pid>]",
+	Use:   "attach [--serve :8080] [--report <path>] [--ws-token <token>] [--backend auto|ebpf|strace] [--container <name> | <pid>]",
 	Short: "Attach to a running process and trace it",
-	Long: `Attach strace to an already-running process by PID and display live syscall
-statistics in the TUI.
+	Long: `Attach a tracer to an already-running process by PID and display live
+syscall statistics in the TUI.
+
+The tracing backend may be selected with ` + "--backend" + `:
+
+- ` + "auto" + ` (default): pick eBPF when available (Linux >= 5.8 and the
+	binary was built with eBPF support), otherwise fall back to the strace
+	subprocess tracer.
+- ` + "ebpf" + `: use the eBPF backend (requires an eBPF-enabled build and
+	kernel support).
+- ` + "strace" + `: force the classic strace subprocess tracer.
 
 Press q or Ctrl+C to stop. On exit, an optional self-contained HTML report can
 be written to a file for sharing or archiving.
@@ -33,13 +42,13 @@ log search/filter, anomaly alerts, process metadata, process-exit notification,
 per-errno breakdown, and P95/P99 + rolling error-rate metrics.
 
 Examples:
-  sudo stracectl attach 1234
-  sudo stracectl attach "$(pgrep nginx | head -1)"
-  sudo stracectl attach --serve :8080 1234
-  sudo stracectl attach --report nginx.html 1234
-  sudo stracectl attach --container myapp
-  sudo stracectl attach --backend ebpf 1234
-  sudo stracectl attach --backend strace 1234`,
+	sudo stracectl attach 1234
+	sudo stracectl attach "$(pgrep nginx | head -1)"
+	sudo stracectl attach --serve :8080 1234
+	sudo stracectl attach --report nginx.html 1234
+	sudo stracectl attach --container myapp
+	sudo stracectl attach --backend ebpf 1234
+	sudo stracectl attach --backend strace 1234`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		var pid int

@@ -7,6 +7,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// unameFunc allows tests to override the uname syscall to simulate different
+// kernel release strings. It defaults to unix.Uname and can be swapped in
+// tests to avoid depending on the real kernel version.
+var unameFunc = unix.Uname
+
 // Select returns the appropriate Tracer implementation for the given backend name.
 //
 // Valid values: "auto", "ebpf", "strace".
@@ -32,8 +37,14 @@ func ebpfAvailable() bool {
 		return false
 	}
 
+	// If this binary was not built with eBPF support, don't advertise it
+	// as available even if the kernel version would otherwise support it.
+	if !ebpfBuild {
+		return false
+	}
+
 	var uname unix.Utsname
-	if err := unix.Uname(&uname); err != nil {
+	if err := unameFunc(&uname); err != nil {
 		return false
 	}
 

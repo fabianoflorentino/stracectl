@@ -5,6 +5,11 @@
 
 package tracer
 
+// ebpfBuild is true when this package is compiled with the `ebpf` build tag.
+// It is defined here (true) and in ebpf_stub.go (false) so runtime code can
+// detect whether the binary was built with eBPF support.
+var ebpfBuild = true
+
 import (
 	"context"
 	"fmt"
