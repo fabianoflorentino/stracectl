@@ -34,8 +34,9 @@ log "Repository: $REPO"
 
 log "Listing releases..."
 
+
 releases=$(gh api "repos/${REPO}/releases?per_page=100" \
-  --jq '[.[] | {tag: .tag_name, id: .id, latest: .prerelease | not}]') \
+  --jq '[.[] | {tag: .tag_name, id: .id, published: .published_at, prerelease: .prerelease}]') \
 
 total=$(echo "$releases" | jq 'length')
 
@@ -62,22 +63,60 @@ if [[ -z "$latest_tag" ]]; then
   warn "No release marked as Latest. Using most recent by date: $latest_tag"
 fi
 
-log "Release kept (Latest): $latest_tag"
+log "Latest release: $latest_tag"
 
-# ── remove all other releases and their tags ────────────────────────────────
+# ── keep one release per major.minor (semver) and one for non-semver group ──
+# Strategy:
+# - Sort releases by published date (most recent first)
+# - For tags matching semver (v?MAJOR.MINOR[.PATCH...]) keep the most recent
+#   release for each MAJOR.MINOR group
+# - For non-semver tags, keep only the most recent one
+# - Always keep the release pointed by GitHub as `latest` if present
 
-to_delete=$(echo "$releases" | jq -r --arg keep "$latest_tag" \
-  '[.[] | select(.tag != $keep) | .tag] | .[]')
+declare -A seen_groups
+to_delete=()
 
-if [[ -z "$to_delete" ]]; then
-  log "No releases to remove besides $latest_tag."
+# Mark the latest tag's group as kept so it will not be deleted
+if [[ -n "$latest_tag" ]]; then
+  if [[ "$latest_tag" =~ ^v?([0-9]+)\.([0-9]+) ]]; then
+    lg="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+  else
+    lg="__other__"
+  fi
+  seen_groups["$lg"]=1
+  log "Keeping latest tag: $latest_tag (group: $lg)"
+fi
+
+# Iterate releases ordered by published date (most recent first)
+while IFS= read -r entry; do
+  tag=$(echo "$entry" | jq -r '.tag')
+  if [[ "$tag" == "$latest_tag" ]]; then
+    continue
+  fi
+
+  if [[ "$tag" =~ ^v?([0-9]+)\.([0-9]+) ]]; then
+    group="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+  else
+    group="__other__"
+  fi
+
+  if [[ -z "${seen_groups[$group]:-}" ]]; then
+    seen_groups["$group"]=1
+    log "Keeping tag: $tag (group: $group)"
+  else
+    to_delete+=("$tag")
+  fi
+done < <(echo "$releases" | jq -c 'sort_by(.published) | reverse | .[]')
+
+if [[ ${#to_delete[@]} -eq 0 ]]; then
+  log "No releases to remove after grouping."
   exit 0
 fi
 
 deleted=0
 failed=0
 
-while IFS= read -r tag; do
+for tag in "${to_delete[@]}"; do
   log "Removing release and tag: $tag"
   if gh release delete "$tag" \
        --repo "$REPO" \
@@ -88,7 +127,7 @@ while IFS= read -r tag; do
     warn "Failed to remove: $tag"
     failed=$((failed + 1))
   fi
-done <<< "$to_delete"
+done
 
 # ── summary ──────────────────────────────────────────────────────────────────
 
