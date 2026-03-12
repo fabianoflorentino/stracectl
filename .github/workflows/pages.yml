@@ -1,4 +1,4 @@
-name: Deploy Hugo site to GitHub Pages
+name: Site Build & Deploy
 
 on:
   push:

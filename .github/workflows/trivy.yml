@@ -1,4 +1,4 @@
-name: Trivy vulnerability scan
+name: Vulnerability scan
 
 permissions:
   contents: read

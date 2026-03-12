@@ -1,4 +1,4 @@
-name: Cleanup
+name: Cleanup Old Releases & Docker Hub Tags
 
 on:
   workflow_dispatch:
