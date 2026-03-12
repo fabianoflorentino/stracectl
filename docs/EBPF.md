@@ -44,7 +44,7 @@ Local build example
 go install github.com/cilium/ebpf/cmd/bpf2go@latest
 ```
 
-2. Generate BPF artifacts and build with the `ebpf` tag (run from repo root):
+1. Generate BPF artifacts and build with the `ebpf` tag (run from repo root):
 
 ```bash
 go generate ./internal/tracer/...
