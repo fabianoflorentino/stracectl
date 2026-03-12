@@ -12,8 +12,7 @@ These flags are available to all commands (place before the subcommand):
 
 - `--ws-token <token>` — require a Bearer token for WebSocket connections when using `--serve`.
 - `--debug` — enable verbose tracer diagnostics. When set, `stracectl` will emit
-	raw strace lines useful for diagnosing parser edge cases (use only for troubleshooting).
-
+  raw strace lines useful for diagnosing parser edge cases (use only for troubleshooting).
 
 ```bash
 sudo stracectl run curl https://example.com
@@ -71,7 +70,7 @@ stracectl stats --report report.html trace.log
 ## Keyboard shortcuts
 
 | Key | Action |
-|-----|--------|
+| ----- | -------- |
 | `↑` / `k` | Move cursor up |
 | `↓` / `j` | Move cursor down |
 | `Enter` / `d` | Open detail overlay |
@@ -91,7 +90,7 @@ stracectl stats --report report.html trace.log
 
 ### Header bar
 
-```
+```shell
 stracectl  /usr/local/bin/curl  +4s   syscalls: 472  rate: 118/s  errors: 35  unique: 40
 ```
 
@@ -104,7 +103,7 @@ stracectl  /usr/local/bin/curl  +4s   syscalls: 472  rate: 118/s  errors: 35  un
 
 ### Category bar
 
-```
+```shell
 I/O 35%   FS 28%   NET 18%   MEM 9%   PROC 7%   OTHER 3%
 ```
 
