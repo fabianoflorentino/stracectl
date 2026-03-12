@@ -62,8 +62,3 @@ Security
 Use an isolated VM for self-hosted runners that need elevated privileges.
 Rotate registration tokens, keep the host patched, and restrict network
 access where possible.
-
-See also
-
-- [eBPF backend]({{ <relref "ebpf.md" > }}) — build and runtime requirements for the optional eBPF tracer
-- [README.md — local bootstrap commands and CI guidance](https://github.com/fabianoflorentino/stracectl/blob/main/README.md)
