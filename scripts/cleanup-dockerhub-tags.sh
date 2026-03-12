@@ -150,6 +150,26 @@ done
 
 # ── summary ───────────────────────────────────────────────────────────────────
 
+# Determine the most-recent kept tag for reporting (silence SC2154).
+# Find the first tag in `all_tags_desc` that is NOT scheduled for deletion.
+latest_tag=""
+if [[ -n "${all_tags_desc:-}" ]]; then
+  while IFS= read -r t; do
+    [[ -z "$t" ]] && continue
+    skip=0
+    for d in "${to_delete[@]:-}"; do
+      if [[ "$d" == "$t" ]]; then
+        skip=1
+        break
+      fi
+    done
+    if [[ $skip -eq 0 ]]; then
+      latest_tag="$t"
+      break
+    fi
+  done <<< "$all_tags_desc"
+fi
+
 echo ""
 log "Done. Removed: $deleted | Failed: $failed | Kept: $latest_tag"
 
