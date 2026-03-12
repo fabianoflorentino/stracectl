@@ -1,11 +1,13 @@
 # stracectl
 
-[![CI](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml)
+[![Deploy](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml)
 [![Docker](https://github.com/fabianoflorentino/stracectl/actions/workflows/docker.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/docker.yml)
-[![Dependency Graph](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/update-graph)
+[![eBPF Build](https://github.com/fabianoflorentino/stracectl/actions/workflows/ebpf-build.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/ebpf-build.yml)
+[![Dependency](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/update-graph)
 [![CodeQL](https://github.com/fabianoflorentino/stracectl/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/github-code-scanning/codeql)
 [![Trivy](https://github.com/fabianoflorentino/stracectl/actions/workflows/trivy.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/trivy.yml)
-[![Dependabot Updates](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/dependabot-updates)
+[![Dependabot](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/dependabot-updates)
+[![Site](https://github.com/fabianoflorentino/stracectl/actions/workflows/pages.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/pages.yml)
 [![Release](https://img.shields.io/github/v/release/fabianoflorentino/stracectl?label=release)](https://github.com/fabianoflorentino/stracectl/releases/latest)
 
 A modern `strace` with a real-time, htop-style TUI — and an HTTP sidecar mode
