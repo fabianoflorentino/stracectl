@@ -93,8 +93,10 @@ LIVE STATISTICS
 - **Kubernetes-ready** — Dockerfile, raw manifests, and Helm chart with a hardened sidecar security context
 
 ## Requirements
-
 - Linux (uses `ptrace` via the `strace` binary)
+- Optional: eBPF backend requires Linux kernel >= 5.8 and privileges to load
+  eBPF programs; building the eBPF-enabled binary also requires `clang`,
+  kernel headers, and the `bpf2go` tool (`github.com/cilium/ebpf/cmd/bpf2go`).
 - Go 1.26+
 - `strace` installed
 
@@ -120,6 +122,102 @@ Or use the pre-built container image:
 ```bash
 docker pull fabianoflorentino/stracectl:<version>
 ```
+
+To build an eBPF-enabled container (builds BPF objects and links with `-tags=ebpf`):
+
+```bash
+# builds a static, eBPF-enabled binary inside the image
+docker build --target production-ebpf -t stracectl:ebpf .
+```
+
+Build eBPF-enabled binary locally
+---------------------------------
+
+If you want to build a local eBPF-enabled binary (for testing or development),
+follow these steps. You need `clang`, kernel headers and `bpf2go` available.
+
+```bash
+# Install clang and kernel headers (Debian/Ubuntu example)
+sudo apt update && sudo apt install -y clang llvm libbpf-dev linux-headers-$(uname -r)
+
+# Install bpf2go tool
+go install github.com/cilium/ebpf/cmd/bpf2go@latest
+
+# Generate BPF Go artifacts (runs bpf2go)
+go generate ./internal/tracer/...
+
+# Build the binary with CGO enabled and the ebpf build tag
+CGO_ENABLED=1 go build -tags=ebpf -o stracectl-ebpf .
+
+# Run eBPF-enabled tests (optional)
+CGO_ENABLED=1 go test -tags=ebpf ./internal/tracer -v
+```
+
+Notes:
+
+- The eBPF backend requires a compatible kernel (Linux ≥ 5.8) and privileges
+  to load BPF programs. If you encounter issues, fallback to the classic
+  `--backend strace` mode.
+
+## Self-hosted runner for eBPF integration (CI)
+
+Some eBPF integration tests require kernel features and privileges that are
+not available on GitHub-hosted runners. To run those tests in CI, provision a
+self-hosted Linux runner with the label `ebpf` and the packages/privileges
+listed below. Our workflows expect the job to use `runs-on: [self-hosted, linux, ebpf]`.
+
+Minimum checklist
+- Kernel: Linux >= 5.8 (BPF ringbuf and required helpers)
+- Userland packages: `clang`, `llvm`, `build-essential`, `libelf-dev`,
+  `libbpf-dev`, and matching `linux-headers-$(uname -r)`
+- Go toolchain (Go 1.26+)
+- `bpf2go` (install via `go install github.com/cilium/ebpf/cmd/bpf2go@latest`)
+- Mounted BPF filesystem: `/sys/fs/bpf` (mount with `sudo mount -t bpf bpf /sys/fs/bpf` if needed)
+- Runner labels: include `self-hosted`, `linux`, and `ebpf` when registering
+
+Privileges and security
+- Loading and attaching eBPF programs typically requires elevated privileges.
+  The simplest option is to run the self-hosted runner as root (or run the
+  CI job with the runner service running as root). Alternatively, grant the
+  runner the kernel capabilities necessary to create and load BPF programs
+  (for example `CAP_SYS_ADMIN` historically, or `CAP_BPF` on kernels that
+  expose it). Exact capability names can vary by kernel version, so running
+  the runner in a dedicated, isolated VM with root is the most reliable option.
+- For safety, host the runner on an isolated VM or ephemeral instance that is
+  dedicated to CI and not used for other production workloads.
+
+Example: Debian/Ubuntu bootstrap
+```bash
+sudo apt-get update
+sudo apt-get install -y curl git build-essential clang llvm libelf-dev libbpf-dev pkg-config linux-headers-$(uname -r)
+
+# Install Go (if not present) and bpf2go
+# See https://go.dev/doc/install or use your distro packages
+go install github.com/cilium/ebpf/cmd/bpf2go@latest
+
+# Ensure bpffs is mounted
+sudo mkdir -p /sys/fs/bpf
+sudo mount -t bpf bpf /sys/fs/bpf || true
+```
+
+Register the runner with GitHub
+- Follow GitHub's official docs to download and configure the runner for your
+  repository or organization. When running `./config.sh`, add the labels
+  `self-hosted,linux,ebpf` (or at least `ebpf`) so workflows can target it.
+
+Quick workflow snippet
+```yaml
+jobs:
+  integration:
+    runs-on: [self-hosted, linux, ebpf]
+    # …
+```
+
+Security notes
+- Running a self-hosted runner with root privileges increases risk. Use a
+  dedicated, patched VM; limit network access; and rotate tokens used to
+  register the runner. Prefer ephemeral runners (created/destroyed per workload)
+  if your infrastructure allows.
 
 ## Quick Start
 
@@ -157,6 +255,7 @@ sudo stracectl --debug run --serve :8080 curl https://example.com
 | [docs/USAGE.md](docs/USAGE.md) | Commands, keyboard shortcuts, dashboard guide, HTTP API, common patterns |
 | [docs/KUBERNETES.md](docs/KUBERNETES.md) | Sidecar deployment, Helm chart, Prometheus metrics |
 | [site/content/docs/syscalls.md](site/content/docs/syscalls.md) | Built-in syscall reference (signatures, arguments, errno codes) |
+| [docs/EBPF.md](docs/EBPF.md) | eBPF backend overview, build & runtime requirements |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release history |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned improvements |
 
