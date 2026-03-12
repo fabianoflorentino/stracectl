@@ -11,7 +11,7 @@ Use `systemctl list-units | grep actions.runner` to find the exact name.
 
 Place the file at:
 
-```
+```shell
 /etc/systemd/system/<RUNNER_SERVICE>.service.d/http-proxy.conf
 ```
 
@@ -27,7 +27,7 @@ Environment="NO_PROXY=localhost,127.0.0.1,github.com,api.github.com,codeload.git
 If your proxy requires credentials, include them in the URL (URL-encode if
 necessary):
 
-```
+```shell
 HTTP_PROXY=http://username:password@proxy.example.com:3128
 ```
 
@@ -54,6 +54,7 @@ systemctl show -p Environment <RUNNER_SERVICE>.service
 ```
 
 Notes
+
 - Make sure `NO_PROXY` includes `api.github.com`, `github.com`, `codeload.github.com`, and `raw.githubusercontent.com` so action downloads bypass the proxy when appropriate.
 - If your environment uses an authenticating proxy, prefer creating a runner VM behind a transparent proxy or use a runner image that has the proxy credentials securely provisioned.
 - If you run the runner in a container, pass the env variables to the container runtime instead of a systemd drop-in.
