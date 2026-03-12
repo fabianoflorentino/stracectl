@@ -17,6 +17,7 @@ import (
 var attachServeAddr string
 var attachReportPath string
 var attachContainer string
+var backend string
 
 var attachCmd = &cobra.Command{
 	Use:   "attach [--serve :8080] [--report <path>] [--ws-token <token>] [--container <name> | <pid>]",
@@ -36,7 +37,9 @@ Examples:
   sudo stracectl attach "$(pgrep nginx | head -1)"
   sudo stracectl attach --serve :8080 1234
   sudo stracectl attach --report nginx.html 1234
-  sudo stracectl attach --container myapp`,
+  sudo stracectl attach --container myapp
+  sudo stracectl attach --backend ebpf 1234
+  sudo stracectl attach --backend strace 1234`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		var pid int
@@ -69,7 +72,11 @@ Examples:
 
 		agg := aggregator.New()
 		agg.SetProcInfo(aggregator.ReadProcInfo(pid))
-		t := tracer.NewStraceTracer()
+
+		t, err := tracer.Select(backend)
+		if err != nil {
+			return err
+		}
 
 		events, err := t.Attach(tracerCtx, pid)
 		if err != nil {
@@ -85,5 +92,6 @@ func init() {
 	attachCmd.Flags().StringVar(&attachServeAddr, "serve", "", `expose HTTP API instead of TUI (e.g. --serve :8080)`)
 	attachCmd.Flags().StringVar(&attachReportPath, "report", "", "write a self-contained HTML report to this file on exit")
 	attachCmd.Flags().StringVar(&attachContainer, "container", "", "auto-discover and attach to the lowest PID matching this container name")
+	attachCmd.Flags().StringVar(&backend, "backend", "auto", "tracing backend to use: auto, ebpf, or strace")
 	rootCmd.AddCommand(attachCmd)
 }
