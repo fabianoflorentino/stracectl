@@ -1,6 +1,6 @@
 # stracectl
 
-[![Deploy](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/ci.yml)
+[![Deploy](https://github.com/fabianoflorentino/stracectl/actions/workflows/deploy.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/deploy.yml)
 [![Docker](https://github.com/fabianoflorentino/stracectl/actions/workflows/docker.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/docker.yml)
 [![eBPF Build](https://github.com/fabianoflorentino/stracectl/actions/workflows/ebpf-build.yml/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/ebpf-build.yml)
 [![Dependency](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/fabianoflorentino/stracectl/actions/workflows/dependabot/update-graph)
