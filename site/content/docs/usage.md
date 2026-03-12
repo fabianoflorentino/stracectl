@@ -26,6 +26,16 @@ Save a self-contained HTML report when the session ends:
 sudo stracectl run --report report.html curl https://example.com
 ```
 
+## Backend selection
+
+Choose the tracing backend with `--backend` (values: `auto`, `ebpf`, `strace`).
+`auto` picks the eBPF backend when the binary was built with eBPF support and
+the running kernel supports the required features (Linux >= 5.8); otherwise it
+falls back to the classic `strace` subprocess tracer. Use `--backend ebpf` to
+force the eBPF backend or `--backend strace` to force the subprocess tracer.
+
+See the dedicated page for more details: [eBPF backend](/docs/ebpf/).
+
 ## Attach to a running process
 
 ```bash
