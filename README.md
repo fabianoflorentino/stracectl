@@ -256,6 +256,7 @@ sudo stracectl --debug run --serve :8080 curl https://example.com
 | [docs/KUBERNETES.md](docs/KUBERNETES.md) | Sidecar deployment, Helm chart, Prometheus metrics |
 | [site/content/docs/syscalls.md](site/content/docs/syscalls.md) | Built-in syscall reference (signatures, arguments, errno codes) |
 | [docs/EBPF.md](docs/EBPF.md) | eBPF backend overview, build & runtime requirements |
+| [docs/SELF_HOSTED_RUNNER.md](docs/SELF_HOSTED_RUNNER.md) | Self-hosted runner and proxy instructions, local VM quickstart |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release history |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned improvements |
 
