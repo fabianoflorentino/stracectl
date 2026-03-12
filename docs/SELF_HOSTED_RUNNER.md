@@ -1,18 +1,21 @@
-# Self-hosted runner para eBPF
+# Self-hosted runner for eBPF
 
-Este documento descreve como provisionar e configurar um runner self-hosted para executar builds e testes que carregam ou interagem com eBPF no kernel.
+This document explains how to provision and configure a self-hosted GitHub Actions runner to perform builds and integration tests that load or interact with eBPF in the Linux kernel.
 
-Por que usar self-hosted
-- GitHub-hosted runners são ótimos para build/CI, mas não permitem operações privilegiadas no kernel (capabilities, containers privilegiados, etc.).
-- Testes de integração que carregam BPF exigem capacidades como `CAP_BPF`, `CAP_PERFMON` ou execução como `root`.
+Why a self-hosted runner
 
-Requisitos mínimos do host
-- Kernel Linux moderno (recomendo >= 5.8). Verifique `uname -r`.
-- Pacotes: `clang`, `llvm`, `libbpf-dev`, `linux-headers-$(uname -r)`, `make`, `git`, `go`.
-- Espaço em disco suficiente para toolchain / artefatos.
+- GitHub-hosted runners are convenient for standard builds and CI, but they do not allow privileged kernel operations (capabilities, privileged containers, etc.).
+- Integration tests that load BPF programs require kernel capabilities such as `CAP_BPF`, `CAP_PERFMON`, or running as `root`.
 
-Instalação rápida do runner
-1. Crie um diretório para o runner e baixe a distribuição oficial:
+Minimum host requirements
+
+- A modern Linux kernel (recommended >= 5.8). Check with `uname -r`.
+- Packages: `clang`, `llvm`, `libbpf-dev`, `linux-headers-$(uname -r)`, `make`, `git`, `go`.
+- Sufficient disk space for toolchains and build artifacts.
+
+Quick runner install
+
+1. Create a directory for the runner and download the official release:
 
 ```bash
 mkdir -p ~/actions-runner && cd ~/actions-runner
@@ -22,21 +25,21 @@ curl -sL -o actions-runner.tar.gz \
 tar xzf actions-runner.tar.gz
 ```
 
-2. Registre o runner no repositório (gere um token temporário no GitHub UI: Settings → Actions → Runners → New self-hosted runner):
+2. Register the runner with your repository (generate a temporary token in the GitHub UI: Settings → Actions → Runners → New self-hosted runner):
 
 ```bash
 ./config.sh --url https://github.com/ORG/REPO --token YOUR_TOKEN --labels self-hosted,linux,ebpf --name my-runner
 ```
 
-3. Instale e inicie como serviço (execute como `root` para instalar o unit systemd):
+3. Install and start the runner as a system service (run the following as `root` to install the systemd unit):
 
 ```bash
 sudo ./svc.sh install
 sudo ./svc.sh start
 ```
 
-Systemd: exportar variáveis de proxy (exemplo)
-Se o runner estiver atrás de proxy HTTP/HTTPS crie um drop-in unit para injetar as variáveis de ambiente:
+Systemd: exporting proxy environment variables (example)
+If the runner sits behind an HTTP/HTTPS proxy, create a systemd drop-in to inject proxy environment variables:
 
 ```bash
 SERVICE=actions.runner.ORG-REPO.my-runner.service
@@ -56,59 +59,75 @@ sudo systemctl restart "${SERVICE}"
 sudo journalctl -u "${SERVICE}" -f
 ```
 
-Labels: workflow eBPF
-No workflow usamos o label `ebpf`. As jobs que precisam de um runner capaz de carregar/rodar eBPF devem ter:
+Workflow labels for eBPF jobs
+In workflows we use the `ebpf` label. Jobs that need a runner capable of loading or running eBPF should specify:
 
 ```yaml
 runs-on: [self-hosted, linux, ebpf]
 ```
 
-Segurança e privilégios
-- Para carregar programas eBPF o processo precisa de privilégios de kernel. A forma mais simples é executar o runner como `root`. Alternativas:
-  - executar jobs em VMs separadas (recomendado) ou containers privilegiados com `--privileged` e capabilities adequadas.
-  - conceder capabilities específicas (`CAP_BPF`, `CAP_PERFMON`) à sessão que executa os testes (mais complexo).
+Security and privileges
 
-Instalar `bpf2go` e ferramenta local
+- Loading eBPF programs requires kernel privileges. The simplest approach is to run the runner service as `root`.
+Alternatives:
+  - Run jobs inside a dedicated VM (recommended) or a privileged container with `--privileged` and appropriate capabilities.
+  - Grant specific capabilities (for example `CAP_BPF`, `CAP_PERFMON`) to the testing process (more advanced).
+
+Install `bpf2go` and local tooling
+
 ```bash
 export PATH=$PATH:$(go env GOPATH)/bin
 go install github.com/cilium/ebpf/cmd/bpf2go@latest
 ```
 
-Diagnóstico (se o job estiver "Waiting for a runner")
-- Verifique runners registrados no repositório (local ou remote):
+Diagnostics (if the job is "Waiting for a runner")
+
+- List repository runners (shows name, status and labels):
+
 ```bash
 gh api repos/ORG/REPO/actions/runners --jq '.runners[] | {name: .name, status: .status, busy: .busy, labels: .labels}'
 ```
-- No host do runner, verifique o serviço systemd:
+
+- On the runner host, check the systemd service and logs:
+
 ```bash
 systemctl list-units --type=service | grep actions.runner
 sudo systemctl status actions.runner.* --no-pager
 sudo journalctl -u actions.runner.* --since "10 minutes ago"
 ```
 
-Se o runner não tiver a label `ebpf`, reconfigure com as labels corretas:
+If the runner is missing the `ebpf` label, reconfigure it with the correct labels:
+
 ```bash
-# no diretório do runner
+# in the runner directory
 ./config.sh remove --unattended
 ./config.sh --url https://github.com/ORG/REPO --token YOUR_TOKEN --labels self-hosted,linux,ebpf --name my-runner
 sudo ./svc.sh start
 ```
 
-Coletar logs se houver erros de download (401)
-1. No host do runner, salve os logs do serviço para análise:
+Collect logs if downloads fail with 401
+
+1. Save recent runner logs for analysis on the runner host:
+
 ```bash
 sudo journalctl -u actions.runner.* --since "10 minutes ago" > /tmp/runner_journal.txt
 ```
-2. Reproduzir a requisição falhada (substitua URL vista nos logs) para capturar cabeçalhos:
+
+2. Reproduce the failed fetch (replace the failed URL shown in the logs) to capture HTTP headers:
+
 ```bash
 curl -v -D /tmp/curl_headers.txt -o /tmp/curl_body.bin 'https://api.github.com/repos/actions/setup-go/tarball/<SHA>' -H 'Accept: application/vnd.github+json'
 ```
-3. Anexe `/tmp/runner_journal.txt` e `/tmp/curl_headers.txt` ao issue/PR para análise.
 
-Notas finais
-- Recomendo provisionar o runner em uma VM dedicada (cloud) para simplificar permissões e isolamento.
-- Use labels (`ebpf`) para direcionar jobs sensíveis.
+3. Attach `/tmp/runner_journal.txt` and `/tmp/curl_headers.txt` to the issue or PR for analysis.
 
-Se quiser, eu:
-- adiciono este arquivo ao repo e faço commit + push, e
-- re-executo o workflow `eBPF Build & Generate` e monitoro o `integration` job até ele ser atendido ou falhar (coleto logs se necessário).
+Notes
+
+- I recommend provisioning the runner in a dedicated VM (cloud) to simplify privileges and isolation.
+- Use labels such as `ebpf` to target sensitive jobs.
+
+If you want, I can:
+
+- add this file to the repo and push the change, and
+- trigger the `eBPF Build & Generate` workflow and monitor the `integration` job until it is picked up or fails (I can collect logs if needed).
+Notes
