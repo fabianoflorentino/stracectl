@@ -133,14 +133,14 @@ jobs:
           TAG_NAME="v1.0.${{ github.run_number }}"
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
 
-          git remote set-url origin https://x-access-token:${GIT_HUB_TOKEN}@github.com/${{ github.repository }}
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
 
           git tag $TAG_NAME
           git push origin $TAG_NAME
 
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
         env:
-          GIT_HUB_TOKEN: ${{ secrets.GIT_HUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     outputs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
@@ -164,7 +164,7 @@ jobs:
           name: ${{ needs.tag.outputs.tag_name }}
           generate_release_notes: true
         env:
-          GIT_HUB_TOKEN: ${{ secrets.GIT_HUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download eBPF artifact
         uses: actions/download-artifact@v4
@@ -208,7 +208,7 @@ jobs:
           asset_name: stracectl-linux-amd64-ebpf
           asset_content_type: application/octet-stream
         env:
-          GITHUB_TOKEN: ${{ secrets.GIT_HUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ── Trigger pkg.go.dev to index the new version ──────────────────────────────
   go_proxy:
