@@ -128,6 +128,12 @@ deleted=0
 failed=0
 
 for tag in "${to_delete[@]}"; do
+  if [[ "${DRY_RUN:-}" == "1" ]]; then
+    log "DRY_RUN: would remove tag: $tag"
+    deleted=$((deleted + 1))
+    continue
+  fi
+
   log "Removing tag: $tag"
   http_status=$(curl -o /dev/null -w "%{http_code}" -sSL \
     -X DELETE \
