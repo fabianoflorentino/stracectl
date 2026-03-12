@@ -178,6 +178,12 @@
         <p>Every tracked syscall ships with its C signature, argument descriptions, common <code>errno</code> codes, and diagnostic notes — inline in the TUI and web detail page, no browser tab needed.</p>
       </div>
 
+      <div class="feature-card reveal">
+        <div class="feature-icon">⚙️</div>
+        <h3>Dual Backends — eBPF &amp; strace</h3>
+        <p>Choose low-overhead kernel tracing with eBPF, or fall back to the classic <code>strace</code> subprocess. Auto-selection available via <code>--backend auto</code>.</p>
+      </div>
+
     </div>
   </div>
 </section>
@@ -338,6 +344,33 @@
 <!-- ============================================================
      SYSCALL REFERENCE PREVIEW
      ============================================================ -->
+<section class="features-section" id="backends">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title reveal">Two tracing backends —<br><span class="gradient-text">eBPF and strace</span></h2>
+      <p class="section-sub reveal">Pick the tracer that best fits your environment: low-overhead kernel events or the universal <code>strace</code> fallback.</p>
+    </div>
+
+    <div class="features-grid" style="grid-template-columns: repeat(2, 1fr)">
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div class="feature-icon">🦺</div>
+        <h3>eBPF backend</h3>
+        <p>Kernel-level tracing with minimal overhead. Requires Linux ≥ 5.8 and an eBPF-enabled binary (built with <code>-tags=ebpf</code>). Ideal for production observability.</p>
+        <a href="{{ "docs/ebpf/" | absURL }}" class="btn btn-outline" style="margin-top:0.6rem">Learn more →</a>
+      </div>
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div class="feature-icon">🧾</div>
+        <h3>strace backend</h3>
+        <p>Classic userspace tracer via the <code>strace</code> binary. Works on systems without eBPF support and requires no special kernel features.</p>
+        <div style="margin-top:0.6rem; font-size:0.9rem; color:var(--muted)"><code>--backend auto|ebpf|strace</code></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
 <section class="features-section" id="syscall-ref">
   <div class="container">
     <div class="section-header">
