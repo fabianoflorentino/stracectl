@@ -19,6 +19,11 @@ Minimum requirements
 - `bpf2go` (install with `go install github.com/cilium/ebpf/cmd/bpf2go@latest`)
 - `/sys/fs/bpf` mounted (bpffs)
 
+See the repository `docs/SELF_HOSTED_RUNNER.md` for a more complete
+walkthrough (proxy drop-in, helper scripts, local VM quickstart):
+
+[docs/SELF_HOSTED_RUNNER.md](../../docs/SELF_HOSTED_RUNNER.md)
+
 Runner labels and workflow
 
 Register the runner in GitHub and include the label `ebpf` (workflow uses
@@ -49,6 +54,14 @@ go install github.com/cilium/ebpf/cmd/bpf2go@latest
 sudo mkdir -p /sys/fs/bpf
 sudo mount -t bpf bpf /sys/fs/bpf || true
 ```
+
+Proxy and helper scripts
+
+If your environment requires an HTTP/HTTPS proxy, the repository contains an
+example systemd drop-in at `deploy/systemd/actions-runner-proxy.conf` and a
+helper script at `deploy/scripts/apply_runner_proxy.sh` that can copy the
+drop-in and restart the runner service. See `docs/SELF_HOSTED_RUNNER_PROXY.md`
+for usage notes.
 
 Register the GitHub Actions runner
 
