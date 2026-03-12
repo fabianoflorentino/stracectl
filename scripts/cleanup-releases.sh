@@ -117,6 +117,12 @@ deleted=0
 failed=0
 
 for tag in "${to_delete[@]}"; do
+  if [[ "${DRY_RUN:-}" == "1" ]]; then
+    log "DRY_RUN: would remove release and tag: $tag"
+    deleted=$((deleted + 1))
+    continue
+  fi
+
   log "Removing release and tag: $tag"
   if gh release delete "$tag" \
        --repo "$REPO" \
