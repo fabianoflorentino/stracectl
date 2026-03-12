@@ -6,6 +6,7 @@
 
 .PHONY: help \
         build run test test-short coverage fmt vet lint tidy clean all \
+	generate-bpf build-ebpf clean-bpf \
         site-dev site-build site-clean \
         docker-build docker-build-dev docker-build-site docker-push \
         up up-site up-detach down logs logs-tail ps restart prune \
@@ -60,6 +61,25 @@ build: ## Compile the binary to ./bin/stracectl
 	@mkdir -p bin
 	@$(BUILD_FLAGS) go build -trimpath -ldflags="$(LDFLAGS)" -o bin/$(BINARY) .
 	@echo -e "$(GREEN)✓ Binary created at bin/$(BINARY)$(NC)"
+
+##@ BPF
+
+generate-bpf: ## Generate BPF artifacts (requires clang + bpf2go)
+	@echo -e "$(BLUE)🔧 Generating BPF artifacts...$(NC)"
+	@command -v clang >/dev/null 2>&1 || { echo -e "$(RED)❌ clang not found (required to compile BPF programs)$(NC)"; exit 1; }
+	@go generate ./internal/tracer
+	@echo -e "$(GREEN)✓ BPF artifacts generated$(NC)"
+
+build-ebpf: generate-bpf ## Build the binary with eBPF support (uses -tags=ebpf)
+	@echo -e "$(BLUE)🔨 Building $(BINARY) with eBPF support...$(NC)"
+	@mkdir -p bin
+	@$(BUILD_FLAGS) go build -tags=ebpf -trimpath -ldflags="$(LDFLAGS)" -o bin/$(BINARY) .
+	@echo -e "$(GREEN)✓ Binary created at bin/$(BINARY) (ebpf)$(NC)"
+
+clean-bpf: ## Remove generated BPF artifacts
+	@echo -e "$(YELLOW)🧹 Removing generated BPF artifacts...$(NC)"
+	@rm -f internal/tracer/ebpf_bpfel.go internal/tracer/ebpf_bpfeb.go internal/tracer/ebpf_bpfel.o internal/tracer/ebpf_bpfeb.o
+	@echo -e "$(GREEN)✓ BPF artifacts removed$(NC)"
 
 run: ## Run with go run (pass ARGS="..." for extra flags)
 	@echo -e "$(BLUE)▶  Running $(BINARY)...$(NC)"
