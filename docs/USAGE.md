@@ -24,6 +24,46 @@ Add `--report` to save a self-contained HTML file when the session ends:
 sudo stracectl run --report report.html curl https://example.com
 ```
 
+### Backend selection
+
+Choose the tracing backend with `--backend` (available values: `auto`,
+`ebpf`, `strace`). The default `auto` mode will pick the eBPF backend when the
+running kernel supports the required features (Linux >= 5.8) and the binary was
+built with eBPF support; otherwise it falls back to the classic `strace`
+subprocess tracer. Use `--backend ebpf` to force the eBPF backend (requires an
+eBPF-enabled build) or `--backend strace` to force the subprocess tracer.
+
+Examples:
+
+```bash
+# auto (default)
+sudo stracectl run --backend auto curl https://example.com
+
+# force eBPF (requires eBPF-enabled binary and kernel support)
+sudo stracectl run --backend ebpf --report trace-ebpf.html curl https://example.com
+
+# force classic strace subprocess tracer
+sudo stracectl run --backend strace curl https://example.com
+```
+
+### eBPF backend (brief)
+
+The eBPF backend traces syscalls directly from the kernel using a small BPF
+program and a ringbuffer for events. Advantages include lower overhead and
+avoiding a `strace` subprocess. Requirements:
+
+- Linux kernel >= 5.8 (BPF ringbuf support)
+- Privileges to load eBPF programs (typically root or appropriate capabilities)
+- An eBPF-enabled build of `stracectl` (see README and Docker targets)
+
+To build an eBPF-enabled binary locally you need `clang`, linux headers, and
+the `bpf2go` tool (from `github.com/cilium/ebpf/cmd/bpf2go`). The repository's
+Dockerfile includes a `production-ebpf` target that builds an eBPF-capable
+static binary.
+
+For more details and troubleshooting see the dedicated documentation page in
+the project site: `site/content/docs/ebpf.md`.
+
 ### Attach to a running process
 
 ```bash
