@@ -65,5 +65,5 @@ access where possible.
 
 See also
 
-- [eBPF backend](/docs/ebpf/)
-- `README.md` — local bootstrap commands and CI guidance
+- [eBPF backend]({{ <relref "ebpf.md" > }}) — build and runtime requirements for the optional eBPF tracer
+- [README.md — local bootstrap commands and CI guidance](https://github.com/fabianoflorentino/stracectl/blob/main/README.md)
