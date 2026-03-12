@@ -38,12 +38,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          latest=$(gh api "repos/${{ github.repository }}/releases/latest" --jq '.tag_name')
-          echo "=== [DRY-RUN] Release kept: $latest ==="
-          echo "=== [DRY-RUN] Would be removed: ==="
-          gh api "repos/${{ github.repository }}/releases?per_page=100" \
-            --jq --arg keep "$latest" \
-            '[.[] | select(.tag_name != $keep) | .tag_name] | .[]'
+          chmod +x scripts/cleanup-releases.sh
+          DRY_RUN=1 ./scripts/cleanup-releases.sh "${{ github.repository }}"
 
       - name: Run cleanup
         if: ${{ inputs.dry_run == 'false' }}
