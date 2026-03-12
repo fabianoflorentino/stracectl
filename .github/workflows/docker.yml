@@ -172,11 +172,39 @@ jobs:
           name: stracectl-linux-amd64-ebpf
           path: ./artifacts
 
+      - name: List downloaded artifacts
+        run: |
+          echo "Contents of ./artifacts:" 
+          ls -la ./artifacts || true
+
+      - name: Find eBPF artifact file
+        id: find_asset
+        run: |
+          set -e
+          ASSET=""
+          # Common locations: direct file or a folder named after the artifact
+          if [ -f ./artifacts/stracectl-ebpf ]; then
+            ASSET="./artifacts/stracectl-ebpf"
+          fi
+          if [ -z "$ASSET" ] && [ -d ./artifacts/stracectl-linux-amd64-ebpf ]; then
+            ASSET=$(find ./artifacts/stracectl-linux-amd64-ebpf -type f -maxdepth 1 | head -n1 || true)
+          fi
+          # fallback: pick the first file under artifacts
+          if [ -z "$ASSET" ]; then
+            ASSET=$(find ./artifacts -type f | head -n1 || true)
+          fi
+          if [ -z "$ASSET" ]; then
+            echo "No artifact file found in ./artifacts" >&2
+            exit 1
+          fi
+          echo "Found artifact: $ASSET"
+          echo "asset_path=$ASSET" >> $GITHUB_OUTPUT
+
       - name: Upload eBPF asset to Release
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/stracectl-linux-amd64-ebpf
+          asset_path: ${{ steps.find_asset.outputs.asset_path }}
           asset_name: stracectl-linux-amd64-ebpf
           asset_content_type: application/octet-stream
         env:
