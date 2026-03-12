@@ -93,6 +93,7 @@ LIVE STATISTICS
 - **Kubernetes-ready** — Dockerfile, raw manifests, and Helm chart with a hardened sidecar security context
 
 ## Requirements
+
 - Linux (uses `ptrace` via the `strace` binary)
 - Optional: eBPF backend requires Linux kernel >= 5.8 and privileges to load
   eBPF programs; building the eBPF-enabled binary also requires `clang`,
@@ -131,6 +132,7 @@ docker build --target production-ebpf -t stracectl:ebpf .
 ```
 
 Build eBPF-enabled binary locally
+
 ---------------------------------
 
 If you want to build a local eBPF-enabled binary (for testing or development),
@@ -167,6 +169,7 @@ self-hosted Linux runner with the label `ebpf` and the packages/privileges
 listed below. Our workflows expect the job to use `runs-on: [self-hosted, linux, ebpf]`.
 
 Minimum checklist
+
 - Kernel: Linux >= 5.8 (BPF ringbuf and required helpers)
 - Userland packages: `clang`, `llvm`, `build-essential`, `libelf-dev`,
   `libbpf-dev`, and matching `linux-headers-$(uname -r)`
@@ -176,6 +179,7 @@ Minimum checklist
 - Runner labels: include `self-hosted`, `linux`, and `ebpf` when registering
 
 Privileges and security
+
 - Loading and attaching eBPF programs typically requires elevated privileges.
   The simplest option is to run the self-hosted runner as root (or run the
   CI job with the runner service running as root). Alternatively, grant the
@@ -187,6 +191,7 @@ Privileges and security
   dedicated to CI and not used for other production workloads.
 
 Example: Debian/Ubuntu bootstrap
+
 ```bash
 sudo apt-get update
 sudo apt-get install -y curl git build-essential clang llvm libelf-dev libbpf-dev pkg-config linux-headers-$(uname -r)
@@ -201,11 +206,13 @@ sudo mount -t bpf bpf /sys/fs/bpf || true
 ```
 
 Register the runner with GitHub
+
 - Follow GitHub's official docs to download and configure the runner for your
   repository or organization. When running `./config.sh`, add the labels
   `self-hosted,linux,ebpf` (or at least `ebpf`) so workflows can target it.
 
 Quick workflow snippet
+
 ```yaml
 jobs:
   integration:
@@ -214,6 +221,7 @@ jobs:
 ```
 
 Security notes
+
 - Running a self-hosted runner with root privileges increases risk. Use a
   dedicated, patched VM; limit network access; and rotate tokens used to
   register the runner. Prefer ephemeral runners (created/destroyed per workload)
@@ -371,8 +379,6 @@ flowchart TD
     C -->|"--serve flag"| E
 ```
 
-
-
 ## Autenticação por token no WebSocket (`/stream`)
 
 > Novo em vX.Y.Z — Autenticação opcional para o endpoint WebSocket `/stream`.
@@ -459,7 +465,7 @@ command: ["/bin/sh", "-c", "exec /usr/local/bin/stracectl --serve --ws-token \"$
 
 Para testar, use `wscat` / `websocat` ou a biblioteca `ws` no Node.
 
----
+---------------------------------
 
 ## Known Limitations
 
