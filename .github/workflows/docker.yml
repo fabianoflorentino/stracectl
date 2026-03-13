@@ -36,7 +36,6 @@ on:
 permissions:
   contents: write
   packages: write
-  workflows: write
 
 jobs:
   # Reusable build job (produces artifacts used by later jobs)
@@ -186,7 +185,7 @@ jobs:
 
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
 
     outputs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
