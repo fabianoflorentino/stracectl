@@ -381,39 +381,39 @@ flowchart TD
     C -->|"--serve flag"| E
 ```
 
-## Autenticação por token no WebSocket (`/stream`)
+## Token authentication for the WebSocket (`/stream`)
 
-> Novo em vX.Y.Z — Autenticação opcional para o endpoint WebSocket `/stream`.
+> New in vX.Y.Z — Optional authentication for the WebSocket `/stream` endpoint.
 
-Para evitar acessos não autorizados ao endpoint WebSocket (por exemplo, quando a porta está exposta fora do cluster), você pode exigir um token compartilhado:
+To prevent unauthorized access to the WebSocket endpoint (for example, when the port is exposed outside the cluster), you can require a shared token:
 
-### Ativação rápida
+### Quick start
 
-- Inicie o servidor com a flag `--ws-token <token>` (qualquer comando com `--serve`):
+- Start the server with the `--ws-token <token>` flag (any command that uses `--serve`):
 
 ```bash
 ./stracectl --serve --ws-token "SUPER_SECRET_TOKEN"
 ```
 
-- Ou passe o token por variável de ambiente no shell e expanda no comando:
+- Or pass the token via an environment variable and expand it in the command:
 
 ```bash
 WS_TOKEN=SUPER_SECRET_TOKEN ./stracectl --serve --ws-token "$WS_TOKEN"
 ```
 
-- Se `--ws-token` não for definido, o endpoint permanece aberto (comportamento padrão).
+- If `--ws-token` is not set, the endpoint remains open (default behavior).
 
-### Exemplos de cliente
+### Client examples
 
-Prefira enviar o token em um header `Authorization: Bearer <token>` quando o cliente suportar headers. Exemplos práticos:
+Prefer sending the token in an `Authorization: Bearer <token>` header when the client supports custom headers. Practical examples:
 
-- Usando `wscat` (header):
+- Using `wscat` (header):
 
 ```bash
 wscat -c ws://localhost:8080/stream -H "Authorization: Bearer SUPER_SECRET_TOKEN"
 ```
 
-- Usando `wscat` (query string):
+- Using `wscat` (query string):
 
 ```bash
 wscat -c ws://localhost:8080/stream?token=SUPER_SECRET_TOKEN
@@ -429,24 +429,24 @@ const ws = new WebSocket('ws://localhost:8080/stream', {
 ws.on('open', () => console.log('connected'));
 ```
 
-- Browser (observação importante):
+- Browser (important note):
 
 ```js
-// Browsers não permitem headers customizados no construtor WebSocket.
-// Use query string ou um proxy que injete o header Authorization.
+// Browsers do not allow custom headers in the WebSocket constructor.
+// Use a query string or a proxy that injects the Authorization header.
 const ws = new WebSocket('wss://example.com/stream?token=SUPER_SECRET_TOKEN');
 ws.onopen = () => console.log('connected');
 ```
 
-### Kubernetes / containers (exemplo)
+### Kubernetes / containers (example)
 
-Crie um Secret e injete como variável de ambiente no Pod. Em seguida, expanda a variável no comando de inicialização:
+Create a Secret and inject it as an environment variable into the Pod. Then expand the variable in the container command:
 
 ```bash
 kubectl create secret generic stracectl-ws-token --from-literal=ws-token=SUPER_SECRET_TOKEN
 ```
 
-Exemplo de fragmento no `Deployment` (expande a variável no `command`):
+Example snippet for a `Deployment` (expands the env var in the `command`):
 
 ```yaml
 env:
@@ -458,14 +458,14 @@ env:
 command: ["/bin/sh", "-c", "exec /usr/local/bin/stracectl --serve --ws-token \"$WS_TOKEN\""]
 ```
 
-### Notas de segurança
+### Security notes
 
-- Prefira enviar o token no header `Authorization: Bearer` quando possível.
-- Tokens na query string podem vazar em logs, referers ou histórico; se usar query string, sempre combine com TLS (`wss://`).
-- O token **não é gerado automaticamente** — gerencie, rote e rode o token de forma segura e considere rotação/expiração.
-- O dashboard web padrão não solicita token; proteja o dashboard com um proxy reverso autenticado ou melhore a UI para suportar login/token.
+- Prefer sending the token in the `Authorization: Bearer` header when possible.
+- Tokens in query strings can leak to logs, referrers, or history; if you use query strings, always combine them with TLS (`wss://`).
+- The token **is not generated automatically** — manage, rotate, and expire tokens as part of your security policy.
+- The default web dashboard does not request a token; protect the dashboard with an authenticated reverse proxy or add UI support for login/token handling.
 
-Para testar, use `wscat` / `websocat` ou a biblioteca `ws` no Node.
+To test, use `wscat` / `websocat` or the `ws` Node library.
 
 ---------------------------------
 
