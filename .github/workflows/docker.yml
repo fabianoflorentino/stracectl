@@ -45,7 +45,7 @@ jobs:
     with:
       build_ebpf: true
       run_tests: true
-      dry_run: ${{ github.event.inputs.dry_run }}
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
 
   # ── Build & push Docker image to Docker Hub ────────────────────────────────
   build_and_push:
