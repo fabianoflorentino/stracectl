@@ -6,10 +6,12 @@
 //
 // Usage:
 //
-//	  stracectl run curl https://example.com           # trace a command from the start
-//		stracectl run --report out.html curl google.com  # trace and save an HTML report
+//		stracectl run curl https://example.com           # trace a command from the start
+//	  stracectl run --report out.html curl google.com  # trace and save an HTML report
 //		stracectl attach 1234                            # attach to a running process
 //		stracectl attach --serve :8080 1234              # attach and expose HTTP/Prometheus
+//	  stracectl attach --backend ebpf 1234             # attach using eBPF (Linux 5.8+)
+//	  stracectl attach --backend strace 1234           # attach using the classic strace subprocess tracer
 //		stracectl stats trace.log                        # analyse a saved strace file
 //		stracectl stats --serve :8080 trace.log          # serve stats from a saved file
 //		stracectl stats --report report.html trace.log   # analyse and export an HTML report
