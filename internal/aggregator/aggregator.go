@@ -57,6 +57,7 @@ func sortErrnoCount(s []ErrnoCount) {
 		if s[i].Count != s[j].Count {
 			return s[i].Count > s[j].Count
 		}
+
 		return s[i].Errno < s[j].Errno
 	})
 }
@@ -203,6 +204,7 @@ func classify(name string) Category {
 	if c, ok := syscallCategories[name]; ok {
 		return c
 	}
+
 	return CatOther
 }
 
@@ -240,19 +242,25 @@ func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
 	if len(s.ErrorBreakdown) == 0 {
 		return nil
 	}
+
 	out := make([]ErrnoCount, 0, len(s.ErrorBreakdown))
 	for errno, cnt := range s.ErrorBreakdown {
 		out = append(out, ErrnoCount{Errno: errno, Count: cnt})
 	}
+
 	sortErrnoCount(out)
+
 	if n > 0 && len(out) > n {
 		out = out[:n]
 	}
+
 	return out
 }
 
-const maxErrorSamples = 10 // max recent error samples retained per syscall
-const maxLogEntries = 500  // max raw events kept in the live log ring buffer
+const (
+	maxErrorSamples = 10  // max recent error samples retained per syscall
+	maxLogEntries   = 500 // max raw events kept in the live log ring buffer
+)
 
 // LogEntry is one line in the live-log ring buffer.
 type LogEntry struct {
@@ -278,22 +286,26 @@ type errWindow struct {
 // record adds one error at the given Unix second.
 func (w *errWindow) record(sec int64) {
 	idx := int(sec % errWindowSize)
+
 	if w.epochs[idx] != sec {
 		// New second: reset the stale bucket.
 		w.buckets[idx] = 0
 		w.epochs[idx] = sec
 	}
+
 	w.buckets[idx]++
 }
 
 // sum returns the total errors in the last 60 s relative to now (Unix second).
 func (w *errWindow) sum(now int64) int64 {
 	var total int64
-	for i := 0; i < errWindowSize; i++ {
+
+	for i := range errWindowSize {
 		if now-w.epochs[i] < errWindowSize {
 			total += int64(w.buckets[i])
 		}
 	}
+
 	return total
 }
 
@@ -307,10 +319,12 @@ func latBucket(ns int64) int {
 	if ns <= 1 {
 		return 0
 	}
+
 	b := bits.Len64(uint64(ns)) - 1
 	if b >= latencyBuckets {
 		b = latencyBuckets - 1
 	}
+
 	return b
 }
 
@@ -319,23 +333,29 @@ func latBucket(ns int64) int {
 // Returns 0 when no positive-latency observations have been recorded.
 func latPercentile(hist *[latencyBuckets]int64, p float64) time.Duration {
 	var total int64
+
 	for _, c := range hist {
 		total += c
 	}
+
 	if total == 0 {
 		return 0
 	}
+
 	target := total * int64(p) / 100
 	if target == 0 {
 		target = 1
 	}
+
 	var acc int64
-	for i := 0; i < latencyBuckets; i++ {
+
+	for i := range latencyBuckets {
 		acc += hist[i]
 		if acc >= target {
 			return time.Duration(int64(1) << uint(i))
 		}
 	}
+
 	return time.Duration(int64(1) << 62) // unreachable in practice
 }
 
@@ -357,6 +377,7 @@ func (s *SyscallStat) AvgTime() time.Duration {
 	if s.Count == 0 {
 		return 0
 	}
+
 	return s.TotalTime / time.Duration(s.Count)
 }
 
@@ -365,6 +386,7 @@ func (s *SyscallStat) ErrPct() float64 {
 	if s.Count == 0 {
 		return 0
 	}
+
 	return float64(s.Errors) / float64(s.Count) * 100
 }
 
@@ -409,6 +431,7 @@ type rateSnapshot struct {
 
 func New() *Aggregator {
 	now := time.Now()
+
 	return &Aggregator{
 		stats:   make(map[string]*SyscallStat),
 		started: now,
@@ -539,14 +562,17 @@ func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 func (a *Aggregator) Get(name string) (SyscallStat, bool) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	s, ok := a.stats[name]
 	if !ok {
 		return SyscallStat{}, false
 	}
+
 	cp := *s
 	cp.P95 = latPercentile(&s.latHist, 95)
 	cp.P99 = latPercentile(&s.latHist, 99)
 	cp.ErrRate60s = s.errWin.sum(time.Now().Unix())
+
 	return cp, true
 }
 
@@ -556,30 +582,35 @@ func (a *Aggregator) CategoryBreakdown() map[Category]CategoryStats {
 	defer a.mu.RUnlock()
 
 	m := make(map[Category]CategoryStats)
+
 	for _, s := range a.stats {
 		cs := m[s.Category]
 		cs.Count += s.Count
 		cs.Errs += s.Errors
 		m[s.Category] = cs
 	}
+
 	return m
 }
 
 func (a *Aggregator) Total() int64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.total
 }
 
 func (a *Aggregator) Errors() int64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.errors
 }
 
 func (a *Aggregator) UniqueCount() int {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return len(a.stats)
 }
 
@@ -587,6 +618,7 @@ func (a *Aggregator) UniqueCount() int {
 func (a *Aggregator) Rate() float64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.rate
 }
 
@@ -594,6 +626,7 @@ func (a *Aggregator) Rate() float64 {
 func (a *Aggregator) StartTime() time.Time {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.started
 }
 
@@ -601,6 +634,7 @@ func (a *Aggregator) StartTime() time.Time {
 func (a *Aggregator) SetProcInfo(info ProcInfo) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
 	a.procInfo = info
 }
 
@@ -608,6 +642,7 @@ func (a *Aggregator) SetProcInfo(info ProcInfo) {
 func (a *Aggregator) GetProcInfo() ProcInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.procInfo
 }
 
@@ -615,8 +650,10 @@ func (a *Aggregator) GetProcInfo() ProcInfo {
 func (a *Aggregator) RecentLog() []LogEntry {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	out := make([]LogEntry, len(a.logBuf))
 	copy(out, a.logBuf)
+
 	return out
 }
 
@@ -624,6 +661,7 @@ func (a *Aggregator) RecentLog() []LogEntry {
 func (a *Aggregator) SetDone() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
 	a.done = true
 }
 
@@ -631,5 +669,6 @@ func (a *Aggregator) SetDone() {
 func (a *Aggregator) IsDone() bool {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.done
 }
