@@ -141,4 +141,4 @@ jobs:
     with:
       build_ebpf: false
       run_tests: false
-      dry_run: ${{ github.event.inputs.dry_run }}
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}

@@ -1,16 +1,6 @@
 name: Build
 
 on:
-  workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Dry-run (skip publishing actions)"
-        required: false
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
   workflow_call:
     inputs:
       build_ebpf:
