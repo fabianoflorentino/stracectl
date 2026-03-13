@@ -5,6 +5,15 @@ permissions:
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (skip scanning)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
   push:
     branches:
       - main
@@ -23,6 +32,7 @@ jobs:
   scan:
     name: Trivy vulnerability scan
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.dry_run != 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
