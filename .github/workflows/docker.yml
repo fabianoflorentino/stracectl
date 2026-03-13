@@ -36,6 +36,7 @@ on:
 permissions:
   contents: write
   packages: write
+  workflows: write
 
 jobs:
   # Reusable build job (produces artifacts used by later jobs)
@@ -160,6 +161,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Ensure GITHUB_TOKEN env
+        run: |
+          # Prefer an explicitly-provided secret 'GIT_HUB_TOKEN' if present
+          if [ -n "${{ secrets.GIT_HUB_TOKEN }}" ]; then
+            echo "Using secrets.GIT_HUB_TOKEN as GITHUB_TOKEN"
+            echo "GITHUB_TOKEN=${{ secrets.GIT_HUB_TOKEN }}" >> $GITHUB_ENV
+          else
+            echo "Using runner-provided GITHUB_TOKEN (secrets.GITHUB_TOKEN)"
+            echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          fi
 
       - name: Create and push tag
         id: create_tag
