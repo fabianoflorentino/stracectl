@@ -7,7 +7,7 @@
 #   Environment: GITHUB
 #     GIT_HUB_TOKEN  GitHub personal access token with contents:write scope
 
-name: Docker Build, Publish, Tag and Release
+name: Image, Publish, Tag and Release
 
 on:
   workflow_dispatch:
