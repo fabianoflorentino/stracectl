@@ -29,10 +29,19 @@ permissions:
   packages: write
 
 jobs:
+  # Reusable build job (produces artifacts used by later jobs)
+  build:
+    name: Build (reusable)
+    uses: ./.github/workflows/build.yml
+    with:
+      build_ebpf: true
+      run_tests: true
+
   # ── Build & push Docker image to Docker Hub ────────────────────────────────
   build_and_push:
     name: Build and Push to Docker Hub
     environment: DOCKERHUB
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
@@ -79,18 +88,18 @@ jobs:
           docker push ${{ github.repository }}:v1.0.${{ github.run_number }}
           docker push ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf
 
-      - name: Extract eBPF binary from image
-        run: |
-          # Create a container from the built eBPF image and copy the binary out
-          CID=$(docker create ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf)
-          docker cp $CID:/usr/local/bin/stracectl ./stracectl-ebpf || true
-          docker rm $CID || true
+      - name: Download standard binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stracectl-linux-amd64
+          path: .
 
-      - name: Upload eBPF binary artifact
-        uses: actions/upload-artifact@v4
+      - name: Download eBPF artifact (if present)
+        uses: actions/download-artifact@v4
         with:
           name: stracectl-linux-amd64-ebpf
-          path: stracectl-ebpf
+          path: .
+        continue-on-error: true
 
   # ── Docker Scout CVE scan ────────────────────────────────────────────────────
   docker_scout:
