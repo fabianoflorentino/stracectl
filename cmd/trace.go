@@ -21,7 +21,7 @@ import (
 // cancelTracer must be the cancel function for the context that was passed to
 // Tracer.Attach / Tracer.Run. Calling it kills the strace subprocess so the
 // events channel closes promptly after the UI or server has exited.
-// runTrace agora aceita wsToken para autenticação WebSocket
+// runTrace now accepts wsToken for WebSocket authentication
 func runTrace(ctx context.Context, cancelTracer context.CancelFunc, events <-chan models.SyscallEvent, agg *aggregator.Aggregator, serveAddr, wsToken, reportPath, label string) error {
 	// done is closed when the events channel drains (traced process exited).
 	done := make(chan struct{})
