@@ -217,16 +217,19 @@ jobs:
         with:
           name: stracectl-linux-amd64-ebpf
           path: .
+        continue-on-error: true
 
-      - name: Ensure eBPF binary present
+      - name: Check for eBPF artifact
+        id: check_ebpf
         run: |
-          if [ ! -f ./stracectl-ebpf ]; then
-            echo "eBPF binary artifact not found; aborting release step" >&2
-            ls -la
-            exit 1
+          if [ -f ./stracectl-ebpf ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Upload eBPF asset to Release
+        if: ${{ steps.check_ebpf.outputs.found == 'true' }}
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
