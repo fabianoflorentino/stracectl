@@ -2,6 +2,15 @@ name: Build
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (skip publishing actions)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
   workflow_call:
     inputs:
       build_ebpf:
@@ -14,6 +23,11 @@ on:
         required: false
         type: boolean
         default: true
+      dry_run:
+        description: 'Dry-run (skip publishing actions)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -23,6 +37,8 @@ jobs:
   standard_build:
     name: Build binary and (optionally) run tests
     runs-on: ubuntu-latest
+    env:
+      DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -52,6 +68,8 @@ jobs:
     name: Build eBPF-enabled binary
     if: ${{ inputs.build_ebpf == 'true' }}
     runs-on: [self-hosted, linux, ebpf]
+    env:
+      DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

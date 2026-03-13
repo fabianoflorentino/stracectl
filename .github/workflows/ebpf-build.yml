@@ -1,6 +1,16 @@
 name: eBPF Build & Generate
 
 on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (skip integration tests)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
   push:
     branches: [main]
     paths-ignore:
@@ -80,6 +90,7 @@ jobs:
         run: make generate-bpf || true
 
       - name: Run eBPF integration tests
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           # Integration tests require a kernel that supports eBPF and permissions
           CGO_ENABLED=1 go test -tags=ebpf ./internal/tracer -v
