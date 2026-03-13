@@ -3,17 +3,17 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
-// Struct enviada ao user-space via ring buffer
+// Struct sent to user-space via ring buffer
 struct syscall_event {
     __u32 pid;
     __u32 syscall_nr;
     __s64 ret;
-    __u64 enter_ns;   // bpf_ktime_get_ns() no entry
-    __u64 exit_ns;    // bpf_ktime_get_ns() no exit
-    __u64 args[6];    // argumentos do syscall
+    __u64 enter_ns;   // bpf_ktime_get_ns() on entry
+    __u64 exit_ns;    // bpf_ktime_get_ns() on exit
+    __u64 args[6];    // syscall arguments
 };
 
-// Mapa temporário: tid -> enter_ns (guarda o timestamp de entrada)
+// Temporary map: tid -> enter_ns (stores the entry timestamp)
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 10240);
@@ -21,7 +21,7 @@ struct {
     __type(value, __u64);
 } enter_times SEC(".maps");
 
-// Ring buffer para enviar eventos ao user-space
+// Ring buffer to send events to user-space
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 1 << 24); // 16 MB
@@ -49,7 +49,7 @@ int sys_exit(struct bpf_raw_tracepoint_args *ctx) {
     if (!e) return 0;
 
     e->pid        = pid;
-    e->syscall_nr = ((__u32)ctx->args[1]); // nr no sys_exit
+    e->syscall_nr = ((__u32)ctx->args[1]); // nr in sys_exit
     e->ret        = ctx->args[0];
     e->enter_ns   = *enter_ns;
     e->exit_ns    = bpf_ktime_get_ns();

@@ -164,7 +164,7 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 			copy(unsafe.Slice((*byte)(unsafe.Pointer(&raw)), unsafe.Sizeof(raw)),
 				record.RawSample)
 
-			// Filtra por PID se necessário
+			// Filter by PID if a filter was provided
 			if filterPID > 0 && int(raw.PID) != filterPID {
 				continue
 			}
