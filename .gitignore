@@ -27,3 +27,4 @@ Thumbs.db
 !internal/report/static/*.html
 !site/**/*.html
 .vscode
+**.json
