@@ -27,11 +27,13 @@ func LowestPIDInContainer(containerName string) (int, error) {
 // contains containerName. It skips PID 1 and the calling process's own PID.
 func scanCgroup(procRoot, containerName string, yield func(pid int) bool) error {
 	entries, err := os.ReadDir(procRoot)
+
 	if err != nil {
 		return fmt.Errorf("cannot read %s: %w", procRoot, err)
 	}
 
 	self := os.Getpid()
+
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil || pid == 1 || pid == self {
