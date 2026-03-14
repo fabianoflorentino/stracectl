@@ -203,7 +203,7 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 			// Explicitly set 0 (unfiltered) when the operator requested
 			// unfiltered mode.
 			zero := uint32(0)
-			if err := objs.RootPgid.Put(key, zero); err != nil {
+			if err := objs.ebpfMaps.RootPgid.Put(key, zero); err != nil {
 				log.Printf("warning: root_pgid put failed: %v; continuing unfiltered", err)
 			} else {
 				log.Printf("ebpf: root_pgid set to 0 (unfiltered)")
@@ -218,17 +218,17 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 			if err != nil {
 				log.Printf("warning: failed to get pgid for pid %d: %v; using unfiltered mode", filterPID, err)
 				zero := uint32(0)
-				if err := objs.RootPgid.Put(key, zero); err != nil {
+				if err := objs.ebpfMaps.RootPgid.Put(key, zero); err != nil {
 					log.Printf("warning: root_pgid put failed: %v; continuing unfiltered", err)
 				} else {
 					log.Printf("ebpf: root_pgid set to 0 (unfiltered)")
 				}
 			} else {
 				val := uint32(pgid)
-				if err := objs.RootPgid.Put(key, val); err != nil {
+				if err := objs.ebpfMaps.RootPgid.Put(key, val); err != nil {
 					log.Printf("warning: root_pgid put failed: %v; falling back to unfiltered", err)
 					zero := uint32(0)
-					_ = objs.RootPgid.Put(key, zero)
+					_ = objs.ebpfMaps.RootPgid.Put(key, zero)
 				} else {
 					log.Printf("ebpf: root_pgid set to %d (pgid of pid %d)", val, filterPID)
 				}
