@@ -25,47 +25,33 @@ struct {
     __type(value, struct enter_data);
 } enter_data_map SEC(".maps");
 
-// root_pgid[0]: PGID to filter on. 0 = trace all (unfiltered).
-// All processes in the same process group share this PGID automatically,
-// including grandchildren, so no clone/fork tracking is needed.
+/*
+target_pid[0] = PID to trace
+0 = trace everything
+*/
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __uint(max_entries, 1);
     __type(key, __u32);
     __type(value, __u32);
-} root_pgid SEC(".maps");
+} target_pid SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 12); // reduced to 4KB for minimal memlock
+    __uint(max_entries, 1 << 12);
 } events SEC(".maps");
 
-static __always_inline __u32 current_pgid() {
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    // task->group_leader holds the thread group leader.
-    // The PGID lives in task->signal->pids[PIDTYPE_PGID]->numbers[0].nr
-    // We use a simpler path: read task->real_parent recursively is too complex.
-    // Instead read signal->pids[1] (PIDTYPE_PGID = 1).
-    struct signal_struct *sig = NULL;
-    bpf_probe_read_kernel(&sig, sizeof(sig), &task->signal);
-    if (!sig) return 0;
-
-    struct pid *pgid_pid = NULL;
-    bpf_probe_read_kernel(&pgid_pid, sizeof(pgid_pid), &sig->pids[1]);
-    if (!pgid_pid) return 0;
-
-    __u32 nr = 0;
-    // numbers[0].nr is the global namespace PID number
-    bpf_probe_read_kernel(&nr, sizeof(nr),
-        &pgid_pid->numbers[0].nr);
-    return nr;
-}
-
-static __always_inline int should_trace() {
+static __always_inline int should_trace(__u32 pid) {
     __u32 key = 0;
-    __u32 *target = bpf_map_lookup_elem(&root_pgid, &key);
-    if (!target || *target == 0) return 1; // unfiltered mode
-    return current_pgid() == *target;
+    __u32 *target = bpf_map_lookup_elem(&target_pid, &key);
+
+    if (!target || *target == 0)
+        return 1;
+
+    if (pid == *target)
+        return 1;
+
+    return 0;
 }
 
 SEC("raw_tracepoint/sys_enter")
@@ -74,8 +60,11 @@ int sys_enter(struct bpf_raw_tracepoint_args *ctx) {
     __u32 pid = id >> 32;
     __u32 tid = (__u32)id;
 
-    if (pid == 0) return 0;
-    if (!should_trace()) return 0;
+    if (pid == 0)
+        return 0;
+
+    if (!should_trace(pid))
+        return 0;
 
     struct pt_regs *regs = (struct pt_regs *)ctx->args[0];
     __u64 nr = ctx->args[1];
@@ -92,6 +81,7 @@ int sys_enter(struct bpf_raw_tracepoint_args *ctx) {
     bpf_probe_read_kernel(&d.args[5], sizeof(__u64), &regs->r9);
 
     bpf_map_update_elem(&enter_data_map, &tid, &d, BPF_ANY);
+
     return 0;
 }
 
@@ -102,7 +92,8 @@ int sys_exit(struct bpf_raw_tracepoint_args *ctx) {
     __u32 tid = (__u32)id;
 
     struct enter_data *d = bpf_map_lookup_elem(&enter_data_map, &tid);
-    if (!d) return 0;
+    if (!d)
+        return 0;
 
     struct syscall_event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
@@ -115,15 +106,18 @@ int sys_exit(struct bpf_raw_tracepoint_args *ctx) {
     e->ret        = ctx->args[1];
     e->enter_ns   = d->ts;
     e->exit_ns    = bpf_ktime_get_ns();
-    e->args[0]    = d->args[0];
-    e->args[1]    = d->args[1];
-    e->args[2]    = d->args[2];
-    e->args[3]    = d->args[3];
-    e->args[4]    = d->args[4];
-    e->args[5]    = d->args[5];
+
+    e->args[0] = d->args[0];
+    e->args[1] = d->args[1];
+    e->args[2] = d->args[2];
+    e->args[3] = d->args[3];
+    e->args[4] = d->args[4];
+    e->args[5] = d->args[5];
 
     bpf_ringbuf_submit(e, 0);
+
     bpf_map_delete_elem(&enter_data_map, &tid);
+
     return 0;
 }
 
