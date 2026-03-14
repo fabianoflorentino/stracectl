@@ -46,6 +46,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install system dependencies for eBPF generation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm libelf-dev build-essential libbpf-dev linux-headers-$(uname -r)
+
+      - name: Ensure bpf2go available (best-effort)
+        run: |
+          go install github.com/cilium/ebpf/cmd/bpf2go@latest
+
+      - name: Generate BPF artifacts
+        run: |
+          go generate ./internal/tracer/...
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20  # v9.2.0
         with:
