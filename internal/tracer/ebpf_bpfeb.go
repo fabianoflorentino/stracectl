@@ -8,9 +8,17 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"structs"
 
 	"github.com/cilium/ebpf"
 )
+
+type ebpfEnterData struct {
+	_         structs.HostLayout
+	Ts        uint64
+	SyscallNr uint64
+	Args      [6]uint64
+}
 
 // loadEbpf returns the embedded CollectionSpec for ebpf.
 func loadEbpf() (*ebpf.CollectionSpec, error) {
@@ -62,8 +70,9 @@ type ebpfProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfMapSpecs struct {
-	EnterTimes *ebpf.MapSpec `ebpf:"enter_times"`
-	Events     *ebpf.MapSpec `ebpf:"events"`
+	EnterDataMap *ebpf.MapSpec `ebpf:"enter_data_map"`
+	Events       *ebpf.MapSpec `ebpf:"events"`
+	RootPgid     *ebpf.MapSpec `ebpf:"root_pgid"`
 }
 
 // ebpfVariableSpecs contains global variables before they are loaded into the kernel.
@@ -92,14 +101,16 @@ func (o *ebpfObjects) Close() error {
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfMaps struct {
-	EnterTimes *ebpf.Map `ebpf:"enter_times"`
-	Events     *ebpf.Map `ebpf:"events"`
+	EnterDataMap *ebpf.Map `ebpf:"enter_data_map"`
+	Events       *ebpf.Map `ebpf:"events"`
+	RootPgid     *ebpf.Map `ebpf:"root_pgid"`
 }
 
 func (m *ebpfMaps) Close() error {
 	return _EbpfClose(
-		m.EnterTimes,
+		m.EnterDataMap,
 		m.Events,
+		m.RootPgid,
 	)
 }
 
