@@ -16,6 +16,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
@@ -179,6 +180,68 @@ func canLoadEbpf() error {
 	return nil
 }
 
+// putRootPgid locates the root_pgid map within the generated ebpfObjects
+// (which may vary between generated files) and writes the provided value.
+// This uses reflection to be resilient to minor differences in generated
+// wrapper layouts across architectures or generator versions.
+func putRootPgid(objs interface{}, key uint32, val uint32) error {
+	vo := reflect.ValueOf(objs)
+	if vo.Kind() == reflect.Ptr {
+		vo = vo.Elem()
+	}
+
+	// Direct promoted field (objs.RootPgid)
+	if f := vo.FieldByName("RootPgid"); f.IsValid() && f.CanInterface() {
+		if mp, ok := f.Interface().(*ebpf.Map); ok && mp != nil {
+			return mp.Put(key, val)
+		}
+	}
+
+	// Nested ebpfMaps field (objs.ebpfMaps.RootPgid)
+	if m := vo.FieldByName("ebpfMaps"); m.IsValid() {
+		mf := m
+		if mf.Kind() == reflect.Ptr && !mf.IsNil() {
+			mf = mf.Elem()
+		}
+		if rf := mf.FieldByName("RootPgid"); rf.IsValid() && rf.CanInterface() {
+			if mp, ok := rf.Interface().(*ebpf.Map); ok && mp != nil {
+				return mp.Put(key, val)
+			}
+		}
+	}
+
+	// Fallback: search for struct/tag named root_pgid
+	t := vo.Type()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.Tag.Get("ebpf") == "root_pgid" {
+			fv := vo.Field(i)
+			if fv.IsValid() && fv.CanInterface() {
+				if mp, ok := fv.Interface().(*ebpf.Map); ok && mp != nil {
+					return mp.Put(key, val)
+				}
+			}
+		}
+		// check nested struct fields
+		fv := vo.Field(i)
+		if fv.Kind() == reflect.Struct {
+			ft := fv.Type()
+			for j := 0; j < ft.NumField(); j++ {
+				if ft.Field(j).Tag.Get("ebpf") == "root_pgid" {
+					rf := fv.Field(j)
+					if rf.IsValid() && rf.CanInterface() {
+						if mp, ok := rf.Interface().(*ebpf.Map); ok && mp != nil {
+							return mp.Put(key, val)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("root_pgid map not found")
+}
+
 func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.SyscallEvent, error) {
 	// Best-effort: try raising RLIMIT_MEMLOCK so BPF maps/programs can be created.
 	// If this fails (non-root), log a warning and continue; loadEbpfObjects
@@ -203,7 +266,7 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 			// Explicitly set 0 (unfiltered) when the operator requested
 			// unfiltered mode.
 			zero := uint32(0)
-			if err := objs.RootPgid.Put(key, zero); err != nil {
+			if err := putRootPgid(&objs, key, zero); err != nil {
 				log.Printf("warning: root_pgid put failed: %v; continuing unfiltered", err)
 			} else {
 				log.Printf("ebpf: root_pgid set to 0 (unfiltered)")
@@ -218,17 +281,17 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 			if err != nil {
 				log.Printf("warning: failed to get pgid for pid %d: %v; using unfiltered mode", filterPID, err)
 				zero := uint32(0)
-				if err := objs.RootPgid.Put(key, zero); err != nil {
+				if err := putRootPgid(&objs, key, zero); err != nil {
 					log.Printf("warning: root_pgid put failed: %v; continuing unfiltered", err)
 				} else {
 					log.Printf("ebpf: root_pgid set to 0 (unfiltered)")
 				}
 			} else {
 				val := uint32(pgid)
-				if err := objs.RootPgid.Put(key, val); err != nil {
+				if err := putRootPgid(&objs, key, val); err != nil {
 					log.Printf("warning: root_pgid put failed: %v; falling back to unfiltered", err)
 					zero := uint32(0)
-					_ = objs.RootPgid.Put(key, zero)
+					_ = putRootPgid(&objs, key, zero)
 				} else {
 					log.Printf("ebpf: root_pgid set to %d (pgid of pid %d)", val, filterPID)
 				}
