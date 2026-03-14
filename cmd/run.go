@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -15,6 +18,9 @@ import (
 var runServeAddr string
 var runReportPath string
 var runBackend string
+var runTryElevate bool
+var runForceEbpf bool
+var runUnfiltered bool
 
 var runCmd = &cobra.Command{
 	Use:   "run [--serve :8080] [--report <path>] [--ws-token <token>] [--backend auto|ebpf|strace] <command> [args...]",
@@ -62,8 +68,20 @@ Examples:
 			return err
 		}
 
+		// Apply eBPF-specific CLI options when supported by the selected tracer.
+		applyEBPFOptions(tr, runForceEbpf, runUnfiltered)
+
 		events, err := tr.Run(tracerCtx, args[0], args[1:])
 		if err != nil {
+			// If requested, try to re-exec with elevated memlock using sudo/prlimit
+			if runTryElevate && os.Getenv("STRACECTL_TRIED_ELEVATE") != "1" {
+				fmt.Fprintln(os.Stderr, "eBPF failed to load; attempting to re-run with elevated memlock via sudo/prlimit...")
+				// Attempt to re-run the entire process with prlimit/sudo. If successful,
+				// this call will not return because it will exit the current process.
+				tryElevateAndRerun()
+				// If tryElevateAndRerun returns, it failed.
+				fmt.Fprintln(os.Stderr, "elevation attempt failed; continuing with original error")
+			}
 			return err
 		}
 
@@ -75,5 +93,51 @@ func init() {
 	runCmd.Flags().StringVar(&runServeAddr, "serve", "", `expose HTTP API instead of TUI (e.g. --serve :8080)`)
 	runCmd.Flags().StringVar(&runReportPath, "report", "", "write a self-contained HTML report to this file on exit")
 	runCmd.Flags().StringVar(&runBackend, "backend", "auto", "choose tracer backend: auto, ebpf, strace")
+	runCmd.Flags().BoolVar(&runTryElevate, "try-elevate", false, "attempt to re-run the process with sudo/prlimit to raise RLIMIT_MEMLOCK when eBPF load fails")
+	runCmd.Flags().BoolVar(&runForceEbpf, "force-ebpf", false, "fail when eBPF probe fails instead of falling back to strace")
+	runCmd.Flags().BoolVar(&runUnfiltered, "unfiltered", false, "disable PGID filter and capture system-wide events (useful on WSL)")
 	rootCmd.AddCommand(runCmd)
+}
+
+// tryElevateAndRerun attempts to re-execute the current binary with elevated
+// memlock using `prlimit --memlock=unlimited`. If not running as root it will
+// prefix the call with `sudo`. The environment variable STRACECTL_TRIED_ELEVATE
+// is set to avoid recursion.
+func tryElevateAndRerun() {
+	if os.Getenv("STRACECTL_TRIED_ELEVATE") == "1" {
+		return
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "cannot determine executable for elevation:", err)
+		return
+	}
+
+	// Build the command args: prlimit --memlock=unlimited -- <exe> <original-args...>
+	prlimitArgs := append([]string{"prlimit", "--memlock=unlimited", "--", exe}, os.Args[1:]...)
+
+	var cmd *exec.Cmd
+	if os.Geteuid() != 0 {
+		// Use sudo so the user can enter a password if needed.
+		// #nosec G702: invoked with fixed program name and sanitized args
+		args := append([]string{}, prlimitArgs...)
+		cmd = exec.CommandContext(context.Background(), "sudo", args...) // #nosec G702
+	} else {
+		// #nosec G702: invoked with fixed program name and sanitized args
+		cmd = exec.CommandContext(context.Background(), "prlimit", append([]string{"--memlock=unlimited", "--", exe}, os.Args[1:]...)...) // #nosec G702
+	}
+
+	cmd.Env = append(os.Environ(), "STRACECTL_TRIED_ELEVATE=1")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "elevation execution failed:", err)
+		return
+	}
+
+	// If the elevated process returns successfully, exit the current process.
+	os.Exit(0)
 }
