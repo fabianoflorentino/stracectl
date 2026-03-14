@@ -71,6 +71,12 @@ jobs:
           name: stracectl-linux-amd64-ebpf
           path: stracectl-ebpf
 
+      - name: Upload eBPF object artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebpf-objects
+          path: internal/tracer/ebpf_*.o
+
   integration:
     name: eBPF Integration (self-hosted)
     # This job requires a self-hosted runner with the label `ebpf`.
@@ -87,6 +93,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.26'
+
+      - name: Download eBPF object artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ebpf-objects
+          path: internal/tracer
 
       - name: Install system dependencies (if available)
         run: |
