@@ -189,9 +189,10 @@ jobs:
   # ── Build ───────────────────────────────────────────────────────────────────
   build:
     name: Build
-    needs: [lint, test, vuln, sast]
+    needs: [generate_bpf, lint, test, vuln, sast]
     uses: ./.github/workflows/build.yml
     with:
       build_ebpf: false
       run_tests: false
+      download_bpf_artifacts: true
       dry_run: ${{ github.event.inputs.dry_run == 'true' }}
