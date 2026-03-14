@@ -3,36 +3,95 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
-// Struct sent to user-space via ring buffer
 struct syscall_event {
     __u32 pid;
     __u32 syscall_nr;
     __s64 ret;
-    __u64 enter_ns;   // bpf_ktime_get_ns() on entry
-    __u64 exit_ns;    // bpf_ktime_get_ns() on exit
-    __u64 args[6];    // syscall arguments
+    __u64 enter_ns;
+    __u64 exit_ns;
+    __u64 args[6];
 };
 
-// Temporary map: tid -> enter_ns (stores the entry timestamp)
+struct enter_data {
+    __u64 ts;
+    __u64 syscall_nr;
+    __u64 args[6];
+};
+
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10240);
+    __uint(max_entries, 128);
     __type(key, __u32);
-    __type(value, __u64);
-} enter_times SEC(".maps");
+    __type(value, struct enter_data);
+} enter_data_map SEC(".maps");
 
-// Ring buffer to send events to user-space
+// root_pgid[0]: PGID to filter on. 0 = trace all (unfiltered).
+// All processes in the same process group share this PGID automatically,
+// including grandchildren, so no clone/fork tracking is needed.
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, __u32);
+} root_pgid SEC(".maps");
+
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 24); // 16 MB
+    __uint(max_entries, 1 << 12); // reduced to 4KB for minimal memlock
 } events SEC(".maps");
+
+static __always_inline __u32 current_pgid() {
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    // task->group_leader holds the thread group leader.
+    // The PGID lives in task->signal->pids[PIDTYPE_PGID]->numbers[0].nr
+    // We use a simpler path: read task->real_parent recursively is too complex.
+    // Instead read signal->pids[1] (PIDTYPE_PGID = 1).
+    struct signal_struct *sig = NULL;
+    bpf_probe_read_kernel(&sig, sizeof(sig), &task->signal);
+    if (!sig) return 0;
+
+    struct pid *pgid_pid = NULL;
+    bpf_probe_read_kernel(&pgid_pid, sizeof(pgid_pid), &sig->pids[1]);
+    if (!pgid_pid) return 0;
+
+    __u32 nr = 0;
+    // numbers[0].nr is the global namespace PID number
+    bpf_probe_read_kernel(&nr, sizeof(nr),
+        &pgid_pid->numbers[0].nr);
+    return nr;
+}
+
+static __always_inline int should_trace() {
+    __u32 key = 0;
+    __u32 *target = bpf_map_lookup_elem(&root_pgid, &key);
+    if (!target || *target == 0) return 1; // unfiltered mode
+    return current_pgid() == *target;
+}
 
 SEC("raw_tracepoint/sys_enter")
 int sys_enter(struct bpf_raw_tracepoint_args *ctx) {
     __u64 id  = bpf_get_current_pid_tgid();
+    __u32 pid = id >> 32;
     __u32 tid = (__u32)id;
-    __u64 ts  = bpf_ktime_get_ns();
-    bpf_map_update_elem(&enter_times, &tid, &ts, BPF_ANY);
+
+    if (pid == 0) return 0;
+    if (!should_trace()) return 0;
+
+    struct pt_regs *regs = (struct pt_regs *)ctx->args[0];
+    __u64 nr = ctx->args[1];
+
+    struct enter_data d = {};
+    d.ts         = bpf_ktime_get_ns();
+    d.syscall_nr = nr;
+
+    bpf_probe_read_kernel(&d.args[0], sizeof(__u64), &regs->di);
+    bpf_probe_read_kernel(&d.args[1], sizeof(__u64), &regs->si);
+    bpf_probe_read_kernel(&d.args[2], sizeof(__u64), &regs->dx);
+    bpf_probe_read_kernel(&d.args[3], sizeof(__u64), &regs->r10);
+    bpf_probe_read_kernel(&d.args[4], sizeof(__u64), &regs->r8);
+    bpf_probe_read_kernel(&d.args[5], sizeof(__u64), &regs->r9);
+
+    bpf_map_update_elem(&enter_data_map, &tid, &d, BPF_ANY);
     return 0;
 }
 
@@ -42,20 +101,29 @@ int sys_exit(struct bpf_raw_tracepoint_args *ctx) {
     __u32 pid = id >> 32;
     __u32 tid = (__u32)id;
 
-    __u64 *enter_ns = bpf_map_lookup_elem(&enter_times, &tid);
-    if (!enter_ns) return 0;
+    struct enter_data *d = bpf_map_lookup_elem(&enter_data_map, &tid);
+    if (!d) return 0;
 
     struct syscall_event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) return 0;
+    if (!e) {
+        bpf_map_delete_elem(&enter_data_map, &tid);
+        return 0;
+    }
 
     e->pid        = pid;
-    e->syscall_nr = ((__u32)ctx->args[1]); // nr in sys_exit
-    e->ret        = ctx->args[0];
-    e->enter_ns   = *enter_ns;
+    e->syscall_nr = (__u32)d->syscall_nr;
+    e->ret        = ctx->args[1];
+    e->enter_ns   = d->ts;
     e->exit_ns    = bpf_ktime_get_ns();
-    bpf_ringbuf_submit(e, 0);
+    e->args[0]    = d->args[0];
+    e->args[1]    = d->args[1];
+    e->args[2]    = d->args[2];
+    e->args[3]    = d->args[3];
+    e->args[4]    = d->args[4];
+    e->args[5]    = d->args[5];
 
-    bpf_map_delete_elem(&enter_times, &tid);
+    bpf_ringbuf_submit(e, 0);
+    bpf_map_delete_elem(&enter_data_map, &tid);
     return 0;
 }
 
