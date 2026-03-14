@@ -53,18 +53,25 @@ jobs:
 
       - name: Ensure bpf2go available
         run: |
+          set -euo pipefail
+          echo "Installing bpf2go"
           go install github.com/cilium/ebpf/cmd/bpf2go@latest
+          echo "bpf2go installed to: $(go env GOPATH)/bin"
 
-      - name: Generate BPF artifacts
+      - name: Build BPF objects with installed bpf2go
         run: |
           set -euo pipefail
-          echo "Running go generate (verbose)"
-          go generate -x ./internal/tracer/...
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          echo "Using bpf2go: $(which bpf2go || true)"
+          echo "PWD: $(pwd)"
+          cd internal/tracer
+          echo "Invoking: bpf2go -cc clang ebpf bpf/syscall.c"
+          bpf2go -cc clang ebpf bpf/syscall.c
           echo "-- generated files in internal/tracer --"
-          ls -la internal/tracer || true
-          if [ ! -f internal/tracer/ebpf_bpfel.o ] || [ ! -f internal/tracer/ebpf_bpfeb.o ]; then
-            echo "ERROR: expected BPF .o files missing after generation"
-            ls -la internal/tracer || true
+          ls -la . || true
+          if [ ! -f ebpf_bpfel.o ] || [ ! -f ebpf_bpfeb.o ]; then
+            echo "ERROR: expected BPF .o files missing after bpf2go"
+            ls -la . || true
             exit 1
           fi
 
