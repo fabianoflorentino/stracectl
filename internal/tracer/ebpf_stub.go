@@ -19,6 +19,12 @@ type EBPFTracer struct{}
 
 func NewEBPFTracer() *EBPFTracer { return &EBPFTracer{} }
 
+// SetForce is a no-op for non-ebpf builds.
+func (t *EBPFTracer) SetForce(v bool) {}
+
+// SetUnfiltered is a no-op for non-ebpf builds.
+func (t *EBPFTracer) SetUnfiltered(v bool) {}
+
 func (t *EBPFTracer) Attach(ctx context.Context, pid int) (<-chan models.SyscallEvent, error) {
 	return nil, fmt.Errorf("eBPF tracer not available in this build: build with -tags=ebpf to enable")
 }
