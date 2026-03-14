@@ -29,5 +29,3 @@ Thumbs.db
 .vscode
 **.json
 bin/
-# eBPF generated objects (built artifacts)
-internal/tracer/*.o
