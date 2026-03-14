@@ -29,3 +29,4 @@ Thumbs.db
 .vscode
 **.json
 bin/
+internal/tracer/*.o

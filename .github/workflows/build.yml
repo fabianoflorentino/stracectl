@@ -38,6 +38,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install system dependencies for eBPF generation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm libelf-dev build-essential libbpf-dev linux-headers-$(uname -r)
+
+      - name: Ensure bpf2go available (best-effort)
+        run: |
+          go install github.com/cilium/ebpf/cmd/bpf2go@latest
+
+      - name: Generate BPF artifacts
+        run: |
+          go generate ./internal/tracer/...
+
       - name: Run tests
         if: ${{ inputs.run_tests }}
         run: |
