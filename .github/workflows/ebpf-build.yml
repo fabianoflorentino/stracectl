@@ -49,8 +49,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang llvm libelf-dev build-essential libbpf-dev linux-headers-$(uname -r)
 
+      - name: Ensure bpf2go available (best-effort)
+        run: |
+          go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
+
       - name: Generate BPF artifacts
-        run: make generate-bpf
+        run: |
+          set -euo pipefail
+          set -x
+          go generate ./internal/tracer
+          echo "-- generated files in internal/tracer --"
+          ls -la internal/tracer || true
+          if [ ! -f internal/tracer/ebpf_bpfel.o ]; then
+            echo "ERROR: internal/tracer/ebpf_bpfel.o not found after generation"
+            ls -la internal/tracer || true
+            exit 1
+          fi
       - name: Run tracer unit tests (no tags)
         run: go test ./internal/tracer -v
 
