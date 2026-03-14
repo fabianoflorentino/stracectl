@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: false
+      download_bpf_artifacts:
+        description: 'Download previously generated BPF .o artifacts instead of running go generate'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -47,7 +52,15 @@ jobs:
         run: |
           go install github.com/cilium/ebpf/cmd/bpf2go@latest
 
+      - name: Download BPF artifacts (if provided)
+        if: ${{ inputs.download_bpf_artifacts }}
+        uses: actions/download-artifact@v3
+        with:
+          name: bpf-artifacts
+          path: internal/tracer
+
       - name: Generate BPF artifacts
+        if: ${{ inputs.download_bpf_artifacts == false }}
         run: |
           go generate ./internal/tracer/...
 
