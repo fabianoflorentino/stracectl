@@ -57,14 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          go generate ./internal/tracer
-          echo "-- generated files in internal/tracer --"
-          ls -la internal/tracer || true
-          if [ ! -f internal/tracer/ebpf_bpfel.o ]; then
-            echo "ERROR: internal/tracer/ebpf_bpfel.o not found after generation"
-            ls -la internal/tracer || true
-            exit 1
-          fi
+          bash scripts/generate-bpf.sh
       - name: Run tracer unit tests (no tags)
         run: go test ./internal/tracer -v
 
