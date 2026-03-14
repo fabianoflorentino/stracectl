@@ -77,6 +77,27 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install system dependencies for eBPF generation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm libelf-dev build-essential libbpf-dev linux-headers-$(uname -r)
+
+      - name: Ensure bpf2go available (best-effort)
+        run: |
+          go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
+
+      - name: Generate BPF artifacts
+        run: |
+          set -euo pipefail
+          go generate ./internal/tracer/...
+          echo "-- generated files in internal/tracer --"
+          ls -la internal/tracer || true
+          if [ ! -f internal/tracer/ebpf_bpfel.o ]; then
+            echo "ERROR: internal/tracer/ebpf_bpfel.o not found after generation"
+            ls -la internal/tracer || true
+            exit 1
+          fi
+
       - name: Run tests with race detector
         run: |
           go test -race -timeout 120s \
