@@ -62,11 +62,13 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$(go env GOPATH)/bin:$PATH"
+          export GOPACKAGE=tracer
+          echo "GOPACKAGE=$GOPACKAGE"
           echo "Using bpf2go: $(which bpf2go || true)"
           echo "PWD: $(pwd)"
           cd internal/tracer
-          echo "Invoking: bpf2go -cc clang ebpf bpf/syscall.c"
-          bpf2go -cc clang ebpf bpf/syscall.c
+          echo "Invoking: GOPACKAGE=$GOPACKAGE bpf2go -cc clang ebpf bpf/syscall.c"
+          GOPACKAGE=$GOPACKAGE bpf2go -cc clang ebpf bpf/syscall.c
           echo "-- generated files in internal/tracer --"
           ls -la . || true
           if [ ! -f ebpf_bpfel.o ] || [ ! -f ebpf_bpfeb.o ]; then
