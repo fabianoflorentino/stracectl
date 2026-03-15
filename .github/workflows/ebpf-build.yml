@@ -66,13 +66,13 @@ jobs:
           CGO_ENABLED=1 go build -tags=ebpf -v -o stracectl-ebpf .
 
       - name: Upload eBPF binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stracectl-linux-amd64-ebpf
           path: stracectl-ebpf
 
       - name: Upload eBPF object artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ebpf-objects
           path: internal/tracer/ebpf_*.o
