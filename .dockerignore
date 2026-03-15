@@ -9,3 +9,4 @@ scripts/
 .tool-versions
 lefthook.yml
 docker-compose.yml
+!scripts/generate-bpf.sh
