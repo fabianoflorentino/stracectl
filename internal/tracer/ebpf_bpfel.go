@@ -72,7 +72,7 @@ type ebpfProgramSpecs struct {
 type ebpfMapSpecs struct {
 	EnterDataMap *ebpf.MapSpec `ebpf:"enter_data_map"`
 	Events       *ebpf.MapSpec `ebpf:"events"`
-	RootPgid     *ebpf.MapSpec `ebpf:"root_pgid"`
+	TargetPid    *ebpf.MapSpec `ebpf:"target_pid"`
 }
 
 // ebpfVariableSpecs contains global variables before they are loaded into the kernel.
@@ -103,14 +103,14 @@ func (o *ebpfObjects) Close() error {
 type ebpfMaps struct {
 	EnterDataMap *ebpf.Map `ebpf:"enter_data_map"`
 	Events       *ebpf.Map `ebpf:"events"`
-	RootPgid     *ebpf.Map `ebpf:"root_pgid"`
+	TargetPid    *ebpf.Map `ebpf:"target_pid"`
 }
 
 func (m *ebpfMaps) Close() error {
 	return _EbpfClose(
 		m.EnterDataMap,
 		m.Events,
-		m.RootPgid,
+		m.TargetPid,
 	)
 }
 
