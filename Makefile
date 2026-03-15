@@ -85,9 +85,9 @@ run: ## Run with go run (pass ARGS="..." for extra flags)
 	@echo -e "$(BLUE)▶  Running $(BINARY)...$(NC)"
 	@go run . $(ARGS)
 
-all: fmt vet test build ## Format, vet, test and build everything
-
 ##@ Go — Tests & Quality
+
+all: fmt vet test build ## Format, vet, test and build everything
 
 test: ## Run all unit tests (with race detector)
 	@echo -e "$(BLUE)🧪 Running tests...$(NC)"
