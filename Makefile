@@ -67,7 +67,7 @@ build: ## Compile the binary to ./bin/stracectl
 generate-bpf: ## Generate BPF artifacts (requires clang + bpf2go)
 	@echo -e "$(BLUE)🔧 Generating BPF artifacts...$(NC)"
 	@command -v clang >/dev/null 2>&1 || { echo -e "$(RED)❌ clang not found (required to compile BPF programs)$(NC)"; exit 1; }
-	@go generate ./internal/tracer
+	@go generate -tags=ebpf ./internal/tracer/...
 	@echo -e "$(GREEN)✓ BPF artifacts generated$(NC)"
 
 build-ebpf: generate-bpf ## Build the binary with eBPF support (uses -tags=ebpf)
