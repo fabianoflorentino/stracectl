@@ -81,8 +81,16 @@ RUN go mod download
 
 COPY . .
 
-# Copy the compiled BPF object from the bpf-build stage (if present).
-COPY --from=bpf-build /bpf/syscall.o ./internal/tracer/bpf/
+# Copy the compiled BPF object and sources from the bpf-build stage (if present).
+# Copying the whole `/bpf/` ensures `syscall.c` is available for bpf2go.
+COPY --from=bpf-build /bpf/ ./internal/tracer/bpf/
+
+# Ensure `bpf2go` is available (best-effort) and generate BPF artifacts
+# inside the image so the `-tags=ebpf` build has the required generated
+# Go wrappers and .o files embedded.
+RUN go install github.com/cilium/ebpf/cmd/bpf2go@latest || true && \
+    export PATH="$(go env GOPATH)/bin:$PATH" && \
+    bash scripts/generate-bpf.sh
 
 # Build the eBPF-enabled binary (static linking as in project Dockerfile.eBPF).
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
