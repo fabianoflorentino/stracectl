@@ -62,7 +62,9 @@ jobs:
       - name: Generate BPF artifacts
         if: ${{ inputs.download_bpf_artifacts == false }}
         run: |
-          go generate ./internal/tracer/...
+          # Ensure bpf2go is reachable and generate artifacts (matches ebpf-build.yml)
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          bash scripts/generate-bpf.sh
 
       - name: Run tests
         if: ${{ inputs.run_tests }}
@@ -100,7 +102,10 @@ jobs:
           go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
 
       - name: Generate BPF artifacts
-        run: go generate ./internal/tracer/...
+        run: |
+          # Ensure bpf2go is reachable and generate artifacts (matches ebpf-build.yml)
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          bash scripts/generate-bpf.sh
 
       - name: Build eBPF-enabled binary
         env:
