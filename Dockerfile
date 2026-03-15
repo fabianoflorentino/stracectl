@@ -51,6 +51,12 @@ RUN go mod download
 
 COPY . .
 
+# Remove bpf2go-generated Go and object files so non-eBPF builds don't
+# fail due to missing embedded .o files. These files are required only for
+# eBPF builds and will remain available in the `base-ebpf` stage.
+RUN rm -f internal/tracer/ebpf_bpfel.go internal/tracer/ebpf_bpfeb.go \
+  internal/tracer/ebpf_bpfel.o internal/tracer/ebpf_bpfeb.o || true
+
 # Build the non-eBPF binary (CGO disabled for portability)
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
   go build -trimpath -ldflags="-s -w" -o /usr/local/bin/stracectl-non-ebpf .
