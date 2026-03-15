@@ -184,7 +184,7 @@ func canLoadEbpf() error {
 // (which may vary between generated files) and writes the provided value.
 // This uses reflection to be resilient to minor differences in generated
 // wrapper layouts across architectures or generator versions.
-func putRootPgid(objs interface{}, key uint32, val uint32) error {
+func putRootPgid(objs any, key uint32, val uint32) error {
 	vo := reflect.ValueOf(objs)
 	if vo.Kind() == reflect.Ptr {
 		vo = vo.Elem()
@@ -380,9 +380,6 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 			evCount++
 			if evCount == 1 {
 				log.Printf("ebpf: first event pid=%d syscall=%s ret=%d", raw.PID, name, raw.Ret)
-			}
-			if evCount%50 == 0 {
-				log.Printf("ebpf: events read=%d", evCount)
 			}
 
 			ch <- models.SyscallEvent{
