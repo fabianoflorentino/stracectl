@@ -263,6 +263,8 @@ sudo stracectl --debug run --serve :8080 curl https://example.com
 | Document | Description |
 | -------- | ----------- |
 | [docs/USAGE.md](docs/USAGE.md) | Commands, keyboard shortcuts, dashboard guide, HTTP API, common patterns |
+| [docs/LOCAL_USAGE.md](docs/LOCAL_USAGE.md) | Local security and usage: bind to localhost, port-forward, token and metrics |
+| [docs/SCENARIOS.md](docs/SCENARIOS.md) | Practical usage scenarios: step-by-step troubleshooting examples |
 | [docs/KUBERNETES.md](docs/KUBERNETES.md) | Sidecar deployment, Helm chart, Prometheus metrics |
 | [site/content/docs/syscalls.md](site/content/docs/syscalls.md) | Built-in syscall reference (signatures, arguments, errno codes) |
 | [docs/EBPF.md](docs/EBPF.md) | eBPF backend overview, build & runtime requirements |

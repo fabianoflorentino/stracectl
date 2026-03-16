@@ -1,5 +1,8 @@
 # Usage Guide
 
+**Usage scenarios (examples):** see `docs/SCENARIOS.md` for step-by-step examples
+and walkthroughs for each mode (`run`, `attach`, `stats`, `--serve`, `--backend ebpf`).
+
 ## Commands
 
 ### Global flags
@@ -118,6 +121,21 @@ sudo stracectl attach --serve :8080 42
 Opening `http://localhost:8080` in any browser shows the **live web dashboard** — a
 self-contained single-page app that connects to the server over WebSocket and updates
 the table in real time, with no page reload needed:
+
+### Segurança e uso local
+
+Para troubleshooting pontual, prefira rodar o servidor ligado a `127.0.0.1` ou usar
+`kubectl port-forward` para inspecionar um sidecar. Isso reduz muito a superfície de
+ataque e evita a necessidade de regras de autenticação complexas durante a depuração.
+
+- Bind em `127.0.0.1`: `sudo stracectl run --serve 127.0.0.1:8080 <comando>`.
+- Port-forward (Kubernetes): `kubectl -n <ns> port-forward pod/<sidecar> 8080:8080`.
+- Quando expor o serviço fora do host local, exija `--ws-token` e TLS; evite tokens em
+  query string e prefira o header `Authorization: Bearer <token>`.
+- Proteja `/metrics`: permita scrape apenas via rede interna ou com autenticação.
+
+Essas práticas mantêm a experiência de troubleshooting leve enquanto reduzem riscos
+quando o servidor precisa ficar disponível por mais tempo.
 
 ### Discover a container PID (Kubernetes sidecar)
 
