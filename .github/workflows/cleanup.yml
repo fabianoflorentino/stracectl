@@ -105,3 +105,29 @@ jobs:
         run: |
           chmod +x scripts/cleanup-dockerhub-tags.sh
           scripts/cleanup-dockerhub-tags.sh "${{ github.repository }}"
+
+  # ── Cleanup Git tags (all repo tags, keep only the most recent) ─────────────
+  cleanup-git-tags:
+    name: Cleanup Git tags
+    needs: cleanup-github-releases
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run cleanup (dry-run)
+        if: ${{ inputs.dry_run == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/cleanup-tags.sh
+          DRY_RUN=1 ./scripts/cleanup-tags.sh "${{ github.repository }}"
+
+      - name: Run cleanup
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/cleanup-tags.sh
+          scripts/cleanup-tags.sh "${{ github.repository }}"
