@@ -92,6 +92,19 @@ kubectl port-forward pod/<pod-name> 8080:8080
 spec:
   # Required: all containers in the Pod share one PID namespace.
   shareProcessNamespace: true
+```
+
+### Local access and security
+
+Prefer `kubectl port-forward` for temporary, local access to the sidecar rather than exposing the service via a `Service`/`Ingress`. If you do expose the API beyond localhost for long-term monitoring, enforce authentication (for example via `--ws-token`), terminate TLS at the ingress/proxy, and avoid passing tokens in query strings. Also limit Prometheus scrape to your monitoring network or require authentication for `/metrics`.
+
+Example (port-forward recommended):
+
+```bash
+# forward the sidecar to local port and open the dashboard locally
+kubectl -n <ns> port-forward pod/<pod-name> 8080:8080
+open http://localhost:8080
+```
 
   containers:
   - name: app

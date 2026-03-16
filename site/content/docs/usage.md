@@ -66,6 +66,27 @@ stracectl stats --serve :8080 trace.log
 # HTML report
 stracectl stats --report report.html trace.log
 ```
+## Local usage and security
+
+For short, ephemeral troubleshooting sessions prefer running the HTTP sidecar bound to `127.0.0.1` or using `kubectl port-forward` when inspecting a sidecar in a cluster. This minimizes accidental exposure of the WebSocket (`/ws`), JSON API, and `/metrics`.
+
+- Bind to localhost:
+
+```bash
+sudo stracectl run --serve 127.0.0.1:8080 <command>
+```
+
+- Port-forward a sidecar from the cluster:
+
+```bash
+kubectl -n <ns> port-forward pod/<sidecar-pod> 8080:8080
+```
+
+- If you must expose the server beyond localhost (for monitoring or long-term use), require `--ws-token` and TLS (ingress or proxy). Prefer presenting the token via the `Authorization: Bearer <token>` header instead of query strings, and avoid passing secrets in URLs.
+
+- Protect `/metrics` by limiting Prometheus scrape to internal networks or requiring authentication.
+
+These measures keep troubleshooting convenient while reducing the risk of accidental public exposure.
 
 ## Keyboard shortcuts
 
