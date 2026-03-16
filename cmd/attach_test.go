@@ -36,3 +36,24 @@ func TestApplyEBPFOptions_ConfiguresTracer(t *testing.T) {
 		t.Fatalf("SetUnfiltered not invoked or wrong value: called=%v val=%v", f.setUnfilteredCalled, f.unfilteredVal)
 	}
 }
+
+func TestAttach_InvalidPID(t *testing.T) {
+	if err := attachCmd.RunE(nil, []string{"not-a-number"}); err == nil {
+		t.Fatal("expected parse error for PID")
+	}
+}
+
+// noopTracer implements Tracer but does not have the optional config setters.
+type noopTracer struct{}
+
+func (n *noopTracer) Attach(ctx context.Context, pid int) (<-chan models.SyscallEvent, error) {
+	return nil, nil
+}
+func (n *noopTracer) Run(ctx context.Context, program string, args []string) (<-chan models.SyscallEvent, error) {
+	return nil, nil
+}
+
+func TestApplyEBPFOptions_NoConfig(t *testing.T) {
+	// Should be a no-op and not panic when tracer does not implement setters.
+	applyEBPFOptions(&noopTracer{}, true, true)
+}
