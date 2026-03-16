@@ -168,6 +168,20 @@ docker-build-dev: ## Build the development Docker image
 	@docker build --target development -t $(IMAGE):dev .
 	@echo -e "$(GREEN)✓ Image $(IMAGE):dev created!$(NC)"
 
+docker-inspect-dev: ## Build development image and show image size and history
+	@echo -e "$(BLUE)🔎 Building and inspecting development image...$(NC)"
+	@docker build --target development -t $(IMAGE):dev .
+	@echo -e "$(YELLOW)Image list:$(NC)"
+	@docker images $(IMAGE):dev
+	@echo -e "$(YELLOW)Image size (bytes):$(NC)"
+	@docker image inspect $(IMAGE):dev --format '{{.Size}}' || true
+	@echo -e "$(YELLOW)Image history:$(NC)"
+	@docker history $(IMAGE):dev
+
+docker-dive-dev: ## Run dive on the development image (if installed)
+	@command -v dive >/dev/null 2>&1 || { echo -e "$(RED)dive not found; install dive to use this target$(NC)"; exit 1; }
+	@dive $(IMAGE):dev
+
 docker-build-site: ## Build the Hugo site Docker image
 	@echo -e "$(BLUE)🔨 Building site image...$(NC)"
 	@docker build --target site -t $(IMAGE):site .
