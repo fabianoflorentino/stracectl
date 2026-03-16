@@ -21,7 +21,11 @@ theme = "stracectl"
     name   = "Docs"
     url    = "/docs/"
     weight = 2
-  
+  [[menu.main]]
+    name   = "Contributing"
+    url    = "/docs/contributing/"
+    weight = 3
+
 
 [markup]
   [markup.highlight]
