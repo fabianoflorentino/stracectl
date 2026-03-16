@@ -4,9 +4,9 @@ This document tracks planned features, known technical debt, and the implementat
 
 ---
 
-## Recent: Debug flag and tracing diagnostics
+-## Recent: Debug flag and tracing diagnostics
 
-- **Status:** partially implemented
+- **Status:** implemented (with follow-ups)
 - **What changed:** added a global `--debug` CLI flag (registered in `cmd/root.go`) that gates verbose tracer diagnostics via `tracer.Debug`. When enabled, the tracer logs raw strace lines useful for diagnosing parser edge cases (for example, `EAGAIN` with empty `Args`). Noisy diagnostics are gated and only emitted when `--debug` is true.
 - **Files touched:** `cmd/root.go`, `internal/tracer/strace.go`, `cmd/stats.go`, plus documentation updates in `README.md`, `docs/USAGE.md`, and the site under `site/content/docs/`.
 - **Notes & next steps:**
@@ -14,7 +14,7 @@ This document tracks planned features, known technical debt, and the implementat
   - Planned: capture logger output when `--debug` is enabled and forward those messages into the aggregator's live-log buffer so they appear in the TUI log overlay (see `internal/aggregator/aggregator.go` and `internal/ui/tui.go`).
   - Planned: add optional file-based debug logging when `--debug` is set (useful for offline inspection).
   - Planned: de-emphasize `"<no data>"` in the UI and left-align timestamps in the logs/detail views.
-  - Planned: add a test asserting `--ws-token` exists as a persistent flag and remove any duplicate flag definitions if present.
+  - Done: test added to assert `--ws-token` is registered (`cmd/root_test.go`).
 
 ## Pending features
 
@@ -37,6 +37,8 @@ This document tracks planned features, known technical debt, and the implementat
 
 ### eBPF backend via `cilium/ebpf`
 
+**Status:** implemented (build tag `-tags=ebpf`; auto-selection supported)
+
 **Goal:** zero-overhead syscall tracing without `ptrace`, suitable for production environments.
 
 **Why:** `ptrace` serialises the traced process on every syscall entry/exit (significant overhead for high-rate processes); eBPF tracepoints run in kernel context with negligible overhead.
@@ -50,7 +52,7 @@ This document tracks planned features, known technical debt, and the implementat
 - Implement the same `<-chan models.SyscallEvent` interface so the aggregator/server/TUI are unchanged
 - Add `--backend ebpf` flag; make it the default when the kernel supports it
 
-**Files:** `internal/tracer/ebpf.go` (new), `internal/tracer/bpf/syscall.c` (new), `cmd/attach.go`, `cmd/run.go`
+**Files:** `internal/tracer/ebpf.go`, `internal/tracer/ebpf_bpfel.go`, `internal/tracer/bpf/syscall.c`, `scripts/generate-bpf.sh`, `Makefile` (build-ebpf), `Dockerfile` (production-ebpf), `.github/workflows/ebpf-build.yml`, `cmd/attach.go`, `cmd/run.go`
 
 ---
 
