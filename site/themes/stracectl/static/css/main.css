@@ -1234,6 +1234,10 @@ code, pre, kbd {
 /* Keep doc content cards clear of the fixed back-to-top button */
 .inner-layout .prose { padding-right: 5rem; }
 
+/* Ensure the child-page card list spans the full width below the sidebar/article
+   so cards don't appear in the left column or overlap the sidebar. */
+
+
 .page-header {
   padding-bottom: 1.5rem;
   margin-bottom: 2rem;
@@ -1362,7 +1366,7 @@ code, pre, kbd {
 /* Doc list cards */
 .list-cards {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   margin-top: 1.5rem;
 }
@@ -1373,7 +1377,11 @@ code, pre, kbd {
   border-radius: var(--radius-lg);
   padding: 1.25rem;
   transition: border-color var(--transition-md), transform var(--transition-md);
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 84px;
 }
 
 .list-card:hover {
@@ -1385,7 +1393,7 @@ code, pre, kbd {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--primary);
-  margin-bottom: 0.35rem;
+  margin: 0;
 }
 
 .list-card p {
@@ -1394,6 +1402,8 @@ code, pre, kbd {
   line-height: 1.5;
   margin: 0;
 }
+/* ── 17. Footer ────────────────────────────────────────────── */
+/* ── 17. Footer ────────────────────────────────────────────── */
 
 /* ── 17. Footer ────────────────────────────────────────────── */
 .site-footer {
