@@ -21,10 +21,7 @@ theme = "stracectl"
     name   = "Docs"
     url    = "/docs/"
     weight = 2
-  [[menu.main]]
-    name   = "Roadmap"
-    url    = "/roadmap/"
-    weight = 3
+  
 
 [markup]
   [markup.highlight]
