@@ -1,7 +1,7 @@
 ---
 title: "Usage"
 description: "How to run, attach, and analyse traces with stracectl."
-weight: 2
+weight: 3
 ---
 
 ## Trace a command from the start

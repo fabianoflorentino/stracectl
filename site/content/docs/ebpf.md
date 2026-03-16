@@ -1,7 +1,7 @@
 ---
 title: "eBPF backend"
 description: "Overview, build and runtime requirements for the optional eBPF tracer."
-weight: 6
+weight: 8
 ---
 
 This page documents the optional eBPF tracing backend available in `stracectl`.
@@ -54,3 +54,26 @@ docker build --target production-ebpf -t stracectl:ebpf .
 
 - `internal/tracer/bpf/syscall.c` — the embedded BPF program source
 - `docs/EBPF.md` — repository-level notes on building and runtime requirements
+ 
+## New flags and changes
+
+The project introduced several CLI flags and options to control eBPF behaviour:
+
+- `--force-ebpf`: when set, the eBPF probe will return an error instead of falling back to the classic `strace` tracer. Useful for debugging or environments where eBPF must be enforced.
+- `--unfiltered`: disables the PGID filter written into the BPF `root_pgid` map so the BPF program captures events system-wide. Use with caution: unfiltered mode can generate a high volume of events.
+- `--try-elevate`: attempts to re-run the current process with increased `RLIMIT_MEMLOCK` (prefixed with `sudo` when not root) if loading eBPF objects fails due to memlock limits.
+
+Examples:
+
+```bash
+# Force eBPF and fail if not available
+sudo stracectl run --backend ebpf --force-ebpf curl https://example.com
+
+# Capture system-wide events (useful in some WSL kernels)
+sudo stracectl attach --backend ebpf --unfiltered 1234
+```
+
+Implementation notes:
+
+- Non-ebpf builds include no-op setters so the CLI can always configure tracer options regardless of build tags.
+- The CLI exposes helper functions to apply eBPF options safely across `run` and `attach` commands.

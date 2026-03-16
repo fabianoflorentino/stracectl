@@ -1,7 +1,7 @@
 ---
 title: "Kubernetes"
 description: "Running stracectl as a sidecar in Kubernetes Pods."
-weight: 3
+weight: 10
 ---
 
 ## Overview
@@ -26,6 +26,8 @@ restarts required.
 without modifying the target process's execution.
 
 ## Prerequisites
+
+- Kubernetes 1.19+ recommended.
 
 Three settings are **required** on the sidecar container:
 
@@ -152,6 +154,21 @@ Key values (`values.yaml`):
 | `/api/log` | GET | Most recent 500 raw syscall events |
 | `/ws` | WS | WebSocket live feed (`SyscallEvent` JSON) |
 | `/metrics` | GET | Prometheus metrics |
+
+## Prometheus + Grafana
+
+## Prometheus metrics
+
+A number of Prometheus metrics are exposed when running in sidecar mode:
+
+| Metric | Type | Description |
+| ------ | ---- | ----------- |
+| `stracectl_syscall_calls_total` | Counter | Total invocations per syscall/category |
+| `stracectl_syscall_errors_total` | Counter | Failed invocations per syscall/category |
+| `stracectl_syscall_duration_seconds_total` | Counter | Cumulative kernel time per syscall |
+| `stracectl_syscall_duration_avg_seconds` | Gauge | Average kernel time per syscall |
+| `stracectl_syscall_duration_max_seconds` | Gauge | Peak kernel time per syscall |
+| `stracectl_syscalls_per_second` | Gauge | Recent call rate |
 
 ## Prometheus + Grafana
 

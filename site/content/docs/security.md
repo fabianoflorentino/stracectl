@@ -1,4 +1,8 @@
-# Security Policy
+---
+title: "Security"
+description: "Security policy and reporting process for stracectl."
+weight: 9
+---
 
 ## Supported Versions
 
@@ -40,4 +44,4 @@ The following are considered in scope:
 - The official Docker image published to `fabianoflorentino/stracectl` on Docker Hub.
 - The Helm chart under `deploy/helm/stracectl`.
 
-Dependencies (Go modules, base Docker images) that are vulnerable should be reported to their respective upstream projects. We keep dependencies up to date via [Dependabot](.github/dependabot.yml).
+Dependencies (Go modules, base Docker images) that are vulnerable should be reported to their respective upstream projects. We keep dependencies up to date via Dependabot.
