@@ -23,4 +23,4 @@ Planned highlights
 For the full implementation plan and detailed items, see the canonical
 roadmap in the repository:
 
-[Full Roadmap (docs/ROADMAP.md)](../../../docs/ROADMAP.md)
+[Full Roadmap (docs/ROADMAP.md)](https://github.com/fabianoflorentino/stracectl/blob/main/docs/ROADMAP.md)
