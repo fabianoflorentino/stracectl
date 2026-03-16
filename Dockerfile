@@ -105,16 +105,18 @@ WORKDIR /app
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-       strace \
-       clang \
-       llvm \
-       linux-headers-amd64 \
-       libbpf-dev \
-       wget \
-       git \
-  && rm -rf /var/lib/apt/lists/* \
+    strace \
+    clang \
+    llvm \
+    linux-headers-amd64 \
+    libbpf-dev \
+    wget \
+    git \
+  && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
   && go install github.com/air-verse/air@latest \
-  && go install github.com/cilium/ebpf/cmd/bpf2go@latest
+  && go install github.com/cilium/ebpf/cmd/bpf2go@latest \
+  && go clean -modcache \
+  && rm -rf /root/.cache/go-build "$(go env GOPATH)"/pkg/mod
 
 EXPOSE 8080
 
