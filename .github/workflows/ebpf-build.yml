@@ -1,4 +1,6 @@
 name: eBPF Build & Generate
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
