@@ -661,7 +661,8 @@ code, pre, kbd {
 
 /* ── 10. Features ──────────────────────────────────────────── */
 .features-section {
-  padding: 7rem 0;
+  /* further reduced vertical padding to tighten layout */
+  padding: 3rem 0;
   position: relative;
 }
 
@@ -724,7 +725,8 @@ code, pre, kbd {
 
 /* ── 11. Modes ─────────────────────────────────────────────── */
 .modes-section {
-  padding: 6rem 0;
+  /* slightly reduced to keep sections visually closer */
+  padding: 2.5rem 0;
   background: var(--surface);
   position: relative;
 }
@@ -795,6 +797,26 @@ code, pre, kbd {
   color: var(--primary);
   display: block;
   line-height: 1.6;
+}
+
+/* ── Scenarios (compact spacing) ───────────────────────────────── */
+.scenarios-section {
+  /* slightly tighter than other sections to avoid large visual gaps */
+  padding: 3.5rem 0;
+  position: relative;
+}
+
+.scenarios-section .section-header {
+  margin-bottom: 1.6rem;
+}
+
+.scenarios-section .modes-grid {
+  margin-top: 0.5rem;
+  gap: 1.25rem;
+}
+
+.scenarios-section .mode-card {
+  padding: 1.6rem;
 }
 
 /* ── 12. Install Section ───────────────────────────────────── */
@@ -922,7 +944,8 @@ code, pre, kbd {
 
 /* ── 13. Screenshot Carousel ───────────────────────────────── */
 .showcase-section {
-  padding: 7rem 0;
+  /* tighten showcase spacing to improve flow */
+  padding: 4rem 0;
   position: relative;
 }
 
