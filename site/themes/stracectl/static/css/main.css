@@ -175,6 +175,12 @@ code, pre, kbd {
   transform: none;
 }
 
+/* Ensure reveal--delayed children do not use the nth-child stagger */
+.reveal--delayed .reveal,
+.reveal--delayed .reveal-right {
+  transition-delay: 0s !important;
+}
+
 /* Stagger children */
 .reveal:nth-child(2) { transition-delay: 0.1s; }
 .reveal:nth-child(3) { transition-delay: 0.2s; }

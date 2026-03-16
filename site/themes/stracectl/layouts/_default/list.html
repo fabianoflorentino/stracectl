@@ -18,7 +18,7 @@
       </header>
       {{ .Content }}
         {{ if .Pages }}
-        <div class="list-cards">
+        <div class="list-cards reveal--delayed">
           {{ range .Pages.ByWeight }}
           <a href="{{ .RelPermalink }}" class="list-card reveal">
             <h3>{{ .Title }}</h3>

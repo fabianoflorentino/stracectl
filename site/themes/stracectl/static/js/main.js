@@ -39,13 +39,13 @@
   /* ──────────────────────────────────────────────────────────
    * 3. Scroll reveal (Intersection Observer)
    *    - observe header and global reveal elements, but exclude
-   *      `.doc-body` children so we can reveal them after the header
-   *    - reveal children inside `.doc-body` with a slight stagger
+   *      children of any `.reveal--delayed` containers so we can
+   *      reveal them after the header animation with a stagger
    * ──────────────────────────────────────────────────────────*/
   const headerRevealEls = Array.from(document.querySelectorAll('.page-header .reveal, .page-header .reveal-right'));
-  const bodyRevealEls = Array.from(document.querySelectorAll('.doc-body .reveal, .doc-body .reveal-right'));
-  const otherRevealEls = Array.from(document.querySelectorAll('.reveal, .reveal-right')).filter(el => !el.closest('.doc-body') && !el.closest('.page-header'));
-  const delayedContainers = document.querySelectorAll('.reveal--delayed');
+  const delayedContainers = Array.from(document.querySelectorAll('.reveal--delayed'));
+  const bodyRevealEls = delayedContainers.flatMap(container => Array.from(container.querySelectorAll('.reveal, .reveal-right')));
+  const otherRevealEls = Array.from(document.querySelectorAll('.reveal, .reveal-right')).filter(el => !el.closest('.page-header') && !el.closest('.reveal--delayed'));
   const observedEls = headerRevealEls.concat(otherRevealEls);
 
   if (observedEls.length) {
@@ -60,10 +60,8 @@
             setTimeout(() => {
               // reveal container(s)
               delayedContainers.forEach(el => el.classList.add('visible'));
-              // reveal children inside doc-body with a small stagger
-              bodyRevealEls.forEach((el, idx) => {
-                setTimeout(() => el.classList.add('visible'), idx * 80);
-              });
+              // reveal children inside delayed containers all at once (no stagger)
+              bodyRevealEls.forEach(el => el.classList.add('visible'));
             }, 320);
           }
           io.unobserve(entry.target);
