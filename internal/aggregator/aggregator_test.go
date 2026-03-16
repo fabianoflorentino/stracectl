@@ -8,6 +8,7 @@ import (
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/models"
+	"github.com/fabianoflorentino/stracectl/internal/procinfo"
 )
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -466,7 +467,7 @@ func TestPercentile_SortedPopulatesBoth(t *testing.T) {
 
 func TestReadProcInfo_Self(t *testing.T) {
 	pid := os.Getpid()
-	info := aggregator.ReadProcInfo(pid)
+	info := procinfo.Read(pid)
 	if info.PID != pid {
 		t.Errorf("PID: want %d, got %d", pid, info.PID)
 	}
@@ -480,7 +481,7 @@ func TestReadProcInfo_Self(t *testing.T) {
 
 func TestReadProcInfo_NonExistentPID(t *testing.T) {
 	// A very large PID that cannot exist.
-	info := aggregator.ReadProcInfo(999999999)
+	info := procinfo.Read(999999999)
 	if info.PID != 999999999 {
 		t.Errorf("PID should be set even when process doesn't exist; got %d", info.PID)
 	}
@@ -492,7 +493,7 @@ func TestReadProcInfo_NonExistentPID(t *testing.T) {
 
 func TestSetGetProcInfo(t *testing.T) {
 	a := aggregator.New()
-	want := aggregator.ProcInfo{PID: 42, Comm: "testbin", Exe: "/usr/bin/testbin"}
+	want := procinfo.ProcInfo{PID: 42, Comm: "testbin", Exe: "/usr/bin/testbin"}
 	a.SetProcInfo(want)
 	got := a.GetProcInfo()
 	if got != want {

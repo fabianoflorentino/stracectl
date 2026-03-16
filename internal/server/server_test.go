@@ -13,6 +13,7 @@ import (
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/models"
+	"github.com/fabianoflorentino/stracectl/internal/procinfo"
 	"github.com/fabianoflorentino/stracectl/internal/server"
 )
 
@@ -383,7 +384,7 @@ func TestStatus_DefaultEmpty(t *testing.T) {
 
 func TestStatus_WithProcInfo(t *testing.T) {
 	agg := aggregator.New()
-	agg.SetProcInfo(aggregator.ProcInfo{PID: 42, Comm: "nginx", Exe: "/usr/sbin/nginx"})
+	agg.SetProcInfo(procinfo.ProcInfo{PID: 42, Comm: "nginx", Exe: "/usr/sbin/nginx"})
 	srv := server.New(":0", agg, "")
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/status", nil)

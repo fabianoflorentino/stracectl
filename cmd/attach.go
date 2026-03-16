@@ -12,6 +12,7 @@ import (
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/discover"
+	"github.com/fabianoflorentino/stracectl/internal/procinfo"
 	"github.com/fabianoflorentino/stracectl/internal/tracer"
 )
 
@@ -84,7 +85,7 @@ Examples:
 		defer cancelTracer()
 
 		agg := aggregator.New()
-		agg.SetProcInfo(aggregator.ReadProcInfo(pid))
+		agg.SetProcInfo(procinfo.Read(pid))
 
 		t, err := tracer.Select(backend)
 		if err != nil {

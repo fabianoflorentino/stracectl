@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
+	"github.com/fabianoflorentino/stracectl/internal/procinfo"
 )
 
 var upgrader = websocket.Upgrader{
@@ -120,13 +121,13 @@ func (s *Server) handleStats(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	type statusResp struct {
-		Proc    aggregator.ProcInfo `json:"Proc"`
-		Total   int64               `json:"Total"`
-		Errors  int64               `json:"Errors"`
-		Rate    float64             `json:"Rate"`
-		Unique  int                 `json:"Unique"`
-		Elapsed string              `json:"Elapsed"`
-		Done    bool                `json:"Done"`
+		Proc    procinfo.ProcInfo `json:"Proc"`
+		Total   int64             `json:"Total"`
+		Errors  int64             `json:"Errors"`
+		Rate    float64           `json:"Rate"`
+		Unique  int               `json:"Unique"`
+		Elapsed string            `json:"Elapsed"`
+		Done    bool              `json:"Done"`
 	}
 	resp := statusResp{
 		Proc:    s.agg.GetProcInfo(),
