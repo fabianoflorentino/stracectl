@@ -5,12 +5,12 @@
 # ============================================================================
 
 .PHONY: help \
-        build run test test-short coverage fmt vet lint tidy clean all \
+	build run test test-short coverage fmt vet lint tidy clean clean-images all \
 	generate-bpf build-ebpf clean-bpf \
-        site-dev site-build site-clean \
-        docker-build docker-build-dev docker-build-site docker-push \
-        up up-site up-detach down logs logs-tail ps restart prune \
-        check-deps info
+	site-dev site-build site-clean \
+	docker-build docker-build-dev docker-build-site docker-push \
+	up up-site up-detach down logs logs-tail ps restart prune \
+	check-deps info
 
 # ============================================================================
 # Variables
@@ -128,6 +128,7 @@ tidy: ## Tidy and verify Go modules
 
 clean: ## Remove build artifacts
 	@echo -e "$(YELLOW)🧹 Removing artifacts...$(NC)"
+	@$(MAKE) clean-images || true
 	@rm -rf bin/ coverage.out coverage.html
 	@echo -e "$(GREEN)✓ Clean done!$(NC)"
 
@@ -178,6 +179,15 @@ docker-push: ## Push production images to the registry
 	@docker push $(IMAGE):latest
 	@echo -e "$(GREEN)✓ Images pushed successfully!$(NC)"
 
+clean-images: ## Remove Docker images built by this project
+	@echo -e "$(YELLOW)🧹 Removing Docker images for $(IMAGE)...$(NC)"
+	@command -v docker >/dev/null 2>&1 || { echo -e "$(YELLOW)Docker not found; skipping image cleanup$(NC)"; exit 0; }
+	@ids=$$(docker images --filter=reference="$(IMAGE)*" -q); \
+	if [ -n "$$ids" ]; then \
+		docker rmi -f $$ids && echo -e "$(GREEN)✓ Removed images for $(IMAGE)$(NC)"; \
+	else \
+		echo -e "$(GREEN)✓ No images found for $(IMAGE)$(NC)"; \
+	fi
 ##@ Docker Compose — Services
 
 up: ## Start stracectl in dev mode with live-reload
