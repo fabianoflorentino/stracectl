@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360">
+  <rect width="100%" height="100%" fill="#0b1220" />
+  <g font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">
+    <text x="40" y="48" font-size="28" fill="#ffffff">stracectl — TUI preview (placeholder)</text>
+    <text x="40" y="88">Interactive syscall dashboard • counts • latencies • errors</text>
+  </g>
+  <rect x="40" y="120" width="880" height="200" rx="6" fill="#071026" stroke="#10203a"/>
+  <g font-family="monospace" font-size="12" fill="#9fb6d6">
+    <text x="60" y="148">stracectl  /usr/bin/curl  +12s   syscalls: 1.2k  rate: 120/s  errors: 3  unique: 48</text>
+    <text x="60" y="174">SYSCALL        CAT  CALLS   AVG   MAX    ERR%    TOTAL</text>
+    <text x="60" y="196" fill="#ffffff">openat         FS   412     0.03ms  2.8ms  4%    12.3s</text>
+    <text x="60" y="216">read           I/O  320     0.01ms  0.8ms  0%    3.2s</text>
+    <text x="60" y="236">connect        NET  89      1.2ms   34ms   12%   106ms</text>
+    <text x="60" y="256">stat           FS   42      0.02ms  0.5ms  0%    0.8s</text>
+  </g>
+</svg>
