@@ -38,21 +38,40 @@
 
   /* ──────────────────────────────────────────────────────────
    * 3. Scroll reveal (Intersection Observer)
+   *    - observe header and global reveal elements, but exclude
+   *      `.doc-body` children so we can reveal them after the header
+   *    - reveal children inside `.doc-body` with a slight stagger
    * ──────────────────────────────────────────────────────────*/
-  const revealEls = document.querySelectorAll('.reveal, .reveal-right');
-  if (revealEls.length) {
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            io.unobserve(entry.target);
+  const headerRevealEls = Array.from(document.querySelectorAll('.page-header .reveal, .page-header .reveal-right'));
+  const bodyRevealEls = Array.from(document.querySelectorAll('.doc-body .reveal, .doc-body .reveal-right'));
+  const otherRevealEls = Array.from(document.querySelectorAll('.reveal, .reveal-right')).filter(el => !el.closest('.doc-body') && !el.closest('.page-header'));
+  const delayedContainers = document.querySelectorAll('.reveal--delayed');
+  const observedEls = headerRevealEls.concat(otherRevealEls);
+
+  if (observedEls.length) {
+    let delayedTriggered = false;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          // Trigger delayed reveal once when a header element becomes visible
+          if (!delayedTriggered && entry.target.closest && entry.target.closest('.page-header')) {
+            delayedTriggered = true;
+            setTimeout(() => {
+              // reveal container(s)
+              delayedContainers.forEach(el => el.classList.add('visible'));
+              // reveal children inside doc-body with a small stagger
+              bodyRevealEls.forEach((el, idx) => {
+                setTimeout(() => el.classList.add('visible'), idx * 80);
+              });
+            }, 320);
           }
-        });
-      },
-      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
-    );
-    revealEls.forEach(el => io.observe(el));
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    observedEls.forEach(el => io.observe(el));
   }
 
   /* ──────────────────────────────────────────────────────────

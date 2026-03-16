@@ -163,6 +163,18 @@ code, pre, kbd {
   transform: none;
 }
 
+/* Delayed reveal: used for documentation body to appear after header animation */
+.reveal--delayed {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal--delayed.visible {
+  opacity: 1;
+  transform: none;
+}
+
 /* Stagger children */
 .reveal:nth-child(2) { transition-delay: 0.1s; }
 .reveal:nth-child(3) { transition-delay: 0.2s; }

@@ -17,7 +17,9 @@
         <h1 class="reveal">{{ .Title }}</h1>
         {{ with .Params.description }}<p class="page-description reveal">{{ . }}</p>{{ end }}
       </header>
-      {{ .Content }}
+      <div class="doc-body reveal--delayed">
+        {{ .Content }}
+      </div>
     </article>
   </div>
 </div>
