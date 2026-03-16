@@ -87,7 +87,7 @@ Examples:
 		agg := aggregator.New()
 		agg.SetProcInfo(procinfo.Read(pid))
 
-		t, err := tracer.Select(backend)
+		t, err := selectTracer(backend)
 		if err != nil {
 			return err
 		}

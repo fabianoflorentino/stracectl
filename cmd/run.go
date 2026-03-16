@@ -22,6 +22,10 @@ var runTryElevate bool
 var runForceEbpf bool
 var runUnfiltered bool
 
+// selectTracer allows tests to substitute tracer selection logic.
+// Defaults to the real tracer.Select function.
+var selectTracer = tracer.Select
+
 var runCmd = &cobra.Command{
 	Use:   "run [--serve :8080] [--report <path>] [--ws-token <token>] [--backend auto|ebpf|strace] <command> [args...]",
 	Short: "Run a command and trace it",
@@ -63,7 +67,7 @@ Examples:
 
 		agg := aggregator.New()
 
-		tr, err := tracer.Select(runBackend)
+		tr, err := selectTracer(runBackend)
 		if err != nil {
 			return err
 		}
