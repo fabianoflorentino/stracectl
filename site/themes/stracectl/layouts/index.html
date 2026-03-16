@@ -110,6 +110,9 @@
 <!-- ============================================================
      FEATURES
      ============================================================ -->
+<!-- ============================================================
+     FEATURES
+     ============================================================ -->
 <section class="features-section" id="features">
   <div class="container">
     <div class="section-header">
@@ -337,6 +340,47 @@
           <code>stracectl stats --report out.html trace.log</code>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCENARIOS (Homepage cards)
+     ============================================================ -->
+<section class="scenarios-section" id="scenarios">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title reveal">Real examples —<br><span class="gradient-text">usage scenarios</span></h2>
+      <p class="section-sub reveal">Step-by-step walkthroughs showing how to use each mode to troubleshoot real problems.</p>
+    </div>
+
+    <div class="modes-grid">
+      <a class="mode-card reveal" href="{{ "docs/scenarios/" | absURL }}">
+        <div class="mode-number">01</div>
+        <h3>Interactive TUI</h3>
+        <p>Run a command locally, inspect latency and errors live, and export a self-contained HTML report for sharing.</p>
+        <div class="mode-code">
+          <code>sudo stracectl run --report report.html curl https://example.com</code>
+        </div>
+      </a>
+
+      <a class="mode-card reveal" href="{{ "docs/scenarios/" | absURL }}">
+        <div class="mode-number">02</div>
+        <h3>Sidecar / HTTP API</h3>
+        <p>Attach a sidecar in Kubernetes, port-forward the dashboard and inspect syscalls without disrupting the workload.</p>
+        <div class="mode-code">
+          <code>kubectl -n &lt;ns&gt; port-forward pod/&lt;sidecar-pod&gt; 8080:8080</code>
+        </div>
+      </a>
+
+      <a class="mode-card reveal" href="{{ "docs/scenarios/" | absURL }}">
+        <div class="mode-number">03</div>
+        <h3>Post-mortem &amp; eBPF</h3>
+        <p>Analyse saved traces or switch to the eBPF backend for low-overhead tracing — examples and recommendations in the scenarios guide.</p>
+        <div class="mode-code">
+          <code>stracectl stats --report report.html trace.log</code>
+        </div>
+      </a>
     </div>
   </div>
 </section>
