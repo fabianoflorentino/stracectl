@@ -50,6 +50,22 @@ stracectl --help
 - Multiple backends: `strace` parser, `ptrace` option, eBPF (low overhead)
 - Kubernetes-ready: Helm chart and ServiceMonitor
 
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:16px">
+	<div style="background:#0d1117;border:1px solid #1f2a36;border-radius:12px;padding:16px;min-height:120px;display:flex;flex-direction:column;justify-content:space-between">
+		<div style="display:flex;gap:12px;align-items:flex-start">
+			<div style="width:44px;height:44px;border-radius:8px;background:#071426;display:flex;align-items:center;justify-content:center;font-size:20px">🌐</div>
+			<div>
+				<h4 style="margin:0;color:#9fe6ff">HTTP Sidecar API</h4>
+				<p style="margin:6px 0 0 0;color:#b9c6d3;max-width:42ch">Expose JSON, WebSocket, and Prometheus metrics. Includes an interactive API explorer and a live `/api` listing for discovery.</p>
+			</div>
+		</div>
+		<div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+			<a href="{{< relref "docs/api.md" >}}" class="btn btn-primary">API Reference</a>
+			<a href="/api" class="btn" target="_blank" rel="noopener noreferrer">Open /api (live)</a>
+		</div>
+	</div>
+</div>
+
 ### Learn more
 
 - [Installation]({{< relref "docs/install.md" >}})
