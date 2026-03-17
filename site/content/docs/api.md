@@ -16,92 +16,131 @@ stracectl stats      --serve :8080 trace.log
 
 ## Endpoints
 
+All endpoints are served from the embedded HTTP server when using `--serve` or
+`attach --serve`. The primary API endpoints are listed below.
+
 ### `GET /`
 
-Live HTML dashboard. Auto-polls every second. Displays:
+Live HTML dashboard (single-page app). Auto-polls every second. Displays:
 
 - Per-syscall stats table with clickable rows
 - Anomaly alert panel
 - Process metadata header
 - Live log tab
 
-### `GET /api/syscalls`
+### `GET /api`
 
-Returns a JSON array of all aggregated syscall records:
+Lists available API endpoints exposed by the running server. Supports pagination
+via the query parameters `page` (1-based) and `per_page`.
+
+Response schema:
+
+```json
+{
+  "total": 13,
+  "page": 1,
+  "per_page": 20,
+  "items": [
+    { "path": "/api/status", "method": "GET", "description": "Current trace/status information" },
+    { "path": "/api/stats", "method": "GET", "description": "Aggregated syscall statistics" }
+  ]
+}
+```
+
+Example:
+
+```bash
+curl -s 'http://localhost:8080/api?page=1&per_page=20' | jq
+```
+
+### `GET /api/stats`
+
+Returns a JSON array of aggregated syscall statistics (sorted by frequency). Each
+item contains fields used by the dashboard SPA:
+
+- `Name` (string)
+- `Category` (string, e.g. "I/O", "FS")
+- `Count` (int)
+- `Errors` (int)
+- `TotalTime`, `MinTime`, `MaxTime`, `P95`, `P99` (integers in nanoseconds)
+- `ErrRate60s` (int)
+- `ErrorBreakdown` (map of errno → count, present only if errors occurred)
+
+Example (abridged):
 
 ```json
 [
   {
-    "name": "openat",
-    "category": "I/O",
-    "count": 77,
-    "errors": 18,
-    "avg_ns": 36800,
-    "max_ns": 2800000,
-    "total_ns": 2836600,
-    "p95_ns": 95000,
-    "p99_ns": 1200000,
-    "err_rate": 0.234
+    "Name": "read",
+    "Category": "I/O",
+    "Count": 42,
+    "Errors": 0,
+    "TotalTime": 12345678,
+    "P95": 50000
   }
 ]
 ```
 
 ### `GET /api/syscall/{name}`
 
-Detailed record for one syscall, including:
-- All latency stats (avg, min, max, P95, P99, total)
-- `error_breakdown` — map of errno string → count
-- `recent_errors` — last 50 failed calls with timestamp, errno, and args
+Detailed record for a single syscall. Includes all latency stats, the
+`ErrorBreakdown` map and `RecentErrors` samples (if any).
 
 ### `GET /api/status`
 
-Global counters and process metadata:
+Global counters and process metadata. The server returns an object with the
+following keys:
+
+- `Proc` — process metadata (see `procinfo.ProcInfo`): `PID`, `Comm`, `Cmdline`, `Exe`, `Cwd`
+- `Total` — total syscall count (int)
+- `Errors` — total errors (int)
+- `Rate` — recent rate (float, syscalls/second)
+- `Unique` — number of unique syscall names observed (int)
+- `Elapsed` — human-friendly elapsed time string (e.g. "2m3s")
+- `Done` — boolean indicating traced process exited
+
+Example:
 
 ```json
 {
-  "pid": 1234,
-  "exe": "/usr/bin/curl",
-  "cmdline": ["curl", "https://example.com"],
-  "cwd": "/home/user",
-  "elapsed_ms": 4200,
-  "total_syscalls": 472,
-  "total_errors": 35,
-  "rate_per_sec": 118,
-  "unique_syscalls": 40,
-  "err_rate_60s": 0.074,
-  "exited": false
+  "Proc": { "PID": 1234, "Comm": "curl", "Cmdline": "/usr/bin/curl ..." },
+  "Total": 472,
+  "Errors": 35,
+  "Rate": 118.0,
+  "Unique": 40,
+  "Elapsed": "4s",
+  "Done": false
 }
 ```
 
 ### `GET /api/log`
 
-Returns the most recent 500 syscall events as a JSON array (newest last).
+Returns the most recent raw events (up to 500 entries) as a JSON array. Each
+entry contains `Time`, `PID`, `Name`, `Args`, `RetVal`, and `Error`.
 
-### `WebSocket /ws`
+### `GET /api/categories`
 
-Real-time stream of `SyscallEvent` objects:
+Returns a JSON object mapping category labels (e.g. "I/O") to per-category
+aggregates (`Count`, `Errs`). Useful for building the category summary bar.
 
-```json
-{
-  "pid": 1234,
-  "name": "openat",
-  "args": "AT_FDCWD, \"/etc/ld.so.conf\", O_RDONLY",
-  "ret": "3",
-  "latency_ns": 38200,
-  "error": "",
-  "timestamp": "2026-03-09T12:34:56.789Z"
-}
-```
+### `WebSocket /stream`
+
+Upgrades to a WebSocket and emits a snapshot array of `SyscallStat` objects
+every second (same schema as `GET /api/stats`). If a `wsToken` is configured,
+the connection must be authorized using a `Bearer` token in the `Authorization`
+header or the `token` query parameter.
 
 ### `GET /metrics`
 
-Prometheus text format. Exposes per-syscall counters, error rates, and latency histograms. Compatible with Prometheus Operator `ServiceMonitor`.
+Prometheus exposition format. Exposes per-syscall counters and gauges such as
+`stracectl_syscall_calls_total`, `stracectl_syscall_errors_total` and
+`stracectl_syscalls_per_second`.
 
 ## Web detail page
 
 Navigate to `/syscall/<name>` (or click any row in the dashboard) for:
 
-- 9 stat cards: calls, avg/min/max/P95/P99 latency, total time, errors, error rate
+- Stat cards: calls, avg/min/max/P95/P99 latency, total time, errors, error rate
 - Errno breakdown chart
-- Recent error samples ring buffer (last 50 failures)
-- Full syscall reference panel (~80 well-known Linux syscalls)
+- Recent error samples ring buffer (last failures)
+- Built-in syscall reference panel
