@@ -11,7 +11,9 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -33,26 +35,40 @@ type Server struct {
 	httpSrv  *http.Server
 	registry *prometheus.Registry
 	wsToken  string
+	// routes keeps a list of registered HTTP paths for discovery.
+	routes []routeInfo
+}
+
+type routeInfo struct {
+	Path        string `json:"path"`
+	Method      string `json:"method"`
+	Description string `json:"description,omitempty"`
 }
 
 // New creates a Server listening on addr (e.g. ":8080").
 func New(addr string, agg *aggregator.Aggregator, wsToken string) *Server {
 	reg := prometheus.NewRegistry()
-	s := &Server{agg: agg, registry: reg, mux: http.NewServeMux(), wsToken: wsToken}
+	s := &Server{agg: agg, registry: reg, mux: http.NewServeMux(), wsToken: wsToken, routes: []routeInfo{}}
 
 	s.registerMetrics(reg)
+	s.registerRoute("/", "GET", s.handleDashboard, "Web dashboard")
+	s.registerRoute("/static/dashboard.js", "GET", s.handleDashboardJS, "Dashboard JavaScript")
+	s.registerRoute("/healthz", "GET", s.handleHealthz, "Health check")
+	s.registerRoute("/api", "GET", s.handleAPI, "List available API endpoints")
+	s.registerRoute("/api/", "GET", s.handleAPI, "List available API endpoints (index)")
+	s.registerRoute("/api/status", "GET", s.handleStatus, "Current trace/status information")
+	s.registerRoute("/api/stats", "GET", s.handleStats, "Aggregated syscall statistics")
+	s.registerRoute("/api/log", "GET", s.handleLog, "Recent events log")
+	s.registerRoute("/api/categories", "GET", s.handleCategories, "Category breakdown of syscalls")
+	s.registerRoute("/api/syscall/{name}", "GET", s.handleSyscallStat, "Stats for a single syscall (by name)")
+	s.registerRoute("/syscall/{name}", "GET", s.handleSyscallDetail, "Per-syscall detail page (SPA)")
+	s.registerRoute("/stream", "GET", s.handleStream, "WebSocket stream of live stats")
+	s.registerHandler("/metrics", "GET", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), "Prometheus metrics endpoint")
 
-	s.mux.HandleFunc("/", s.handleDashboard)
-	s.mux.HandleFunc("/static/dashboard.js", s.handleDashboardJS)
-	s.mux.HandleFunc("/healthz", s.handleHealthz)
-	s.mux.HandleFunc("/api/status", s.handleStatus)
-	s.mux.HandleFunc("/api/stats", s.handleStats)
-	s.mux.HandleFunc("/api/log", s.handleLog)
-	s.mux.HandleFunc("/api/categories", s.handleCategories)
-	s.mux.HandleFunc("/api/syscall/{name}", s.handleSyscallStat)
-	s.mux.HandleFunc("/syscall/{name}", s.handleSyscallDetail)
-	s.mux.HandleFunc("/stream", s.handleStream)
-	s.mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	// Debug: print registered routes on startup to help troubleshooting.
+	for _, rt := range s.routes {
+		fmt.Printf("registered route: %s %s\n", rt.Method, rt.Path)
+	}
 
 	s.httpSrv = &http.Server{
 		Addr:              addr,
@@ -62,6 +78,68 @@ func New(addr string, agg *aggregator.Aggregator, wsToken string) *Server {
 		WriteTimeout:      30 * time.Second,
 	}
 	return s
+}
+
+// registerRoute registers a handler and records the path for discovery.
+func (s *Server) registerRoute(path, method string, handler func(http.ResponseWriter, *http.Request), desc string) {
+	s.mux.HandleFunc(path, handler)
+	s.routes = append(s.routes, routeInfo{Path: path, Method: method, Description: desc})
+}
+
+// registerHandler registers an http.Handler and records the path for discovery.
+func (s *Server) registerHandler(path, method string, h http.Handler, desc string) {
+	s.mux.Handle(path, h)
+	s.routes = append(s.routes, routeInfo{Path: path, Method: method, Description: desc})
+}
+
+// handleAPI returns a JSON list of registered API endpoints with pagination.
+func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api" && r.URL.Path != "/api/" {
+		http.NotFound(w, r)
+		return
+	}
+	// parse pagination params
+	page := 1
+	per := 20
+	if p := r.URL.Query().Get("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if pp := r.URL.Query().Get("per_page"); pp != "" {
+		if v, err := strconv.Atoi(pp); err == nil && v > 0 {
+			per = v
+		}
+	}
+
+	total := len(s.routes)
+	start := (page - 1) * per
+	if start > total {
+		start = total
+	}
+	end := start + per
+	if end > total {
+		end = total
+	}
+	var items []routeInfo
+	if start < end {
+		items = s.routes[start:end]
+	} else {
+		items = []routeInfo{}
+	}
+
+	resp := struct {
+		Total   int         `json:"total"`
+		Page    int         `json:"page"`
+		PerPage int         `json:"per_page"`
+		Items   []routeInfo `json:"items"`
+	}{
+		Total:   total,
+		Page:    page,
+		PerPage: per,
+		Items:   items,
+	}
+	writeJSON(w, resp)
 }
 
 // ServeHTTP implements http.Handler so Server can be used with httptest.
