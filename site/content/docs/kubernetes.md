@@ -79,7 +79,7 @@ kubectl port-forward pod/<pod-name> 8080:8080
 | What | Command |
 | ------ | --------- |
 | Live web dashboard | `open http://localhost:8080` |
-| All syscalls (JSON) | `curl localhost:8080/api/syscalls \| jq .` |
+| All syscalls (JSON) | `curl localhost:8080/api/stats \| jq .` |
 | One syscall detail (P95/P99, errno) | `curl localhost:8080/api/syscall/read \| jq .` |
 | Process metadata + global stats | `curl localhost:8080/api/status \| jq .` |
 | Last 500 raw events (JSON) | `curl localhost:8080/api/log \| jq .` |

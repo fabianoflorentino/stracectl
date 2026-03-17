@@ -18,6 +18,59 @@ entry) are listed for each syscall where they exist.
 
 ---
 
+## Limitations
+
+- Not every Linux syscall is covered by the built-in knowledge base; unknown
+	 syscalls are shown with a generic entry.
+- When using the classic `strace` text parser, very complex or non-standard
+	 argument formats can be mis-parsed; prefer the eBPF backend when accurate
+	 structured data and low overhead are required.
+- Latency values measured via `strace -T` include user/kernel scheduling and
+	 may be less precise than kernel-level eBPF timings. Treat `latency_ns` as
+	 indicative rather than absolute unless using the eBPF backend.
+- Timestamps are produced by the server process; when comparing traces across
+	 hosts verify clock sync (NTP) or prefer aggregated metrics.
+- Attaching to processes with `ptrace` may require privileges and can be
+	 restricted by kernel settings (e.g., YAMA ptrace_scope). See the Security
+	 and Kubernetes docs for recommended setups.
+
+## How to interpret results
+
+Use the dashboard and API fields together to triage issues:
+
+- **High error rate (ERR% ≥ 50%)**: a red row indicates functionality is
+	 failing — inspect `recent_errors` and the `error_breakdown` for the syscall
+	 via `/api/syscall/{name}` to find common errno values and samples.
+- **High average latency (AVG ≥ 5 ms)**: a yellow row flags kernel time that
+	 may indicate I/O stalls or contention. Check P95/P99 to see whether the
+	 behaviour is due to outliers or sustained slowness.
+- **Spikes in category percentages**: a sudden shift in the category bar
+	 (e.g., NET or FS) often points to the subsystem responsible for latency or
+	 errors.
+
+Quick API queries for triage:
+
+```bash
+curl localhost:8080/api/stats | jq .            # snapshot of all syscalls
+curl localhost:8080/api/syscall/openat | jq .      # detail + error breakdown
+curl localhost:8080/api/log | jq .                 # last 500 raw events
+```
+
+Common patterns and notes:
+
+- `openat` with many `ENOENT` entries — often the dynamic linker probing
+	 for shared libraries; usually informational.
+- `connect` with ~50% failures — may be Happy Eyeballs (parallel IPv4/IPv6)
+	 behaviour; not necessarily a problem.
+- `ioctl` 100% errors — typically a missing TTY or unsupported operation; the
+	 detail overlay explains common causes.
+
+When in doubt, enable `--debug` (local troubleshooting only) and collect an
+HTML report with `--report` to share a self-contained snapshot of the
+session.
+
+See also: [HTTP API]({{< relref "docs/api.md" >}}) and the [Usage Guide]({{< relref "docs/usage.md" >}}).
+
 ## Categories at a glance
 
 | Category | Label | Syscalls included |
@@ -431,60 +484,6 @@ Example (API / WebSocket payload):
 
 Internally the Go type is `models.SyscallEvent` with fields `PID`, `Name`,
 `Args`, `RetVal`, `Error`, `Latency` (time.Duration) and `Time` (time.Time).
-
-## Limitations
-
-- Not every Linux syscall is covered by the built-in knowledge base; unknown
-	syscalls are shown with a generic entry.
-- When using the classic `strace` text parser, very complex or non-standard
-	argument formats can be mis-parsed; prefer the eBPF backend when accurate
-	structured data and low overhead are required.
-- Latency values measured via `strace -T` include user/kernel scheduling and
-	may be less precise than kernel-level eBPF timings. Treat `latency_ns` as
-	indicative rather than absolute unless using the eBPF backend.
-- Timestamps are produced by the server process; when comparing traces across
-	hosts verify clock sync (NTP) or prefer aggregated metrics.
-- Attaching to processes with `ptrace` may require privileges and can be
-	restricted by kernel settings (e.g., YAMA ptrace_scope). See the Security
-	and Kubernetes docs for recommended setups.
-
-## How to interpret results
-
-Use the dashboard and API fields together to triage issues:
-
-- **High error rate (ERR% ≥ 50%)**: a red row indicates functionality is
-	failing — inspect `recent_errors` and the `error_breakdown` for the syscall
-	via `/api/syscall/{name}` to find common errno values and samples.
-- **High average latency (AVG ≥ 5 ms)**: a yellow row flags kernel time that
-	may indicate I/O stalls or contention. Check P95/P99 to see whether the
-	behaviour is due to outliers or sustained slowness.
-- **Spikes in category percentages**: a sudden shift in the category bar
-	(e.g., NET or FS) often points to the subsystem responsible for latency or
-	errors.
-
-Quick API queries for triage:
-
-```bash
-curl localhost:8080/api/syscalls | jq .            # snapshot of all syscalls
-curl localhost:8080/api/syscall/openat | jq .      # detail + error breakdown
-curl localhost:8080/api/log | jq .                 # last 500 raw events
-```
-
-Common patterns and notes:
-
-- `openat` with many `ENOENT` entries — often the dynamic linker probing
-	for shared libraries; usually informational.
-- `connect` with ~50% failures — may be Happy Eyeballs (parallel IPv4/IPv6)
-	behaviour; not necessarily a problem.
-- `ioctl` 100% errors — typically a missing TTY or unsupported operation; the
-	detail overlay explains common causes.
-
-When in doubt, enable `--debug` (local troubleshooting only) and collect an
-HTML report with `--report` to share a self-contained snapshot of the
-session.
-
-See also: [HTTP API]({{< relref "docs/api.md" >}}) and the [Usage Guide]({{< relref "docs/usage.md" >}}).
-
 
 **Signature:** `epoll_wait(epfd, events, maxevents, timeout) → n_events`  
 **Aliases:** `epoll_pwait`
