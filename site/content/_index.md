@@ -19,6 +19,16 @@ dashboard or HTTP sidecar.
 	<a href="{{< relref "docs/_index.md" >}}" class="btn">Read the docs</a>
 </p>
 
+<div style="margin-top:1rem;padding:14px;border-radius:8px;background:linear-gradient(180deg,#0f1724,#0b1220);border:1px solid #1f2a36;">
+	<h3 style="margin:0 0 6px 0;color:#9fe6ff">HTTP Sidecar & API</h3>
+	<p style="margin:0 0 10px 0;color:#b9c6d3;max-width:60ch">Run `stracectl` in sidecar mode to expose a lightweight HTTP+WebSocket API and Prometheus metrics. The dashboard includes an interactive API explorer and live WebSocket stream.</p>
+	<div style="display:flex;gap:8px;align-items:center">
+		<a href="{{< relref "docs/api.md" >}}" class="btn btn-primary">API Reference</a>
+		<a href="/api" class="btn" target="_blank" rel="noopener noreferrer">Open /api (live)</a>
+		<pre style="margin-left:auto;background:#071019;color:#a8d0e6;padding:8px;border-radius:6px;font-family:monospace;">curl -s 'http://localhost:8080/api' | jq</pre>
+	</div>
+</div>
+
 ### Quickstart
 
 Run the included binary for a quick look at the TUI:
