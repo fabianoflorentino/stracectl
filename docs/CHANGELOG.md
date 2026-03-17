@@ -1,0 +1,13 @@
+# Changelog
+
+Release notes for `stracectl` are published on GitHub Releases. We use
+GitHub Releases to publish binary artifacts, Docker images, and short
+release notes describing notable changes.
+
+See the full list of releases on GitHub:
+
+[stracectl Releases](https://github.com/fabianoflorentino/stracectl/releases)
+
+If you maintain this repository and are preparing a release, prefer creating
+the release through GitHub (Draft a new release, attach binaries if needed,
+and provide a concise summary of user-facing changes).
