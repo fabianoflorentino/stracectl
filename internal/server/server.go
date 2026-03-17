@@ -51,19 +51,19 @@ func New(addr string, agg *aggregator.Aggregator, wsToken string) *Server {
 	s := &Server{agg: agg, registry: reg, mux: http.NewServeMux(), wsToken: wsToken, routes: []routeInfo{}}
 
 	s.registerMetrics(reg)
-	s.registerRoute("/", "GET", s.handleDashboard, "Web dashboard")
-	s.registerRoute("/static/dashboard.js", "GET", s.handleDashboardJS, "Dashboard JavaScript")
-	s.registerRoute("/healthz", "GET", s.handleHealthz, "Health check")
-	s.registerRoute("/api", "GET", s.handleAPI, "List available API endpoints")
-	s.registerRoute("/api/", "GET", s.handleAPI, "List available API endpoints (index)")
-	s.registerRoute("/api/status", "GET", s.handleStatus, "Current trace/status information")
-	s.registerRoute("/api/stats", "GET", s.handleStats, "Aggregated syscall statistics")
-	s.registerRoute("/api/log", "GET", s.handleLog, "Recent events log")
-	s.registerRoute("/api/categories", "GET", s.handleCategories, "Category breakdown of syscalls")
-	s.registerRoute("/api/syscall/{name}", "GET", s.handleSyscallStat, "Stats for a single syscall (by name)")
-	s.registerRoute("/syscall/{name}", "GET", s.handleSyscallDetail, "Per-syscall detail page (SPA)")
-	s.registerRoute("/stream", "GET", s.handleStream, "WebSocket stream of live stats")
-	s.registerHandler("/metrics", "GET", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), "Prometheus metrics endpoint")
+	s.registerRoute("/", s.handleDashboard, "Web dashboard")
+	s.registerRoute("/static/dashboard.js", s.handleDashboardJS, "Dashboard JavaScript")
+	s.registerRoute("/healthz", s.handleHealthz, "Health check")
+	s.registerRoute("/api", s.handleAPI, "List available API endpoints")
+	s.registerRoute("/api/", s.handleAPI, "List available API endpoints (index)")
+	s.registerRoute("/api/status", s.handleStatus, "Current trace/status information")
+	s.registerRoute("/api/stats", s.handleStats, "Aggregated syscall statistics")
+	s.registerRoute("/api/log", s.handleLog, "Recent events log")
+	s.registerRoute("/api/categories", s.handleCategories, "Category breakdown of syscalls")
+	s.registerRoute("/api/syscall/{name}", s.handleSyscallStat, "Stats for a single syscall (by name)")
+	s.registerRoute("/syscall/{name}", s.handleSyscallDetail, "Per-syscall detail page (SPA)")
+	s.registerRoute("/stream", s.handleStream, "WebSocket stream of live stats")
+	s.registerHandler("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), "Prometheus metrics endpoint")
 
 	// Debug: print registered routes on startup to help troubleshooting.
 	for _, rt := range s.routes {
@@ -81,15 +81,15 @@ func New(addr string, agg *aggregator.Aggregator, wsToken string) *Server {
 }
 
 // registerRoute registers a handler and records the path for discovery.
-func (s *Server) registerRoute(path, method string, handler func(http.ResponseWriter, *http.Request), desc string) {
+func (s *Server) registerRoute(path string, handler func(http.ResponseWriter, *http.Request), desc string) {
 	s.mux.HandleFunc(path, handler)
-	s.routes = append(s.routes, routeInfo{Path: path, Method: method, Description: desc})
+	s.routes = append(s.routes, routeInfo{Path: path, Method: "GET", Description: desc})
 }
 
 // registerHandler registers an http.Handler and records the path for discovery.
-func (s *Server) registerHandler(path, method string, h http.Handler, desc string) {
+func (s *Server) registerHandler(path string, h http.Handler, desc string) {
 	s.mux.Handle(path, h)
-	s.routes = append(s.routes, routeInfo{Path: path, Method: method, Description: desc})
+	s.routes = append(s.routes, routeInfo{Path: path, Method: "GET", Description: desc})
 }
 
 // handleAPI returns a JSON list of registered API endpoints with pagination.
