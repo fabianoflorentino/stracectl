@@ -11,6 +11,8 @@ theme = "stracectl"
   tagline = "Modern strace. Real-time TUI. Kubernetes-ready."
   subtitle = "Aggregate syscalls live — counts, latencies, errors, anomalies — in an interactive dashboard or HTTP sidecar."
   author  = "Fabiano Florentino"
+  license = "Apache License 2.0"
+  license_url = "https://www.apache.org/licenses/LICENSE-2.0"
 
 [menu]
   [[menu.main]]
