@@ -7,7 +7,11 @@ function switchTab(name) {
   document.getElementById('log-panel').style.display = name === 'log' ? 'block' : 'none';
   document.getElementById('tab-stats').classList.toggle('active', name === 'stats');
   document.getElementById('tab-log').classList.toggle('active', name === 'log');
+  document.getElementById('api-panel').style.display = name === 'api' ? '' : 'none';
+  const tabApi = document.getElementById('tab-api');
+  if (tabApi) tabApi.classList.toggle('active', name === 'api');
   if (name === 'log') fetchLog();
+  if (name === 'api') fetchAPIs(1);
 }
 
 function fetchLog() {
@@ -51,6 +55,55 @@ function fetchStatus() {
   }).catch(() => { });
 }
 
+let apiPage = 1;
+let apiPerPage = 20;
+let apiTotal = 0;
+
+function fetchAPIs(page) {
+  page = page || 1;
+  const perSel = document.getElementById('api-per-page');
+  const per = perSel ? parseInt(perSel.value, 10) || 20 : 20;
+  fetch('/api?page=' + page + '&per_page=' + per).then(r => r.json()).then(d => {
+    if (!d) return;
+    apiPage = d.page || page;
+    apiPerPage = d.per_page || per;
+    apiTotal = d.total || 0;
+    renderAPIs(d.items || []);
+    const pageInfo = document.getElementById('api-page-info');
+    const pages = Math.max(1, Math.ceil(apiTotal / apiPerPage));
+    if (pageInfo) pageInfo.textContent = 'Page ' + apiPage + ' of ' + pages + ' (' + apiTotal + ' total)';
+    const prev = document.getElementById('api-prev');
+    const next = document.getElementById('api-next');
+    if (prev) prev.disabled = apiPage <= 1;
+    if (next) next.disabled = apiPage >= pages;
+  }).catch(() => { });
+}
+
+function renderAPIs(items) {
+  const container = document.getElementById('api-list');
+  if (!container) return;
+  container.innerHTML = items.map(i => {
+    const method = escapeHtml(i.method || 'GET');
+    const path = escapeHtml(i.path || '/');
+    const desc = i.description ? '<div class="api-desc" style="color:#8b949e;margin-top:4px">' + escapeHtml(i.description) + '</div>' : '';
+    return '<div class="api-item" style="padding:6px 8px;border-bottom:1px solid #161b22">'
+      + '<a href="' + path + '" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:block;color:inherit">'
+      + '<span style="color:#79c0ff;font-weight:700;margin-right:8px">' + method + '</span>'
+      + '<span style="color:#e6edf3">' + path + '</span>'
+      + desc
+      + '</a>'
+      + '</div>';
+  }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const prev = document.getElementById('api-prev');
+  const next = document.getElementById('api-next');
+  const per = document.getElementById('api-per-page');
+  if (prev) prev.addEventListener('click', () => { if (apiPage > 1) fetchAPIs(apiPage - 1); });
+  if (next) next.addEventListener('click', () => { const pages = Math.max(1, Math.ceil(apiTotal / apiPerPage)); if (apiPage < pages) fetchAPIs(apiPage + 1); });
+  if (per) per.addEventListener('change', () => { fetchAPIs(1); });
+});
 function alertExplanation(name) {
   const m = {
     ioctl: 'terminal control failed \u2014 process likely has no TTY (running under sudo or piped)',
