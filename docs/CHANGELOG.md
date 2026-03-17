@@ -11,3 +11,7 @@ See the full list of releases on GitHub:
 If you maintain this repository and are preparing a release, prefer creating
 the release through GitHub (Draft a new release, attach binaries if needed,
 and provide a concise summary of user-facing changes).
+
+## Releases
+
+[v1.0.87](.changes/v1.0.87_release_notes.md)
