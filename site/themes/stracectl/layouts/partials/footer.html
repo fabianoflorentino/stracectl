@@ -3,7 +3,13 @@
     <div class="footer-brand">
       <span class="logo-bracket">&gt;_</span><span class="logo-text">stracectl</span>
       <p>A modern strace with real-time TUI and Kubernetes sidecar mode.</p>
-      <p class="footer-license">MIT License — © {{ now.Format "2006" }} {{ .Site.Params.author }}</p>
+      <p class="footer-license">
+        {{ if .Site.Params.license_url }}
+          <a href="{{ .Site.Params.license_url }}" target="_blank" rel="noopener noreferrer">{{ .Site.Params.license }}</a> — © {{ now.Format "2006" }} {{ .Site.Params.author }}
+        {{ else }}
+          {{ .Site.Params.license | default "Apache License 2.0" }} — © {{ now.Format "2006" }} {{ .Site.Params.author }}
+        {{ end }}
+      </p>
     </div>
     <div class="footer-links">
       <div class="footer-col">
