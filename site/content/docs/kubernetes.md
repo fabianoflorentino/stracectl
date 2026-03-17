@@ -161,7 +161,7 @@ Key values (`values.yaml`):
 | Endpoint | Method | Description |
 | ---------- | -------- | ------------- |
 | `/` | GET | Live HTML dashboard |
-| `/api/syscalls` | GET | JSON snapshot of all aggregated syscalls |
+| `/api/stats` | GET | JSON snapshot of all aggregated syscalls |
 | `/api/syscall/{name}` | GET | JSON detail for one syscall (P95/P99, errno breakdown, recent error samples) |
 | `/api/status` | GET | Process metadata + global stats |
 | `/api/log` | GET | Most recent 500 raw syscall events |
