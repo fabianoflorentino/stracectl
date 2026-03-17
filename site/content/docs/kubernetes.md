@@ -83,7 +83,7 @@ kubectl port-forward pod/<pod-name> 8080:8080
 | One syscall detail (P95/P99, errno) | `curl localhost:8080/api/syscall/read \| jq .` |
 | Process metadata + global stats | `curl localhost:8080/api/status \| jq .` |
 | Last 500 raw events (JSON) | `curl localhost:8080/api/log \| jq .` |
-| WebSocket live stream | `wscat -c ws://localhost:8080/ws` |
+| WebSocket live stream | `wscat -c ws://localhost:8080/stream` |
 | Prometheus metrics | `curl localhost:8080/metrics` |
 
 ## Annotated sidecar spec
@@ -165,7 +165,7 @@ Key values (`values.yaml`):
 | `/api/syscall/{name}` | GET | JSON detail for one syscall (P95/P99, errno breakdown, recent error samples) |
 | `/api/status` | GET | Process metadata + global stats |
 | `/api/log` | GET | Most recent 500 raw syscall events |
-| `/ws` | WS | WebSocket live feed (`SyscallEvent` JSON) |
+| `/stream` | WS | WebSocket live feed (`SyscallEvent` JSON) |
 | `/metrics` | GET | Prometheus metrics |
 
 ## Prometheus + Grafana

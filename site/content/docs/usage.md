@@ -68,7 +68,7 @@ stracectl stats --report report.html trace.log
 ```
 ## Local usage and security
 
-For short, ephemeral troubleshooting sessions prefer running the HTTP sidecar bound to `127.0.0.1` or using `kubectl port-forward` when inspecting a sidecar in a cluster. This minimizes accidental exposure of the WebSocket (`/ws`), JSON API, and `/metrics`.
+For short, ephemeral troubleshooting sessions prefer running the HTTP sidecar bound to `127.0.0.1` or using `kubectl port-forward` when inspecting a sidecar in a cluster. This minimizes accidental exposure of the WebSocket (`/stream`), JSON API, and `/metrics`.
 
 - Bind to localhost:
 
