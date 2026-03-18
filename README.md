@@ -367,21 +367,17 @@ stracectl/
         └── syscall_help.go  # syscall descriptions and errno explanations
 ```
 
-### Architecture
+### Architectural flows
 
-```mermaid
-flowchart TD
-    A["strace (subprocess)\nstderr — one line per syscall"]
-    B["parser.Parse()"]
-    C["aggregator.Add()\ndedicated goroutine · mutex-protected"]
-    D["ui.Run()\nBubbleTea · redraws every 200 ms"]
-    E["server.Start()\nHTTP API · JSON · WebSocket · Prometheus"]
+Detailed flow diagrams for the main project pipelines are available in the `docs/` directory. Each diagram focuses on a single flow and explains how components interact at runtime.
 
-    A -->|"chan SyscallEvent (buffered 4096)"| B
-    B --> C
-    C -->|"default mode"| D
-    C -->|"--serve flag"| E
-```
+- Live tracing pipeline: events from eBPF or the `strace` subprocess → parser → aggregator → TUI / sidecar / report. See [docs/flow_live_tracing.md](docs/flow_live_tracing.md).
+- Backend selection (eBPF vs strace): decision logic used by `tracer.Select()` and `ebpfAvailable()`, including the `--force-ebpf` behavior. See [docs/flow_ebpf_selection.md](docs/flow_ebpf_selection.md).
+- Post-mortem / Replay: how `stracectl stats` parses a `strace -T -o` file and feeds the same aggregation/UI/server/report pipeline. See [docs/flow_replay.md](docs/flow_replay.md).
+- Sidecar / Server mode: HTTP dashboard, `/stream` WebSocket (optional token), JSON API endpoints, and Prometheus metrics. See [docs/flow_sidecar_server.md](docs/flow_sidecar_server.md).
+- Attach and discovery: `stracectl attach` and `discover.LowestPIDInContainer()` flow, and how the tracer attaches to a target PID. See [docs/flow_attach_discover.md](docs/flow_attach_discover.md).
+
+If you want a single consolidated diagram (SVG/PNG) for README display, I can generate a simplified image version of any of the above.
 
 ## Token authentication for the WebSocket (`/stream`)
 
