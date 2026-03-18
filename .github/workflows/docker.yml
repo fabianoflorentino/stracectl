@@ -50,10 +50,8 @@ on:
         required: true
       DOCKERHUB_TOKEN:
         required: true
-      GITHUB_TOKEN:
-        required: false
       GIT_HUB_TOKEN:
-        required: false
+        required: true
 
 permissions:
   contents: write
@@ -240,8 +238,6 @@ jobs:
           tag_name: ${{ needs.tag.outputs.tag_name }}
           name: ${{ needs.tag.outputs.tag_name }}
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download eBPF build artifact
         uses: actions/download-artifact@v4
@@ -400,8 +396,7 @@ jobs:
           tag_name: ${{ steps.create_tag.outputs.tag_name }}
           name: ${{ steps.create_tag.outputs.tag_name }}
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # relies on runtime GITHUB_TOKEN set earlier
 
       - name: Download eBPF build artifact
         uses: actions/download-artifact@v4
