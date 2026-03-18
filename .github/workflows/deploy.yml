@@ -20,6 +20,7 @@ on:
       - 'scripts/**'
       - 'site/**'
       - 'Makefile'
+      - '.*/**'
   pull_request:
     branches: [main]
     paths-ignore:
@@ -29,6 +30,7 @@ on:
       - 'scripts/**'
       - 'site/**'
       - 'Makefile'
+      - '.*/**'
 
 permissions:
   contents: read

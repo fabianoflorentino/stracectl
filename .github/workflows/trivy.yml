@@ -27,6 +27,7 @@ on:
       - 'scripts/**'
       - 'site/**'
       - 'Makefile'
+      - '.*/**'
 
 jobs:
   scan:
