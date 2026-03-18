@@ -33,6 +33,18 @@ on:
       - 'site/**'
       - 'Makefile'
       - '.*/**'
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Dry-run (skip integration tests)"
+        required: false
+        type: boolean
+        default: false
+      run_integration:
+        description: "Run integration job (self-hosted)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   bpf:
@@ -86,6 +98,7 @@ jobs:
     # This job requires a self-hosted runner with the label `ebpf`.
     # See README.md and site docs (site/content/docs/self-hosted-runner.md)
     # for provisioning instructions and required packages/privileges.
+    if: ${{ inputs.run_integration }}
     runs-on: [self-hosted, linux, ebpf]
     needs: bpf
 

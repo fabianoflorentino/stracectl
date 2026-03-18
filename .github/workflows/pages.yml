@@ -16,6 +16,13 @@ on:
         options:
           - "false"
           - "true"
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Dry-run (build site without deploying)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -63,7 +70,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.dry_run != 'true' }}
+    if: ${{ inputs.dry_run != true }}
     environment:
       name: github
       url: ${{ steps.deployment.outputs.page_url }}

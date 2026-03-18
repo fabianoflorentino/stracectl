@@ -31,6 +31,13 @@ on:
       - 'site/**'
       - 'Makefile'
       - '.*/**'
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Dry-run (skip publishing actions)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read

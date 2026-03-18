@@ -28,12 +28,19 @@ on:
       - 'site/**'
       - 'Makefile'
       - '.*/**'
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Dry-run (skip scanning)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   scan:
     name: Trivy vulnerability scan
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.dry_run != 'true' }}
+    if: ${{ inputs.dry_run != true }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
