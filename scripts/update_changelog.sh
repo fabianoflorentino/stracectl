@@ -93,11 +93,11 @@ fi
 if [[ ${NO_SITE} -eq 0 ]]; then
   if [[ -f site/content/docs/changelog.md ]]; then
     if [[ -n "${REPO}" ]]; then
-      GHURL="https://github.com/${REPO}/releases/tag/${TAG}"
+      GHURL="https://github.com/${REPO}/blob/main/.changes/${TAG}_release_notes.md"
     else
       GHURL="https://github.com/${TAG}"
     fi
-    awk -v tag="${TAG}" -v ghurl="${GHURL}" 'BEGIN{replaced=0} { if(!replaced && $0 ~ /^\[v[^\]]+\]\(/){ print "[" tag "](" ghurl ")"; replaced=1 } else print } END{ if(!replaced){ print ""; print "[" tag "](" ghurl ")" } }' site/content/docs/changelog.md > site/content/docs/changelog.md.tmp && mv site/content/docs/changelog.md.tmp site/content/docs/changelog.md
+    awk -v tag="${TAG}" -v ghurl="${GHURL}" 'BEGIN{replaced=0} { if(!replaced && $0 ~ /^\[v[^\]]+\]\(/){ print "* [" tag "](" ghurl ")"; replaced=1 } else print } END{ if(!replaced){ print ""; print "* [" tag "](" ghurl ")" } }' site/content/docs/changelog.md > site/content/docs/changelog.md.tmp && mv site/content/docs/changelog.md.tmp site/content/docs/changelog.md
     echo "Updated site/content/docs/changelog.md"
   else
     echo "site/content/docs/changelog.md not found, skipping"
