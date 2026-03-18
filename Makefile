@@ -268,8 +268,10 @@ info: ## Show development environment information
 
 update-changelog: ## Update changelogs for a version (Usage: make update-changelog VERSION=vX.Y.Z [NOTES="..."] [NOTES_FILE=path])
 	@test -n "$(VERSION)" || (echo "Provide VERSION=vX.Y.Z"; exit 1)
-	@args="--version $(VERSION)"; \
-	if [ -n "$(NOTES_FILE)" ]; then args="$$args --notes-file '$(NOTES_FILE)'"; \
-	elif [ -n "$(NOTES)" ]; then args="$$args --notes '$(NOTES)'"; fi; \
-	bash scripts/update_changelog.sh $$args; \
-	echo "Updated changelogs for $(VERSION)"
+	@if [ -n "$(NOTES_FILE)" ]; then \
+		bash scripts/update_changelog.sh --version "$(VERSION)" --notes-file "$(NOTES_FILE)"; \
+	elif [ -n "$(NOTES)" ]; then \
+		bash scripts/update_changelog.sh --version "$(VERSION)" --notes "$(NOTES)"; \
+	else \
+		bash scripts/update_changelog.sh --version "$(VERSION)"; \
+	fi && echo "Updated changelogs for $(VERSION)"
