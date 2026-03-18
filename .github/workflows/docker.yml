@@ -98,6 +98,14 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Check Docker Hub secrets
+        run: |
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "Missing DOCKERHUB_USERNAME or DOCKERHUB_TOKEN secrets."
+            echo "Set repository secrets and retry."
+            exit 1
+          fi
+
       - name: Log in to Docker Hub
         if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
         uses: docker/login-action@v4
@@ -305,6 +313,15 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Check Docker Hub secrets
+        if: ${{ github.event_name == 'workflow_call' || inputs.skip_build == true }}
+        run: |
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "Missing DOCKERHUB_USERNAME or DOCKERHUB_TOKEN secrets for called workflow."
+            echo "Set repository secrets or pass them from the caller."
+            exit 1
+          fi
 
       - name: Log in to Docker Hub
         if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
