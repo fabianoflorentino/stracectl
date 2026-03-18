@@ -76,6 +76,11 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       dry_run: ${{ github.event.inputs.dry_run == 'true' }}
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GIT_HUB_TOKEN: ${{ secrets.GIT_HUB_TOKEN }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   docker_flow:
     name: Docker pipeline (reusable)
@@ -84,6 +89,11 @@ jobs:
     with:
       dry_run: ${{ github.event.inputs.dry_run == 'true' }}
       skip_build: true
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GIT_HUB_TOKEN: ${{ secrets.GIT_HUB_TOKEN }}
 
   pages_build_and_deploy:
     name: Site Build & Deploy
@@ -93,4 +103,4 @@ jobs:
     with:
       dry_run: ${{ github.event.inputs.dry_run == 'true' }}
 
-  # Optional: keep cleanup as a separate, manual workflow
+    # Optional: keep cleanup as a separate, manual workflow

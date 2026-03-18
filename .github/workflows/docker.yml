@@ -45,6 +45,15 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
+      GITHUB_TOKEN:
+        required: false
+      GIT_HUB_TOKEN:
+        required: false
 
 permissions:
   contents: write
