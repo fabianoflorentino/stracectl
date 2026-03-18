@@ -19,3 +19,4 @@ and provide a concise summary of user-facing changes).
 ## Releases
 
 [v1.0.87](https://github.com/fabianoflorentino/stracectl/releases/tag/v1.0.87)
+[v1.0.93](https://github.com/fabianoflorentino/stracectl/releases/tag/v1.0.93)
