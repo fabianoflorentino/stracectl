@@ -33,26 +33,6 @@ on:
       - 'Makefile'
       - '.*/**'
 
-  workflow_call:
-    inputs:
-      dry_run:
-        description: "Dry-run (skip publishing actions)"
-        required: false
-        type: boolean
-        default: false
-      skip_build:
-        description: "When true, assume caller provided build artifacts (ci-cd orchestration)"
-        required: false
-        type: boolean
-        default: false
-    secrets:
-      DOCKERHUB_USERNAME:
-        required: true
-      DOCKERHUB_TOKEN:
-        required: true
-      GIT_HUB_TOKEN:
-        required: true
-
 permissions:
   contents: write
   packages: write
@@ -65,12 +45,11 @@ jobs:
     with:
       build_ebpf: true
       run_tests: true
-      dry_run: ${{ inputs.dry_run == true || github.event.inputs.dry_run == 'true' }}
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
 
   # ── Build & push Docker image to Docker Hub ────────────────────────────────
   build_and_push:
     name: Build and Push to Docker Hub
-    if: ${{ github.event_name != 'workflow_call' && inputs.skip_build != true }}
     environment: DOCKERHUB
     needs: build
     runs-on: ubuntu-latest
@@ -96,16 +75,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Check Docker Hub secrets
-        run: |
-          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-            echo "Missing DOCKERHUB_USERNAME or DOCKERHUB_TOKEN secrets."
-            echo "Set repository secrets and retry."
-            exit 1
-          fi
-
       - name: Log in to Docker Hub
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -124,7 +95,7 @@ jobs:
             -f ./Dockerfile .
 
       - name: Push Docker images to Docker Hub
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           docker push ${{ github.repository }}:v1.0.${{ github.run_number }}
           docker push ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf
@@ -145,10 +116,10 @@ jobs:
   # ── Docker Scout CVE scan ────────────────────────────────────────────────────
   docker_scout:
     name: Docker Scout CVE Scan
-    if: ${{ github.event_name != 'workflow_call' && inputs.skip_build != true && !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
     environment: DOCKERHUB
     needs: build_and_push
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.dry_run != 'true' }}
 
     steps:
       - name: Log in to Docker Hub
@@ -179,7 +150,7 @@ jobs:
     environment: GITHUB
     needs: [build_and_push, docker_scout]
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_call' && inputs.skip_build != true && !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
+    if: ${{ github.event.inputs.dry_run != 'true' }}
 
     steps:
       - name: Checkout repository
@@ -225,7 +196,7 @@ jobs:
     environment: GITHUB
     needs: [build_and_push, docker_scout, tag]
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_call' && inputs.skip_build != true && !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
+    if: ${{ github.event.inputs.dry_run != 'true' }}
 
     steps:
       - name: Checkout repository
@@ -238,6 +209,8 @@ jobs:
           tag_name: ${{ needs.tag.outputs.tag_name }}
           name: ${{ needs.tag.outputs.tag_name }}
           generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download eBPF build artifact
         uses: actions/download-artifact@v4
@@ -271,7 +244,7 @@ jobs:
     name: pkg.go.dev
     needs: [build_and_push, docker_scout, tag, release]
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_call' && inputs.skip_build != true && !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
+    if: ${{ github.event.inputs.dry_run != 'true' }}
 
     steps:
       - name: Set up Go
@@ -283,148 +256,4 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Update pkg.go.dev
-        run: GOPROXY=https://proxy.golang.org go list -m github.com/fabianoflorentino/stracectl@v1.0.${{ github.run_number }}
-
-  # ── Caller flow: single job for when this workflow is invoked via `workflow_call` ──
-  caller_flow:
-    name: Docker flow (called)
-    if: ${{ github.event_name == 'workflow_call' || inputs.skip_build == true }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Ensure GITHUB_TOKEN env
-        run: |
-          if [ -n "${{ secrets.GIT_HUB_TOKEN }}" ]; then
-            echo "Using secrets.GIT_HUB_TOKEN as GITHUB_TOKEN"
-            echo "GITHUB_TOKEN=${{ secrets.GIT_HUB_TOKEN }}" >> $GITHUB_ENV
-          else
-            echo "Using runner-provided GITHUB_TOKEN (secrets.GITHUB_TOKEN)"
-            echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
-          fi
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Check Docker Hub secrets
-        if: ${{ github.event_name == 'workflow_call' || inputs.skip_build == true }}
-        run: |
-          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-            echo "Missing DOCKERHUB_USERNAME or DOCKERHUB_TOKEN secrets for called workflow."
-            echo "Set repository secrets or pass them from the caller."
-            exit 1
-          fi
-
-      - name: Log in to Docker Hub
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build Docker image
-        run: |
-          docker build --no-cache --rm --target production \
-            -t ${{ github.repository }}:v1.0.${{ github.run_number }} \
-            -f ./Dockerfile .
-          docker build --no-cache --rm --target production-ebpf \
-            -t ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf \
-            -f ./Dockerfile .
-
-      - name: Push Docker images to Docker Hub
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
-        run: |
-          docker push ${{ github.repository }}:v1.0.${{ github.run_number }}
-          docker push ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf
-
-      - name: Download standard binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: stracectl-linux-amd64
-          path: .
-
-      - name: Download eBPF artifact (if present)
-        uses: actions/download-artifact@v4
-        with:
-          name: stracectl-linux-amd64-ebpf
-          path: .
-        continue-on-error: true
-
-      - name: Docker Scout CVE scan
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
-        uses: docker/scout-action@v1
-        with:
-          command: cves
-          image: ${{ github.repository }}:v1.0.${{ github.run_number }}
-          only-severities: critical,high
-          exit-code: true
-
-      - name: Docker Scout CVE scan (eBPF image)
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
-        uses: docker/scout-action@v1
-        with:
-          command: cves
-          image: ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf
-          only-severities: critical,high
-          exit-code: true
-
-      - name: Create and push tag
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
-        id: create_tag
-        run: |
-          TAG_NAME="v1.0.${{ github.run_number }}"
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
-
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-
-          git tag $TAG_NAME
-          git push origin $TAG_NAME
-
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.create_tag.outputs.tag_name }}
-          name: ${{ steps.create_tag.outputs.tag_name }}
-          generate_release_notes: true
-        # relies on runtime GITHUB_TOKEN set earlier
-
-      - name: Download eBPF build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: stracectl-linux-amd64-ebpf
-          path: .
-        continue-on-error: true
-
-      - name: Check for eBPF artifact
-        id: check_ebpf
-        run: |
-          if [ -f ./stracectl-ebpf ]; then
-            echo "found=true" >> $GITHUB_OUTPUT
-          else
-            echo "found=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Upload eBPF asset to Release
-        if: ${{ steps.check_ebpf.outputs.found == 'true' }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./stracectl-ebpf
-          asset_name: stracectl-linux-amd64-ebpf
-          asset_content_type: application/octet-stream
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update pkg.go.dev
-        if: ${{ !(inputs.dry_run == true) && github.event.inputs.dry_run != 'true' }}
         run: GOPROXY=https://proxy.golang.org go list -m github.com/fabianoflorentino/stracectl@v1.0.${{ github.run_number }}

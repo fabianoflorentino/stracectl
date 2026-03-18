@@ -31,20 +31,6 @@ on:
       - 'site/**'
       - 'Makefile'
       - '.*/**'
-  workflow_call:
-    inputs:
-      dry_run:
-        description: "Dry-run (skip publishing actions)"
-        required: false
-        type: boolean
-        default: false
-    secrets:
-      GIT_HUB_TOKEN:
-        required: true
-      DOCKERHUB_USERNAME:
-        required: true
-      DOCKERHUB_TOKEN:
-        required: true
 
 permissions:
   contents: read
