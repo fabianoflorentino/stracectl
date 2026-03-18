@@ -17,6 +17,7 @@ Thumbs.db
 
 # Editor
 .idea/
+
 # Editor — track project settings but ignore personal preferences
 .vscode/*
 !.vscode/settings.json
@@ -30,3 +31,4 @@ Thumbs.db
 **.json
 bin/
 internal/tracer/*.o
+.venv
