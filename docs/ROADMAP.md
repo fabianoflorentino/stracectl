@@ -1,171 +1,113 @@
 # stracectl — Implementation Roadmap
 
-This document tracks planned features, known technical debt, and the implementation notes needed to address each item.
+This document describes the project roadmap, prioritized work items, and concrete implementation notes. It highlights features that should be supported consistently across both tracing backends (the classic `strace` subprocess and the eBPF tracer) and lists short-, mid-, and long-term priorities.
 
 ---
 
-## Pending features
+## Cross-backend compatibility: strace-like options we will support
 
-### Per-file view
+Goal: provide a unified CLI and consistent operator experience regardless of backend. When a feature cannot be implemented identically on both backends we will provide a best-effort behavior and document the difference.
 
-**Goal:** show which file paths are opened most often.
+- **Follow forks (`-f`)** — follow child processes and include their syscalls.
+  - strace: pass `-f` to the subprocess.
+  - eBPF: attach global tracepoints and filter by PGID (or multi-entry map); support `--per-pid` mode to group by PID.
+  - Complexity: low → medium.
 
-**Overview:** identify hot file paths from `open`/`openat` syscalls and surface
-them in the TUI and sidecar API to help diagnose excessive I/O, repeated
-ENOENTs, and misconfiguration.
+- **Filter syscalls (`-e trace=` / groups)** — allow limiting traced syscalls or groups (file, net, process, memory).
+  - strace: pass-through `-e trace=...`.
+  - eBPF: implement either a BPF map of enabled syscalls or apply a fast userspace filter after event emission.
+  - Complexity: medium.
 
-**Implementation plan**
+- **Path filtering (`-P path` / `--trace-path`)** — limit events to syscalls touching a path substring.
+  - strace: pass-through `-P`.
+  - eBPF: prefer matching on `Path` captured in the BPF event or filter in userspace; support writing path filters to a BPF map for kernel-side filtering later.
+  - Complexity: medium.
 
-- Files to change:
-  - `internal/aggregator/aggregator.go` — add `fileStats` storage and counting logic
-  - `internal/server/server.go` — register `GET /api/files` and implement handler
-  - `internal/ui/tui.go` — add files overlay toggled with `f`
-  - `internal/aggregator/aggregator_test.go` — unit tests for parsing and counting
-  - (optional) `internal/parser/parser.go` — move helper if desired
+- **String limit (`-s`)** — control truncation of printed strings (read/write dumps).
+  - strace: pass `-s N` to subprocess.
+  - eBPF: truncate in userspace or recompile BPF with a larger buffer (requires BPF/C change).
+  - Complexity: low.
 
-- Aggregator:
-  - add `fileStats map[string]int64`, constants `fileStatsCap = 10000` and `maxPathLen = 1024`
-  - initialize `fileStats` in `New()`
-  - in `Add()`, for events `open` / `openat`, call `extractPathFromArgs(name,args)` to get the path
-  - increment `fileStats[path]`, respecting the cardinality cap and truncation
-  - expose `TopFiles(n int) []FileStat` returning sorted results
+- **Timestamps & precision (`-t`, `-r`, `-tt`)** — consistent timestamping across backends.
+  - strace: parse timestamp prefixes when present.
+  - eBPF: use `EnterNs`/`ExitNs` from BPF events and convert to wall-clock or relative time in userspace.
+  - Complexity: medium.
 
-- Path extraction helper:
-  - heuristic: prefer first quoted string; fallback to splitting by commas and selecting the right argument for `open` (first) and `openat` (second)
-  - attempt `strconv.Unquote` to handle escaped sequences; return empty string when no plausible path found
+- **FD decoding (`-y` / `--decode-fds`)** — translate file descriptors into paths where possible.
+  - strace: pass `-y` or implement userspace map of `/proc/<pid>/fd` lookups.
+  - eBPF: prefer `Path` captured by BPF for common operations; fallback to resolving `/proc/<pid>/fd/<n>` in userspace.
+  - Complexity: medium.
 
-- Server API:
-  - register `s.registerRoute("/api/files", s.handleFiles, "Top opened files")`
-  - handler supports optional `?limit=N` query param and returns JSON list of `{path,count}`
+- **Status filter (`--status=successful|failed`)** — show only errors or only successes.
+  - Backend-agnostic: filter by `SyscallEvent.Error` in userspace.
+  - Complexity: low.
 
-- TUI:
-  - add `filesOverlay` state toggled by `f`, render `agg.TopFiles(limit)` in an overlay, support scrolling and truncation with tooltip
+- **Save parsed events (`--save-events` → NDJSON/JSON)** — write parsed events to disk in a structured format for offline analysis.
+  - Supported by both backends: format events as NDJSON and include fields `time`, `pid`, `name`, `args`, `retval`, `error`, `latency`, plus optional `decoded_fds`, `path`, `stack` when available.
+  - Complexity: low.
 
-- Tests:
-  - unit tests for `extractPathFromArgs` covering quoted, escaped, relative and missing args
-  - aggregator unit test to verify counts and caps
-  - optional integration test comparing `stracectl stats` output against a known `strace` capture
+- **Summary (`-c`)** — provide `strace -c`-style summaries (calls/time/errors) via existing `aggregator` / `stats` logic.
+  - Backend-agnostic: reuse `aggregator` to produce the same summary output.
+  - Complexity: low.
 
-- Safety & limits:
-  - cap distinct keys, truncate paths, and avoid dereferencing pointers (no ptrace peeks)
-  - consider sampling or configurable cap for high-cardinality workloads
+Notes:
 
-- User-visible results:
-  - TUI `f` overlay showing most-opened file paths and counts
-  - Sidecar `GET /api/files?limit=20` returning top files as JSON
-
-- Next steps:
-  1. Implement aggregator `fileStats` and `TopFiles()` (low-level).
-  2. Add `/api/files` handler and route registration.
-  3. Add TUI overlay and unit tests.
-  4. (Optional) Extend HTML report to include top files.
-
-**Estimated effort:** Aggregator + API: ~3–6 hours; TUI + tests: +0.5–1 day.
+- Where kernel-side BPF filtering is not yet possible, prefer efficient userspace filtering to avoid resource blowup.
+- For any backend difference the CLI will print a short diagnostic explaining the fallback behavior (e.g., "eBPF: path filtering applied in userspace").
 
 ---
 
-### Per-socket view
+## Roadmap priorities
 
-**Goal:** show active connections, bytes sent, and bytes received.
+### Short-term (next 1–2 weeks)
 
-**Approach:**
+- Add `--save-events <file>` (NDJSON) to `run`, `attach`, and `stats` so both backends can dump parsed events for offline analysis.
+- Expose a small set of unified CLI flags: `--filter-syscalls`, `--trace-path`, `--string-limit`, `--status` and wire them to `strace` (pass-through) and eBPF (userspace/BPF-map where practical).
+- Ensure `-f` (follow forks) works consistently; add `--per-pid` to switch between aggregated and per-pid stats.
+- Add a `--timestamps=relative|absolute|ns` option that controls how timestamps are computed and displayed for both backends.
 
-- Track `connect` / `accept` calls to build a connection table (fd → addr)
-- Accumulate byte counts from `sendto` / `recvfrom` return values
-- Expose via `GET /api/sockets` and a TUI tab toggled with `s`
+### Mid-term (1–3 months)
 
-**Files:** `internal/aggregator/aggregator.go`, `internal/server/server.go`, `internal/ui/tui.go`
+- Implement FD decoding (`--decode-fds`) by resolving `/proc/<pid>/fd` when BPF does not supply a path; add opt-in caching to limit overhead.
+- Implement an efficient BPF map-based syscall whitelist for eBPF so `--filter-syscalls` can be kernel-side when available.
+- Add server endpoints and TUI controls to surface `TopFiles`, `TopSockets`, and the syscall timeline sparkline.
 
----
+### Long-term (3+ months)
 
-### Flamegraph-style syscall timeline
-
-**Goal:** visualise the temporal distribution of syscalls to spot bursts and idle gaps.
-
-**Approach:**
-
-- Buffer `SyscallEvent` timestamps in a fixed-size ring (e.g., last 10 s at 10 ms resolution)
-- Render as a sparkline in the TUI footer
-- Expose raw time-series via `GET /api/timeline`
-
-**Files:** `internal/aggregator/aggregator.go`, `internal/server/server.go`, `internal/ui/tui.go`
+- Optional stack traces per syscall (`--stack-trace`) via BPF stack ids + userspace symbolization (big work and sampling is recommended).
+- Full-featured decode-fds in kernel-space (complex and platform-dependent).
+- Fine-grained tampering/injection support: extremely risky; only if explicitly requested and gated behind strong warnings and a separate unsafe command.
 
 ---
 
-### Process tree view for multi-process tracing (`-f`)
+## Implementation notes & code pointers
 
-**Goal:** group syscall stats by process/thread when tracing with `-f`.
-
-**Approach:**
-
-- Key the aggregator by `(PID, syscall)` instead of just `syscall`
-- Add a `--per-pid` flag to `run` and `attach`
-- TUI shows a collapsible tree: parent PID → children → syscalls
-- API adds `pid` field to each `SyscallStat` entry
-
-**Files:** `internal/aggregator/aggregator.go`, `internal/ui/tui.go`, `internal/server/server.go`, `cmd/attach.go`, `cmd/run.go`
+- CLI wiring: `cmd/run.go`, `cmd/attach.go`, `cmd/stats.go` — add flags and propagate options into tracer selection and tracer configuration.
+- Strace subprocess: [internal/tracer/strace.go](internal/tracer/strace.go) — pass flags to the `strace` command and implement optional tee'ing of raw strace to disk.
+- eBPF tracer: [internal/tracer/ebpf.go](internal/tracer/ebpf.go) — support reading filter maps, `Unfiltered`/`Force` already exist; extend to accept syscall and path filters, and prefer `EnterNs`/`ExitNs` for timestamps.
+- Parser: [internal/parser/parser.go](internal/parser/parser.go) — add parsing of optional timestamp prefixes and support additional decoded fields if `strace` is invoked with `-y` or if eBPF provides `Path`.
+- Models: [internal/models/event.go](internal/models/event.go) — extend `SyscallEvent` with optional fields like `DecodedFDs []string`, `Path string`, `StackTrace []string`, and `TimeSource` metadata.
+- Persistence & reports: `internal/report/report.go`, `internal/server/server.go` — support NDJSON import/export and include `TopFiles`/timeline in HTML reports.
+- Aggregation & UI: `internal/aggregator/*`, `internal/ui/*` — support per-pid aggregation, `TopFiles`, `TopSockets`, timeline ring buffer and TUI overlays.
 
 ---
 
-### HTML report — anomaly section and timeline sparkline
+## Next steps (recommended order)
 
-**Goal:** extend the existing `--report` HTML export with the remaining planned sections.
+1. Implement `--save-events` (NDJSON) and add tests for both the `strace` tracer and `eBPF` tracer event serialization. This is low risk and immediately useful.
+2. Add unified CLI flags (`--filter-syscalls`, `--trace-path`, `--string-limit`, `--status`) and wire them to the `strace` subprocess and to the eBPF tracer via userspace filtering.
+3. Implement timestamp normalization using `EnterNs` on eBPF and timestamp prefixes when parsing raw `strace` output.
+4. Add `--decode-fds` as an opt-in userspace resolver calling `/proc/<pid>/fd` and a basic cache.
+5. Add server API endpoints for top files/sockets and the timeline, and a TUI overlay to expose them (keys: `f` for files, `s` for sockets, timeline in footer).
 
-**Current state:** the report already includes a header, summary bar, category breakdown, and a sortable syscall table. The following sections are not yet implemented.
+---
 
-**Remaining work:**
+## Estimated effort
 
-- **Anomaly section** — list the same alerts that appear in the TUI banner, each with a human-readable explanation
-- **Timeline sparkline** — per-second call rate rendered as an inline SVG path (requires the ring-buffer timeline feature below)
+- Short-term items: small (a few days of focused work).
+- Mid-term items: moderate (1–3 sprints), mostly integration and testing effort.
+- Long-term items: larger engineering projects (symbolization, kernel-side decodes, safe tampering), require design and risk review.
 
-**Files:** `internal/report/report.go`, `internal/report/static/report.html`
+---
 
-## Troubleshooting improvements
-
-This section lists prioritized opportunities to improve the user's ability to diagnose
-and recover from failures across the three operation modes: TUI (interactive),
-Sidecar (HTTP), and Replay / Stats (offline).
-
-### High-priority
-
-- **Diagnose command (`stracectl diagnose`)**: run environment checks (is `strace` in PATH,
-  kernel/eBPF compatibility, current `RLIMIT_MEMLOCK`, capabilities, effective UID) and print
-  human-friendly suggestions plus machine-readable JSON output. Files: `cmd/diagnose.go`.
-  Rationale: quick triage for common failures and automatable in CI.
-- **`/api/diagnostics` endpoint**: expose current tracer state, selected backend, `ProcInfo`,
-  aggregator totals, parse-failure and tracer-error counters, and recent raw tracer warnings.
-  Files: `internal/server/server.go` and the dashboard JS. Rationale: immediate troubleshooting
-  information in sidecar mode.
-- **Parse & tracer Prometheus metrics**: add counters such as `stracectl_parse_failures_total`
-  and `stracectl_tracer_errors_total` so failures are observable and alertable. Files:
-  `internal/parser/parser.go`, `internal/tracer/*.go`, and `internal/server/server.go`.
-
-### Medium-priority
-
-- **TUI diagnostic overlay (key `D`)**: show backend, PID / `ProcInfo`, last raw tracer errors,
-  parser failure counts and remediation hints (e.g. run `stracectl diagnose`, use `--try-elevate`).
-  Files: `internal/ui/tui.go`, `internal/aggregator/aggregator.go`.
-- **Replay flags**: add `--show-parse-errors`, `--strict`, and `--json` to the `stats` command to
-  list skipped lines, optionally fail on parse errors, or output diagnostics JSON. Files: `cmd/stats.go`.
-- **Improve error messages & remediation hints**: enrich eBPF/attach errors with actionable
-  suggestions (for example the exact `prlimit` / `sudo` commands) and clearly explain fallbacks.
-  Files: `internal/tracer/ebpf.go`, `cmd/run.go`, `cmd/attach.go`.
-
-### Longer-term / Lower-priority
-
-- **Structured debug logging and levels**: introduce `internal/log` with levels (info/warn/error/debug),
-  optional runtime toggle via HTTP, and file capture when `--debug` is set. Forward selected logs into
-  the aggregator live-log when requested for easier TUI inspection.
-- **Dashboard diagnostics tab**: add a visual diagnostics tab to the web UI showing health checks,
-  recent errors, and quick action hints (copy elevation command, open logs).
-- **Persist debug traces**: optionally write raw tracer output to a file when `--debug` is enabled
-  for offline analysis.
-
-### Next steps
-
-1. Implement high-priority items: `diagnose` command, `/api/diagnostics`, and Prometheus counters for
-   parse/tracer failures.
-2. Add TUI diagnostic overlay and the `stats` replay flags.
-3. Follow up with structured logging and dashboard UI enhancements.
-
-**Estimated effort:** High-priority: small (1–2 days). Medium: small→medium. Longer-term: medium→large.
+If you want, I can implement the highest-impact short-term item now: add `--save-events` (NDJSON) and the CLI flags to wire `--string-limit` and `--status` through both backends. Say which flags or behavior you want prioritized and I will start a change set.
