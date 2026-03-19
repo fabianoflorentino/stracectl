@@ -11,8 +11,9 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
+	"net/http/pprof"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -30,11 +31,12 @@ var upgrader = websocket.Upgrader{
 
 // Server wraps an HTTP server and exposes aggregator data.
 type Server struct {
-	agg      *aggregator.Aggregator
-	mux      *http.ServeMux
-	httpSrv  *http.Server
-	registry *prometheus.Registry
-	wsToken  string
+	agg       *aggregator.Aggregator
+	mux       *http.ServeMux
+	httpSrv   *http.Server
+	registry  *prometheus.Registry
+	wsToken   string
+	wsClients prometheus.Gauge
 	// routes keeps a list of registered HTTP paths for discovery.
 	routes []routeInfo
 }
@@ -60,15 +62,22 @@ func New(addr string, agg *aggregator.Aggregator, wsToken string) *Server {
 	s.registerRoute("/api/stats", s.handleStats, "Aggregated syscall statistics")
 	s.registerRoute("/api/log", s.handleLog, "Recent events log")
 	s.registerRoute("/api/categories", s.handleCategories, "Category breakdown of syscalls")
+	s.registerRoute("/api/files", s.handleFiles, "Top opened files")
+	s.registerRoute("/debug/goroutines", s.handleDebugGoroutines, "Goroutine and memory debug info")
+	// Register pprof handlers for remote profiling and diagnostics.
+	s.registerRoute("/debug/pprof/", func(w http.ResponseWriter, r *http.Request) { pprof.Index(w, r) }, "pprof index")
+	s.registerRoute("/debug/pprof/cmdline", func(w http.ResponseWriter, r *http.Request) { pprof.Cmdline(w, r) }, "pprof cmdline")
+	s.registerRoute("/debug/pprof/profile", func(w http.ResponseWriter, r *http.Request) { pprof.Profile(w, r) }, "pprof profile")
+	s.registerRoute("/debug/pprof/symbol", func(w http.ResponseWriter, r *http.Request) { pprof.Symbol(w, r) }, "pprof symbol")
+	s.registerRoute("/debug/pprof/trace", func(w http.ResponseWriter, r *http.Request) { pprof.Trace(w, r) }, "pprof trace")
+	s.registerHandler("/debug/pprof/goroutine", pprof.Handler("goroutine"), "pprof goroutine")
+	s.registerHandler("/debug/pprof/heap", pprof.Handler("heap"), "pprof heap")
+	s.registerHandler("/debug/pprof/threadcreate", pprof.Handler("threadcreate"), "pprof threadcreate")
+	s.registerHandler("/debug/pprof/block", pprof.Handler("block"), "pprof block")
 	s.registerRoute("/api/syscall/{name}", s.handleSyscallStat, "Stats for a single syscall (by name)")
 	s.registerRoute("/syscall/{name}", s.handleSyscallDetail, "Per-syscall detail page (SPA)")
 	s.registerRoute("/stream", s.handleStream, "WebSocket stream of live stats")
 	s.registerHandler("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), "Prometheus metrics endpoint")
-
-	// Debug: print registered routes on startup to help troubleshooting.
-	for _, rt := range s.routes {
-		fmt.Printf("registered route: %s %s\n", rt.Method, rt.Path)
-	}
 
 	s.httpSrv = &http.Server{
 		Addr:              addr,
@@ -232,6 +241,18 @@ func (s *Server) handleCategories(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, out)
 }
 
+// handleFiles returns the top opened files as JSON. Supports optional ?limit=N.
+func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
+	limit := 50
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	files := s.agg.TopFiles(limit)
+	writeJSON(w, files)
+}
+
 // handleSyscallStat returns JSON stats for a single syscall by name.
 func (s *Server) handleSyscallStat(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
@@ -247,6 +268,21 @@ func (s *Server) handleSyscallStat(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSyscallDetail(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(syscallDetailHTML)
+}
+
+// handleDebugGoroutines returns a small JSON payload useful for debugging
+// server-side resource pressure: number of goroutines and basic memory stats.
+func (s *Server) handleDebugGoroutines(w http.ResponseWriter, _ *http.Request) {
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	resp := struct {
+		Goroutines int              `json:"goroutines"`
+		Mem        runtime.MemStats `json:"memstats"`
+	}{
+		Goroutines: runtime.NumGoroutine(),
+		Mem:        mem,
+	}
+	writeJSON(w, resp)
 }
 
 // handleStream upgrades to WebSocket and pushes a JSON stats snapshot every second.
@@ -278,6 +314,10 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	if s.wsClients != nil {
+		s.wsClients.Inc()
+		defer s.wsClients.Dec()
+	}
 	defer func() { _ = conn.Close() }()
 
 	ticker := time.NewTicker(time.Second)
@@ -289,6 +329,10 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-ticker.C:
 			stats := s.agg.Sorted(aggregator.SortByCount)
+			// Protect against slow or stalled clients: set a write deadline so
+			// the handler doesn't block indefinitely on a single stuck
+			// connection. If the write times out, close the connection.
+			_ = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			if err := conn.WriteJSON(stats); err != nil {
 				return
 			}
@@ -351,6 +395,14 @@ func (s *Server) registerMetrics(reg *prometheus.Registry) {
 		),
 	}
 	reg.MustRegister(c)
+
+	// Gauge for active websocket clients
+	g := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "stracectl_ws_clients",
+		Help: "Currently connected websocket clients",
+	})
+	_ = reg.Register(g)
+	s.wsClients = g
 }
 
 func (c *promCollector) Describe(ch chan<- *prometheus.Desc) {
