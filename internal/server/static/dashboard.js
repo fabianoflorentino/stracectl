@@ -7,11 +7,20 @@ function switchTab(name) {
   document.getElementById('log-panel').style.display = name === 'log' ? 'block' : 'none';
   document.getElementById('tab-stats').classList.toggle('active', name === 'stats');
   document.getElementById('tab-log').classList.toggle('active', name === 'log');
+  const tabFiles = document.getElementById('tab-files');
+  if (tabFiles) tabFiles.classList.toggle('active', name === 'files');
+  document.getElementById('files-panel') && (document.getElementById('files-panel').style.display = name === 'files' ? '' : 'none');
   document.getElementById('api-panel').style.display = name === 'api' ? '' : 'none';
   const tabApi = document.getElementById('tab-api');
   if (tabApi) tabApi.classList.toggle('active', name === 'api');
   if (name === 'log') fetchLog();
   if (name === 'api') fetchAPIs(1);
+  if (name === 'files') {
+    // initial fetch and start short polling while visible
+    const lim = Number(document.getElementById('files-limit').value) || 50;
+    const filter = document.getElementById('files-filter').value || '';
+    fetchFiles(lim, filter);
+  }
 }
 
 function fetchLog() {
@@ -41,6 +50,14 @@ function fetchLog() {
 setInterval(() => {
   if (currentTab === 'log') fetchLog();
 }, 1000);
+
+setInterval(() => {
+  if (currentTab === 'files') {
+    const lim = Number(document.getElementById('files-limit')?.value || 50);
+    const filter = document.getElementById('files-filter')?.value || '';
+    fetchFiles(lim, filter);
+  }
+}, 2000);
 
 function fetchStatus() {
   fetch('/api/status').then(r => r.json()).then(s => {
@@ -103,7 +120,63 @@ document.addEventListener('DOMContentLoaded', () => {
   if (prev) prev.addEventListener('click', () => { if (apiPage > 1) fetchAPIs(apiPage - 1); });
   if (next) next.addEventListener('click', () => { const pages = Math.max(1, Math.ceil(apiTotal / apiPerPage)); if (apiPage < pages) fetchAPIs(apiPage + 1); });
   if (per) per.addEventListener('change', () => { fetchAPIs(1); });
+  const tabFilesBtn = document.getElementById('tab-files');
+  if (tabFilesBtn) tabFilesBtn.addEventListener('click', () => { switchTab('files'); });
+  const filesRefresh = document.getElementById('files-refresh');
+  if (filesRefresh) filesRefresh.addEventListener('click', () => {
+    const lim = Number(document.getElementById('files-limit')?.value || 50);
+    const filter = document.getElementById('files-filter')?.value || '';
+    fetchFiles(lim, filter);
+  });
+  const filesFilter = document.getElementById('files-filter');
+  if (filesFilter) filesFilter.addEventListener('input', () => {
+    const lim = Number(document.getElementById('files-limit')?.value || 50);
+    const filter = filesFilter.value || '';
+    fetchFiles(lim, filter);
+  });
 });
+
+async function fetchFiles(limit = 50, filter = '') {
+  try {
+    const res = await fetch('/api/files?limit=' + encodeURIComponent(limit));
+    if (!res.ok) return;
+    const files = await res.json();
+    const tbody = document.querySelector('#files-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    for (const f of files) {
+      const raw = f.path || f.Path || '';
+      const count = (f.count != null) ? f.count : (f.Count != null ? f.Count : 0);
+      const path = sanitizePath(raw);
+      if (filter && !path.includes(filter)) continue;
+      const tr = document.createElement('tr');
+      const tdPath = document.createElement('td');
+      tdPath.textContent = path.length > 200 ? path.slice(0, 197) + '\u2026' : path;
+      tdPath.title = path;
+      tdPath.className = 'name';
+      tdPath.style.cursor = 'pointer';
+      tdPath.addEventListener('click', () => { try { navigator.clipboard && navigator.clipboard.writeText(raw); } catch (e) {} });
+      const tdCount = document.createElement('td');
+      tdCount.className = 'num';
+      tdCount.style.textAlign = 'right';
+      tdCount.textContent = fmtN(count);
+      tr.appendChild(tdPath);
+      tr.appendChild(tdCount);
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    console.error('failed to fetch files', err);
+  }
+}
+
+// sanitizePath replaces control characters with visible \xNN escapes so that
+// binary payloads do not break the dashboard layout.
+function sanitizePath(s) {
+  if (!s) return '';
+  return String(s).replace(/[\x00-\x1F\x7F-\x9F]/g, function(ch) {
+    return '\\x' + ch.charCodeAt(0).toString(16).padStart(2, '0');
+  });
+}
 function alertExplanation(name) {
   const m = {
     ioctl: 'terminal control failed \u2014 process likely has no TTY (running under sudo or piped)',
@@ -263,6 +336,14 @@ function render(rows) {
     tdName.className = 'name';
     tdName.textContent = r.Name != null ? String(r.Name) : '';
     tr.appendChild(tdName);
+
+    // File cell (top observed file for this syscall, if any)
+    const tdFile = document.createElement('td');
+    tdFile.className = 'name file';
+    const topFile = (r.Files && r.Files.length) ? (r.Files[0].path || r.Files[0].Path || '') : '';
+    tdFile.textContent = topFile;
+    tdFile.title = topFile;
+    tr.appendChild(tdFile);
 
     // Category cell with pill
     const tdCat = document.createElement('td');

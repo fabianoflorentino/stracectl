@@ -28,6 +28,7 @@
   tbody tr:hover{background:#161b22}
   td{padding:5px 10px;white-space:nowrap}
   td.name{font-family:monospace;color:#79c0ff}
+  td.file{font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9ae6ff}
   td.num{text-align:right;font-variant-numeric:tabular-nums}
   td.err{text-align:right;color:#f85149}
   td.slow{color:#e3b341}
@@ -89,6 +90,7 @@
   <button class="tab-btn active" id="tab-stats" onclick="switchTab('stats')">SYSCALL STATS</button>
   <button class="tab-btn" id="tab-log" onclick="switchTab('log')">LIVE LOG</button>
   <button class="tab-btn" id="tab-api" onclick="switchTab('api')">API</button>
+  <button class="tab-btn" id="tab-files" onclick="switchTab('files')">FILES</button>
 </div>
 <div id="search-bar">
   <span id="search-label">FILTER:</span>
@@ -100,8 +102,9 @@
 <table>
   <thead>
     <tr>
-      <th data-col="Name" style="width:22%">SYSCALL</th>
-      <th data-col="Category" style="width:80px">CAT</th>
+    <th data-col="Name" style="width:18%">SYSCALL</th>
+    <th style="width:28%">FILE</th>
+    <th data-col="Category" style="width:80px">CAT</th>
       <th data-col="Count" class="desc rnum" style="width:7%">CALLS</th>
       <th data-col="_bar" class="spark-col"></th>
       <th data-col="AvgTime" class="rnum" style="width:8%">AVG</th>
@@ -129,6 +132,19 @@
     </label>
   </div>
   <div id="api-list" style="font-family:monospace;color:#e6edf3"></div>
+</div>
+<div class="wrap" id="files-panel" style="display:none">
+  <div id="files-controls" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+    <label style="color:#8b949e">Limit: <input id="files-limit" type="number" min="1" max="500" value="50" style="width:80px;background:#21262d;border:1px solid #30363d;color:#e6edf3;padding:4px;border-radius:6px"></label>
+    <input id="files-filter" placeholder="filter paths..." autocomplete="off" spellcheck="false" style="background:#21262d;border:1px solid #30363d;color:#e6edf3;padding:6px;border-radius:6px;font-family:monospace;width:360px">
+    <button id="files-refresh" class="tab-btn">Refresh</button>
+  </div>
+  <table id="files-table" style="font-family:monospace">
+    <thead>
+      <tr><th style="width:92%">Path</th><th style="width:8%;text-align:right">Count</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </div>
 <div id="log-panel">
   <div id="log-wrap">
