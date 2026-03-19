@@ -18,6 +18,7 @@ type ebpfEnterData struct {
 	Ts        uint64
 	SyscallNr uint64
 	Args      [6]uint64
+	Path      [128]int8
 }
 
 // loadEbpf returns the embedded CollectionSpec for ebpf.

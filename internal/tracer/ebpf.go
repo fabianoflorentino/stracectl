@@ -11,6 +11,7 @@ import (
 	"log"
 	"os/exec"
 	"reflect"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -30,6 +31,8 @@ import (
 var ebpfBuild = true
 
 // ebpfEvent must exactly mirror the C struct above
+// ebpfEvent must exactly mirror the C struct above
+// NOTE: keep Path reasonably small to avoid blowing up ringbuf event size.
 type ebpfEvent struct {
 	PID       uint32
 	SyscallNr uint32
@@ -37,6 +40,7 @@ type ebpfEvent struct {
 	EnterNs   uint64
 	ExitNs    uint64
 	Args      [6]uint64
+	Path      [128]byte
 }
 
 // EBPFTracer traces syscalls via eBPF without a subprocess.
@@ -366,6 +370,27 @@ func (t *EBPFTracer) trace(ctx context.Context, filterPID int) (<-chan models.Sy
 
 			latency := time.Duration(raw.ExitNs - raw.EnterNs)
 			argsStr := formatSyscallArgs(name, raw.Args, raw.Ret)
+			// If the BPF event included a captured path, prefer that as the
+			// first (quoted) argument so downstream path extraction can find it.
+			if len(raw.Path) > 0 {
+				// Trim trailing NUL bytes
+				p := strings.TrimRight(string(raw.Path[:]), "\x00")
+				// Reject suspicious or empty strings
+				ok := true
+				if p == "" {
+					ok = false
+				}
+				for _, r := range p {
+					if r == '\x00' || (r < 32 && r != '\t') {
+						ok = false
+						break
+					}
+				}
+				if ok {
+					// Quote the path so extractPathFromArgs can parse it as a quoted string.
+					argsStr = strconv.Quote(p)
+				}
+			}
 
 			retValStr := fmt.Sprintf("%d", raw.Ret)
 			var errnoStr string

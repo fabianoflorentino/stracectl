@@ -2,6 +2,7 @@ package tracer
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 
 	"golang.org/x/sys/unix"
@@ -11,6 +12,9 @@ import (
 // kernel release strings. It defaults to unix.Uname and can be swapped in
 // tests to avoid depending on the real kernel version.
 var unameFunc = unix.Uname
+
+// getEuid is a wrapper around os.Geteuid so tests can override it.
+var getEuid = os.Geteuid
 
 // Select returns the appropriate Tracer implementation for the given backend name.
 //
@@ -23,7 +27,11 @@ func Select(backend string) (Tracer, error) {
 	case "strace":
 		return NewStraceTracer(), nil
 	case "auto", "":
-		if ebpfAvailable() {
+		// Prefer eBPF only when the kernel supports it and the process
+		// has sufficient privileges (running as root). Running eBPF
+		// without privileges commonly fails at attach time and can leave
+		// the user confused; require root for the automatic selection.
+		if ebpfAvailable() && getEuid() == 0 {
 			return NewEBPFTracer(), nil
 		}
 		return NewStraceTracer(), nil
