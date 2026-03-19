@@ -138,20 +138,27 @@ Opening `http://localhost:8080` in any browser shows the **live web dashboard** 
 self-contained single-page app that connects to the server over WebSocket and updates
 the table in real time, with no page reload needed:
 
-### Segurança e uso local
+### Local usage and security
 
-Para troubleshooting pontual, prefira rodar o servidor ligado a `127.0.0.1` ou usar
-`kubectl port-forward` para inspecionar um sidecar. Isso reduz muito a superfície de
-ataque e evita a necessidade de regras de autenticação complexas durante a depuração.
+For short, ephemeral troubleshooting sessions prefer running the HTTP sidecar bound to `127.0.0.1` or using `kubectl port-forward` when inspecting a sidecar in a cluster. This minimizes accidental exposure of the WebSocket (`/stream`), JSON API, and `/metrics`.
 
-- Bind em `127.0.0.1`: `sudo stracectl run --serve 127.0.0.1:8080 <comando>`.
-- Port-forward (Kubernetes): `kubectl -n <ns> port-forward pod/<sidecar> 8080:8080`.
-- Quando expor o serviço fora do host local, exija `--ws-token` e TLS; evite tokens em
-  query string e prefira o header `Authorization: Bearer <token>`.
-- Proteja `/metrics`: permita scrape apenas via rede interna ou com autenticação.
+- Bind to localhost:
 
-Essas práticas mantêm a experiência de troubleshooting leve enquanto reduzem riscos
-quando o servidor precisa ficar disponível por mais tempo.
+```bash
+sudo stracectl run --serve 127.0.0.1:8080 <command>
+```
+
+- Port-forward a sidecar from the cluster:
+
+```bash
+kubectl -n <ns> port-forward pod/<sidecar-pod> 8080:8080
+```
+
+- If you must expose the server beyond localhost (for monitoring or long-term use), require `--ws-token` and TLS (ingress or proxy). Prefer presenting the token via the `Authorization: Bearer <token>` header instead of query strings, and avoid passing secrets in URLs.
+
+- Protect `/metrics` by limiting Prometheus scrape to internal networks or requiring authentication.
+
+These measures keep troubleshooting convenient while reducing the risk of accidental public exposure.
 
 ### Discover a container PID (Kubernetes sidecar)
 

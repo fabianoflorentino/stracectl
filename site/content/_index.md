@@ -42,4 +42,4 @@ stracectl --help
 - [Kubernetes sidecar]({{< relref "docs/kubernetes.md" >}})
 - [HTTP API]({{< relref "docs/api.md" >}})
 - [Security]({{< relref "docs/security.md" >}})
-- [Cenários de uso]({{< relref "docs/scenarios.md" >}})
+- [Usage scenarios]({{< relref "docs/scenarios.md" >}})

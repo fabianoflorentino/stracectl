@@ -66,6 +66,19 @@ stracectl stats --serve :8080 trace.log
 # HTML report
 stracectl stats --report report.html trace.log
 ```
+
+## Per-file view
+
+`stracectl` can surface the most-opened file paths observed during a trace. Use
+the TUI overlay (press `f`) to inspect hot files interactively, or query the
+sidecar API:
+
+```bash
+curl -s 'http://localhost:8080/api/files?limit=20' | jq .
+```
+
+Include the Top Files table in exported HTML reports with `--report-top-files N`.
+
 ## Local usage and security
 
 For short, ephemeral troubleshooting sessions prefer running the HTTP sidecar bound to `127.0.0.1` or using `kubectl port-forward` when inspecting a sidecar in a cluster. This minimizes accidental exposure of the WebSocket (`/stream`), JSON API, and `/metrics`.
