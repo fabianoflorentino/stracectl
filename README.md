@@ -96,6 +96,23 @@ LIVE STATISTICS
 
 ## Requirements
 
+## What's New (v1.0.94)
+
+Highlights in v1.0.94:
+
+- Per-file view: a Top Files overlay in the TUI (press `f`) and a sidecar
+  endpoint `GET /api/files?limit=N` to fetch the most-opened paths.
+- HTML report: include top files using the new `--report-top-files N` flag.
+- Aggregator: attribution improvements (fd→path mappings, per-syscall top-file
+  counts) to surface I/O hotspots.
+- TUI: `FILE` column, rune-aware truncation, and sanitisation to avoid terminal
+  corruption from control bytes; fallback sizing when a WindowSizeMsg is not
+  delivered (useful under `sudo` / headless runs).
+- Server: websocket write deadlines, Prometheus `stracectl_ws_clients` gauge,
+  and `/debug/goroutines` + pprof handlers for remote diagnostics.
+
+See `docs/per_file_view.md` and `docs/CHANGELOG.md` for details and examples.
+
 - Linux (uses `ptrace` via the `strace` binary)
 - Optional: eBPF backend requires Linux kernel >= 5.8 and privileges to load
   eBPF programs; building the eBPF-enabled binary also requires `clang`,
