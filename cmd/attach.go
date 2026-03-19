@@ -18,6 +18,7 @@ import (
 
 var attachServeAddr string
 var attachReportPath string
+var attachReportTopFiles int
 var attachContainer string
 var backend string
 var attachTryElevate bool
@@ -106,7 +107,7 @@ Examples:
 			return err
 		}
 
-		return runTrace(ctx, cancelTracer, events, agg, attachServeAddr, wsToken, attachReportPath, fmt.Sprintf("PID %d", pid))
+		return runTraceWithEvents(ctx, cancelTracer, events, agg, attachServeAddr, wsToken, attachReportPath, attachReportTopFiles, fmt.Sprintf("PID %d", pid))
 	},
 }
 
@@ -129,6 +130,7 @@ func applyEBPFOptions(t tracer.Tracer, force, unfiltered bool) {
 func init() {
 	attachCmd.Flags().StringVar(&attachServeAddr, "serve", "", `expose HTTP API instead of TUI (e.g. --serve :8080)`)
 	attachCmd.Flags().StringVar(&attachReportPath, "report", "", "write a self-contained HTML report to this file on exit")
+	attachCmd.Flags().IntVar(&attachReportTopFiles, "report-top-files", 50, "number of top files to include in HTML report")
 	attachCmd.Flags().StringVar(&attachContainer, "container", "", "auto-discover and attach to the lowest PID matching this container name")
 	attachCmd.Flags().StringVar(&backend, "backend", "auto", "tracing backend to use: auto, ebpf, or strace")
 	attachCmd.Flags().BoolVar(&attachTryElevate, "try-elevate", false, "attempt to re-run the process with sudo/prlimit to raise RLIMIT_MEMLOCK when eBPF load fails")
