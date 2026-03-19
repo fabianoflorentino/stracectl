@@ -3,6 +3,8 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
+#define PATH_MAX_LEN 128
+
 struct syscall_event {
     __u32 pid;
     __u32 syscall_nr;
@@ -10,12 +12,14 @@ struct syscall_event {
     __u64 enter_ns;
     __u64 exit_ns;
     __u64 args[6];
+    char path[PATH_MAX_LEN];
 };
 
 struct enter_data {
     __u64 ts;
     __u64 syscall_nr;
     __u64 args[6];
+    char path[PATH_MAX_LEN];
 };
 
 struct {
@@ -80,6 +84,24 @@ int sys_enter(struct bpf_raw_tracepoint_args *ctx) {
     bpf_probe_read_kernel(&d.args[4], sizeof(__u64), &regs->r8);
     bpf_probe_read_kernel(&d.args[5], sizeof(__u64), &regs->r9);
 
+    // Attempt to capture a pathname-like argument into the enter_data so it
+    // can be forwarded to userspace. We conservatively try args[0] then
+    // args[1] if the first attempt fails. Skip small integer-like values
+    // (addresses below a small threshold) to avoid reading invalid pointers.
+    {
+        long rc = 0;
+        // try args[0]
+        if (d.args[0] && d.args[0] > 4096) {
+            rc = bpf_probe_read_user_str(&d.path, sizeof(d.path), (const char *)d.args[0]);
+        }
+        // fallback: try args[1]
+        if ((rc <= 0) && d.args[1] && d.args[1] > 4096) {
+            rc = bpf_probe_read_user_str(&d.path, sizeof(d.path), (const char *)d.args[1]);
+        }
+        // If both attempts fail rc<=0 and path remains empty.
+        (void)rc;
+    }
+
     bpf_map_update_elem(&enter_data_map, &tid, &d, BPF_ANY);
 
     return 0;
@@ -113,6 +135,11 @@ int sys_exit(struct bpf_raw_tracepoint_args *ctx) {
     e->args[3] = d->args[3];
     e->args[4] = d->args[4];
     e->args[5] = d->args[5];
+    // copy captured path (may be empty) — use destination-sized copy and
+    // ensure NUL termination to avoid leaking uninitialised bytes to user
+    // space when submitted via the ring buffer.
+    __builtin_memcpy(e->path, d->path, sizeof(e->path));
+    e->path[sizeof(e->path) - 1] = '\0';
 
     bpf_ringbuf_submit(e, 0);
 

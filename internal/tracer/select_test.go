@@ -41,9 +41,11 @@ func TestEbpfAvailable_KernelAndBuild(t *testing.T) {
 
 	origUname := unameFunc
 	origBuild := ebpfBuild
+	origEuid := getEuid
 	t.Cleanup(func() {
 		unameFunc = origUname
 		ebpfBuild = origBuild
+		getEuid = origEuid
 	})
 
 	// Simulate kernel 5.8 and ebpf build enabled
@@ -85,6 +87,8 @@ func TestSelect_Auto_RespectsAvailability(t *testing.T) {
 		writeRelease(u, "5.8.1")
 		return nil
 	}
+	// Simulate running as root so auto picks eBPF when available.
+	getEuid = func() int { return 0 }
 	tr, err := Select("auto")
 	if err != nil {
 		t.Fatalf("Select(auto) returned error: %v", err)
