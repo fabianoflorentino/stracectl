@@ -746,8 +746,8 @@ func parseRetInt(ret string) (int, bool) {
 		return v, true
 	}
 	if strings.HasPrefix(ret, "0x") {
-		if i64, err := strconv.ParseInt(ret, 0, 64); err == nil {
-			return int(i64), true
+		if v, err := strconv.ParseInt(ret, 0, 0); err == nil {
+			return int(v), true
 		}
 	}
 	return 0, false
