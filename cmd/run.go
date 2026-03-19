@@ -17,6 +17,7 @@ import (
 
 var runServeAddr string
 var runReportPath string
+var runReportTopFiles int
 var runBackend string
 var runTryElevate bool
 var runForceEbpf bool
@@ -75,27 +76,15 @@ Examples:
 		// Apply eBPF-specific CLI options when supported by the selected tracer.
 		applyEBPFOptions(tr, runForceEbpf, runUnfiltered)
 
-		events, err := tr.Run(tracerCtx, args[0], args[1:])
-		if err != nil {
-			// If requested, try to re-exec with elevated memlock using sudo/prlimit
-			if runTryElevate && os.Getenv("STRACECTL_TRIED_ELEVATE") != "1" {
-				fmt.Fprintln(os.Stderr, "eBPF failed to load; attempting to re-run with elevated memlock via sudo/prlimit...")
-				// Attempt to re-run the entire process with prlimit/sudo. If successful,
-				// this call will not return because it will exit the current process.
-				tryElevateAndRerun()
-				// If tryElevateAndRerun returns, it failed.
-				fmt.Fprintln(os.Stderr, "elevation attempt failed; continuing with original error")
-			}
-			return err
-		}
-
-		return runTrace(ctx, cancelTracer, events, agg, runServeAddr, wsToken, runReportPath, strings.Join(args, " "))
+		// Defer starting the tracer to runTrace so the TUI can initialize first
+		return runTrace(ctx, tracerCtx, cancelTracer, tr, args[0], args[1:], agg, runServeAddr, wsToken, runReportPath, runReportTopFiles, strings.Join(args, " "))
 	},
 }
 
 func init() {
 	runCmd.Flags().StringVar(&runServeAddr, "serve", "", `expose HTTP API instead of TUI (e.g. --serve :8080)`)
 	runCmd.Flags().StringVar(&runReportPath, "report", "", "write a self-contained HTML report to this file on exit")
+	runCmd.Flags().IntVar(&runReportTopFiles, "report-top-files", 50, "number of top files to include in HTML report")
 	runCmd.Flags().StringVar(&runBackend, "backend", "auto", "choose tracer backend: auto, ebpf, strace")
 	runCmd.Flags().BoolVar(&runTryElevate, "try-elevate", false, "attempt to re-run the process with sudo/prlimit to raise RLIMIT_MEMLOCK when eBPF load fails")
 	runCmd.Flags().BoolVar(&runForceEbpf, "force-ebpf", false, "fail when eBPF probe fails instead of falling back to strace")

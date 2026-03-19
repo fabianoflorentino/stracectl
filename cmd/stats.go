@@ -20,6 +20,7 @@ import (
 
 var statsServeAddr string
 var statsReportPath string
+var statsReportTopFiles int
 
 var statsCmd = &cobra.Command{
 	Use:   "stats [--serve :8080] [--report <path>] [--ws-token <token>] <file>",
@@ -65,7 +66,7 @@ Capture a trace file with strace:
 		}
 
 		if statsReportPath != "" {
-			return writeHTMLReport(statsReportPath, agg, args[0])
+			return writeHTMLReport(statsReportPath, agg, args[0], statsReportTopFiles)
 		}
 		return nil
 	},
@@ -122,5 +123,6 @@ func loadAggFromFile(path string) (*aggregator.Aggregator, error) {
 func init() {
 	statsCmd.Flags().StringVar(&statsServeAddr, "serve", "", "expose HTTP API instead of TUI (e.g. --serve :8080)")
 	statsCmd.Flags().StringVar(&statsReportPath, "report", "", "write a self-contained HTML report to this file after analysis")
+	statsCmd.Flags().IntVar(&statsReportTopFiles, "report-top-files", 50, "number of top files to include in HTML report")
 	rootCmd.AddCommand(statsCmd)
 }

@@ -138,7 +138,7 @@ func TestStatsServeAlsoWritesReport(t *testing.T) {
 	reportFile := traceFile.Name() + ".html"
 	t.Cleanup(func() { _ = os.Remove(reportFile) })
 
-	if err := writeHTMLReport(reportFile, agg, traceFile.Name()); err != nil {
+	if err := writeHTMLReport(reportFile, agg, traceFile.Name(), 50); err != nil {
 		t.Fatalf("writeHTMLReport: %v", err)
 	}
 
@@ -193,7 +193,7 @@ func TestStatsServeExitWritesReport(t *testing.T) {
 		t.Fatalf("srv.Start: %v", serveErr)
 	}
 
-	if err := writeHTMLReport(reportPath, agg, traceFile.Name()); err != nil {
+	if err := writeHTMLReport(reportPath, agg, traceFile.Name(), 50); err != nil {
 		t.Fatalf("writeHTMLReport after serve: %v", err)
 	}
 
