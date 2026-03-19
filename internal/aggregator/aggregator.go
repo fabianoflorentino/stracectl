@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"math/bits"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -189,6 +191,8 @@ type SyscallStat struct {
 	// ErrRate60s is the number of errors recorded in the last 60 seconds.
 	// Populated by Sorted() and Get().
 	ErrRate60s int64
+	// Files holds top file paths associated with this syscall (populated by Sorted()).
+	Files []FileStat
 	// ErrorBreakdown counts occurrences of each distinct errno (e.g. "ENOENT").
 	// It is non-nil only when at least one error has been recorded.
 	ErrorBreakdown map[string]int64
@@ -224,6 +228,10 @@ func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
 const (
 	maxErrorSamples = 10  // max recent error samples retained per syscall
 	maxLogEntries   = 500 // max raw events kept in the live log ring buffer
+	// fileStatsCap limits distinct tracked file paths to avoid unbounded memory usage.
+	fileStatsCap = 10_000
+	// maxPathLen truncates observed paths to a safe maximum length.
+	maxPathLen = 1024
 )
 
 // LogEntry is one line in the live-log ring buffer.
@@ -376,16 +384,21 @@ type CategoryStats struct {
 
 // Aggregator is safe for concurrent use.
 type Aggregator struct {
-	mu       sync.RWMutex
-	stats    map[string]*SyscallStat
-	total    int64
-	errors   int64
-	started  time.Time
-	prevRate rateSnapshot
-	rate     float64 // syscalls/s, updated every snapshot
-	procInfo procinfo.ProcInfo
-	logBuf   []LogEntry // ring buffer of recent raw events
-	done     bool       // true when the traced process has exited
+	mu        sync.RWMutex
+	stats     map[string]*SyscallStat
+	total     int64
+	errors    int64
+	started   time.Time
+	prevRate  rateSnapshot
+	rate      float64 // syscalls/s, updated every snapshot
+	procInfo  procinfo.ProcInfo
+	logBuf    []LogEntry // ring buffer of recent raw events
+	fileStats map[string]int64
+	// fileStatsByCall maps syscall name -> (path -> count)
+	fileStatsByCall map[string]map[string]int64
+	// fdToPath maps pid -> fd -> path, used to attribute fd-based syscalls to paths
+	fdToPath map[int]map[int]string
+	done     bool // true when the traced process has exited
 }
 
 type rateSnapshot struct {
@@ -397,8 +410,11 @@ func New() *Aggregator {
 	now := time.Now()
 
 	return &Aggregator{
-		stats:   make(map[string]*SyscallStat),
-		started: now,
+		stats:           make(map[string]*SyscallStat),
+		fileStats:       make(map[string]int64),
+		fileStatsByCall: make(map[string]map[string]int64),
+		fdToPath:        make(map[int]map[int]string),
+		started:         now,
 		prevRate: rateSnapshot{
 			total: 0,
 			at:    now,
@@ -476,20 +492,336 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 		copy(a.logBuf, a.logBuf[1:])
 		a.logBuf[maxLogEntries-1] = entry
 	}
+
+	// Attribute observed events to file paths when possible.
+	// 1) If the syscall arguments contain a quoted path, use it directly.
+	// 2) Otherwise, try to attribute by file descriptor using fd->path mappings
+	//    maintained from successful open/openat calls.
+	if p := extractPathFromArgs(e.Name, e.Args); p != "" {
+		if len(p) > maxPathLen {
+			p = p[:maxPathLen]
+		}
+		if a.fileStats == nil {
+			a.fileStats = make(map[string]int64)
+		}
+		if len(a.fileStats) < fileStatsCap || a.fileStats[p] > 0 {
+			a.fileStats[p]++
+		}
+		if a.fileStatsByCall == nil {
+			a.fileStatsByCall = make(map[string]map[string]int64)
+		}
+		if a.fileStatsByCall[e.Name] == nil {
+			a.fileStatsByCall[e.Name] = make(map[string]int64)
+		}
+		if len(a.fileStatsByCall[e.Name]) < fileStatsCap || a.fileStatsByCall[e.Name][p] > 0 {
+			a.fileStatsByCall[e.Name][p]++
+		}
+
+		// If this was an open/openat and it returned a valid fd, map fd->path
+		if (e.Name == "open" || e.Name == "openat") && e.RetVal != "" {
+			if fd, ok := parseRetInt(e.RetVal); ok && fd >= 0 {
+				if a.fdToPath == nil {
+					a.fdToPath = make(map[int]map[int]string)
+				}
+				if a.fdToPath[e.PID] == nil {
+					a.fdToPath[e.PID] = make(map[int]string)
+				}
+				a.fdToPath[e.PID][fd] = p
+			}
+		}
+	} else {
+		// No explicit path in args: try to attribute by file descriptor where possible.
+		if fd, ok := parseFirstIntArg(e.Args); ok {
+			if a.fdToPath != nil {
+				if m := a.fdToPath[e.PID]; m != nil {
+					if path, ok2 := m[fd]; ok2 && path != "" {
+						if a.fileStatsByCall == nil {
+							a.fileStatsByCall = make(map[string]map[string]int64)
+						}
+						if a.fileStatsByCall[e.Name] == nil {
+							a.fileStatsByCall[e.Name] = make(map[string]int64)
+						}
+						if len(a.fileStatsByCall[e.Name]) < fileStatsCap || a.fileStatsByCall[e.Name][path] > 0 {
+							a.fileStatsByCall[e.Name][path]++
+						}
+					}
+				}
+			}
+		}
+
+		// Special-case descriptor-moving syscalls: dup/dup2/dup3 copy fd mappings.
+		switch e.Name {
+		case "dup", "dup2", "dup3":
+			if oldfd, ok := parseFirstIntArg(e.Args); ok {
+				if newfd, ok2 := parseRetInt(e.RetVal); ok2 && newfd >= 0 {
+					if a.fdToPath == nil {
+						a.fdToPath = make(map[int]map[int]string)
+					}
+					if a.fdToPath[e.PID] == nil {
+						a.fdToPath[e.PID] = make(map[int]string)
+					}
+					if path, ok3 := a.fdToPath[e.PID][oldfd]; ok3 && path != "" {
+						a.fdToPath[e.PID][newfd] = path
+					}
+				}
+			}
+		case "close":
+			if fd, ok := parseFirstIntArg(e.Args); ok {
+				if a.fdToPath != nil {
+					if m := a.fdToPath[e.PID]; m != nil {
+						if path, ok2 := m[fd]; ok2 && path != "" {
+							if a.fileStatsByCall == nil {
+								a.fileStatsByCall = make(map[string]map[string]int64)
+							}
+							if a.fileStatsByCall[e.Name] == nil {
+								a.fileStatsByCall[e.Name] = make(map[string]int64)
+							}
+							if len(a.fileStatsByCall[e.Name]) < fileStatsCap || a.fileStatsByCall[e.Name][path] > 0 {
+								a.fileStatsByCall[e.Name][path]++
+							}
+						}
+						// Remove mapping on close to avoid stale entries.
+						delete(m, fd)
+					}
+				}
+			}
+		}
+	}
+}
+
+// FileStat represents a path and its observed open count.
+type FileStat struct {
+	Path  string `json:"path"`
+	Count int64  `json:"count"`
+}
+
+// TopFiles returns the top N files by observed open count. Pass n<=0 to return all.
+func (a *Aggregator) TopFiles(n int) []FileStat {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	out := make([]FileStat, 0, len(a.fileStats))
+	for p, c := range a.fileStats {
+		out = append(out, FileStat{Path: p, Count: c})
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	if n > 0 && len(out) > n {
+		out = out[:n]
+	}
+	return out
+}
+
+// TopFilesForSyscall returns the top N files observed for a specific syscall name.
+// Pass n<=0 to return all.
+func (a *Aggregator) TopFilesForSyscall(name string, n int) []FileStat {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	m := a.fileStatsByCall[name]
+	if m == nil {
+		return nil
+	}
+
+	out := make([]FileStat, 0, len(m))
+	for p, c := range m {
+		out = append(out, FileStat{Path: p, Count: c})
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	if n > 0 && len(out) > n {
+		out = out[:n]
+	}
+	return out
+}
+
+// extractPathFromArgs attempts to heuristically extract the first path-like
+// argument from a strace-style syscall args string. It prefers quoted strings
+// and falls back to comma-splitting for open/openat.
+func extractPathFromArgs(name, args string) string {
+	// Only attempt quoted-path extraction for syscalls that take a pathname
+	// as an argument. This avoids misinterpreting arbitrary byte buffers
+	// (e.g. read() payloads) as file paths.
+	pathSyscalls := map[string]bool{
+		"open": true, "openat": true, "creat": true,
+		"stat": true, "fstat": true, "lstat": true, "newfstatat": true, "statx": true,
+		"access": true, "faccessat": true,
+		"execve": true, "execveat": true,
+		"readlink": true, "readlinkat": true,
+		"symlink": true, "symlinkat": true,
+		"unlink": true, "unlinkat": true,
+		"rename": true, "renameat": true, "renameat2": true,
+		"link": true, "linkat": true,
+		"mkdir": true, "mkdirat": true, "rmdir": true,
+		"chdir": true,
+	}
+
+	if !pathSyscalls[name] {
+		return ""
+	}
+
+	// 1) look for a quoted string "..." and unescape it
+	if i := strings.Index(args, "\""); i >= 0 {
+		if j := strings.Index(args[i+1:], "\""); j >= 0 {
+			s := args[i+1 : i+1+j]
+			return unescapePath(s)
+		}
+	}
+
+	// 2) fallback: split by commas and pick the likely argument for open/openat-like calls
+	parts := strings.SplitN(args, ",", 3)
+	var cand string
+	switch name {
+	case "open":
+		if len(parts) >= 1 {
+			cand = strings.TrimSpace(parts[0])
+		}
+	case "openat":
+		if len(parts) >= 2 {
+			cand = strings.TrimSpace(parts[1])
+		}
+	case "creat":
+		if len(parts) >= 1 {
+			cand = strings.TrimSpace(parts[0])
+		}
+	default:
+		// For other path-taking syscalls, we don't attempt the numeric fallback.
+	}
+	// sanitize common non-path tokens (NULL or numeric/pointer-like values)
+	if cand == "" || cand == "NULL" || cand == "0" || strings.HasPrefix(cand, "0x") {
+		return ""
+	}
+	// If the candidate is quoted (e.g. '"/path"'), strip quotes and unescape.
+	if strings.HasPrefix(cand, "\"") && strings.HasSuffix(cand, "\"") {
+		return unescapePath(cand[1 : len(cand)-1])
+	}
+	return cand
+}
+
+// unescapePath attempts to handle C-style escapes using strconv.Unquote.
+func unescapePath(s string) string {
+	if unq, err := strconv.Unquote("\"" + s + "\""); err == nil {
+		// Reject strings that contain control characters (including NUL)
+		// as they are very likely to be binary payloads rather than paths.
+		for _, r := range unq {
+			if r == '\x00' || (r < 32 && r != '\t') {
+				return ""
+			}
+		}
+		return unq
+	}
+	// If Unquote failed, fall back to returning the raw input only if it
+	// doesn't contain control characters.
+	for _, r := range s {
+		if r == '\x00' || (r < 32 && r != '\t') {
+			return ""
+		}
+	}
+	return s
+}
+
+// parseFirstIntArg attempts to parse the first comma-separated argument as an int.
+// Returns (value, true) on success.
+func parseFirstIntArg(args string) (int, bool) {
+	parts := strings.SplitN(args, ",", 2)
+	if len(parts) == 0 {
+		return 0, false
+	}
+	s := strings.TrimSpace(parts[0])
+	if s == "" {
+		return 0, false
+	}
+	if v, err := strconv.Atoi(s); err == nil {
+		return v, true
+	}
+	return 0, false
+}
+
+// parseRetInt parses a syscall return value (decimal or hex) into int.
+func parseRetInt(ret string) (int, bool) {
+	if ret == "" {
+		return 0, false
+	}
+	if v, err := strconv.Atoi(ret); err == nil {
+		return v, true
+	}
+	if strings.HasPrefix(ret, "0x") {
+		if i64, err := strconv.ParseInt(ret, 0, 64); err == nil {
+			return int(i64), true
+		}
+	}
+	return 0, false
 }
 
 // Sorted returns a copy of all stats sorted by the given field.
 func (a *Aggregator) Sorted(by SortField) []SyscallStat {
+	// Snapshot current stats with minimal lock hold. We copy the syscall
+	// structs and any referenced maps/slices we need to read without holding
+	// the lock, then compute percentiles and the per-syscall top file
+	// outside the critical section. This prevents long-running reader work
+	// (sorting, scanning) from blocking writers calling Add().
 	a.mu.RLock()
-	defer a.mu.RUnlock()
-
-	out := make([]SyscallStat, 0, len(a.stats))
-	now := time.Now().Unix()
-	for _, s := range a.stats {
+	statsCopy := make([]SyscallStat, 0, len(a.stats))
+	// snapshot of fileStatsByCall: name -> (path -> count)
+	fileMapSnap := make(map[string]map[string]int64, len(a.fileStatsByCall))
+	for name, s := range a.stats {
+		// shallow copy of the struct (copies arrays; slices and maps remain shared)
 		cp := *s
-		cp.P95 = latPercentile(&s.latHist, 95)
-		cp.P99 = latPercentile(&s.latHist, 99)
-		cp.ErrRate60s = s.errWin.sum(now)
+
+		// Deep-copy ErrorBreakdown map to avoid races when released.
+		if s.ErrorBreakdown != nil {
+			cp.ErrorBreakdown = make(map[string]int64, len(s.ErrorBreakdown))
+			for k, v := range s.ErrorBreakdown {
+				cp.ErrorBreakdown[k] = v
+			}
+		}
+
+		// Deep-copy RecentErrors slice
+		if len(s.RecentErrors) > 0 {
+			cp.RecentErrors = make([]ErrorSample, len(s.RecentErrors))
+			copy(cp.RecentErrors, s.RecentErrors)
+		}
+
+		statsCopy = append(statsCopy, cp)
+
+		if m := a.fileStatsByCall[name]; m != nil {
+			mm := make(map[string]int64, len(m))
+			for k, v := range m {
+				mm[k] = v
+			}
+			fileMapSnap[name] = mm
+		}
+	}
+	a.mu.RUnlock()
+
+	out := make([]SyscallStat, 0, len(statsCopy))
+	now := time.Now().Unix()
+	for _, cp := range statsCopy {
+		// compute percentiles from the copied histogram
+		cp.P95 = latPercentile(&cp.latHist, 95)
+		cp.P99 = latPercentile(&cp.latHist, 99)
+		cp.ErrRate60s = cp.errWin.sum(now)
+
+		// Attach only the top-1 file (if any) observed for this syscall by
+		// scanning the snapshot map; avoid full sorting which is expensive.
+		if mm, ok := fileMapSnap[cp.Name]; ok && len(mm) > 0 {
+			var bestPath string
+			var bestCount int64
+			for p, c := range mm {
+				if c > bestCount {
+					bestCount = c
+					bestPath = p
+				}
+			}
+			if bestPath != "" {
+				cp.Files = []FileStat{{Path: bestPath, Count: bestCount}}
+			} else {
+				cp.Files = nil
+			}
+		} else {
+			cp.Files = nil
+		}
+
 		out = append(out, cp)
 	}
 
