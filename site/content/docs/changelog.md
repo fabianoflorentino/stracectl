@@ -18,6 +18,6 @@ and provide a concise summary of user-facing changes).
 
 ## Releases
 
-* [v1.0.97](https://github.com/fabianoflorentino/stracectl/blob/main/.changes/v1.0.97_release_notes.md)
+* [v1.0.99](https://github.com/fabianoflorentino/stracectl/blob/main/.changes/v1.0.99_release_notes.md)
 * [v1.0.93](https://github.com/fabianoflorentino/stracectl/blob/main/.changes/v1.0.93_release_notes.md)
 * [v1.0.87](https://github.com/fabianoflorentino/stracectl/blob/main/.changes/v1.0.87_release_notes.md)

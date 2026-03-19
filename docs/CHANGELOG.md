@@ -14,6 +14,6 @@ and provide a concise summary of user-facing changes).
 
 ## Releases
 
-* [v1.0.97](.changes/v1.0.97_release_notes.md)
+* [v1.0.99](.changes/v1.0.99_release_notes.md)
 * [v1.0.93](.changes/v1.0.93_release_notes.md)
 * [v1.0.87](.changes/v1.0.87_release_notes.md)
