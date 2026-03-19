@@ -525,3 +525,93 @@ func TestDashboard_ContainsDoneBanner(t *testing.T) {
 		t.Error("dashboard HTML should contain the process-exited banner element (#done-banner)")
 	}
 }
+
+func TestAPI_ListPagination(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg, "")
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api?page=1&per_page=2", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp struct {
+		Total   int           `json:"total"`
+		Page    int           `json:"page"`
+		PerPage int           `json:"per_page"`
+		Items   []interface{} `json:"items"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if resp.Total <= 0 {
+		t.Fatalf("expected total routes > 0, got %d", resp.Total)
+	}
+
+	// out-of-range page should return empty items
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api?page=999&per_page=1", nil)
+	rr2 := httptest.NewRecorder()
+	srv.ServeHTTP(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr2.Code)
+	}
+	var resp2 struct {
+		Items []interface{} `json:"items"`
+	}
+	if err := json.NewDecoder(rr2.Body).Decode(&resp2); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(resp2.Items) != 0 {
+		t.Fatalf("expected empty items for out-of-range page, got %v", resp2.Items)
+	}
+}
+
+func TestFiles_LimitAndDefault(t *testing.T) {
+	agg := aggregator.New()
+	// attribute a file via an open() event
+	agg.Add(models.SyscallEvent{Name: "open", Args: "\"/tmp/foo\", O_RDONLY", RetVal: "3", PID: 1, Time: time.Now()})
+	srv := server.New(":0", agg, "")
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/files?limit=1", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var files []aggregator.FileStat
+	if err := json.NewDecoder(rr.Body).Decode(&files); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(files) > 1 {
+		t.Fatalf("expected at most 1 file, got %d", len(files))
+	}
+
+	// default (no limit) should return JSON array (possibly empty)
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/files", nil)
+	rr2 := httptest.NewRecorder()
+	srv.ServeHTTP(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr2.Code)
+	}
+}
+
+func TestDebugGoroutines(t *testing.T) {
+	agg := aggregator.New()
+	srv := server.New(":0", agg, "")
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/debug/goroutines", nil)
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var doc map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&doc); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+	if _, ok := doc["goroutines"]; !ok {
+		t.Fatalf("expected goroutines field in response")
+	}
+}
