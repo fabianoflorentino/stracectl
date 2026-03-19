@@ -32,3 +32,4 @@ Thumbs.db
 bin/
 internal/tracer/*.o
 .venv
+**.log
