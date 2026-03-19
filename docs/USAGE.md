@@ -106,6 +106,22 @@ stracectl stats --report report.html trace.log
 installation needed. It includes a summary bar, category breakdown, and a fully sortable
 syscall table suitable for sharing, archiving, or attaching to an incident report.
 
+### Per-file view (Top files)
+
+`stracectl` can now surface the most-opened file paths observed during a trace.
+
+- TUI: press `f` to open the Top Files overlay showing the most-opened paths
+  and their counts (scroll with ↑/↓ or j/k).
+- Sidecar API: `GET /api/files?limit=N` returns a JSON array of `{path,count}`.
+- HTML report: include the top files table by passing `--report-top-files N` to
+  `run`, `attach`, or `stats`.
+
+This feature uses a cheap heuristic to extract pathname-like arguments from
+`open`/`openat`/`creat` and to attribute fd-based syscalls when possible using
+fd→path mappings. To avoid unbounded memory usage the aggregator caps the number
+of distinct tracked paths and truncates overly long values; see
+`docs/per_file_view.md` for design and tests.
+
 ### Sidecar / HTTP API mode
 
 Pass `--serve <addr>` to any command to replace the TUI with an HTTP server:
