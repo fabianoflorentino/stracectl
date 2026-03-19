@@ -68,6 +68,26 @@ tbody td:first-child{font-weight:600;color:#79c0ff}
 </div>
 
 <div class="section">
+  <h2>Top files</h2>
+  <table id="tbl-files">
+    <thead>
+      <tr>
+        <th>PATH</th>
+        <th style="text-align:right">COUNT</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .TopFiles}}
+      <tr>
+        <td>{{.Path}}</td>
+        <td style="text-align:right">{{.Count}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
   <h2>Syscall table</h2>
   <table id="tbl">
     <thead>

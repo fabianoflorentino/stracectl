@@ -56,10 +56,11 @@ type data struct {
 	ErrPct      string
 	Stats       []rowData
 	Categories  []catRow
+	TopFiles    []aggregator.FileStat
 }
 
 // Write renders a self-contained HTML report to path.
-func Write(path string, agg *aggregator.Aggregator, label string) error {
+func Write(path string, agg *aggregator.Aggregator, label string, topFilesLimit int) error {
 	now := time.Now()
 	duration := now.Sub(agg.StartTime())
 
@@ -136,6 +137,15 @@ func Write(path string, agg *aggregator.Aggregator, label string) error {
 		Stats:       rows,
 		Categories:  cats,
 	}
+
+	// Top files (most opened paths) — include in the report for quick I/O hotspots.
+	// Respect requested limit; default to 50 when unspecified.
+	if topFilesLimit <= 0 {
+		topFilesLimit = 50
+	}
+	topFiles := agg.TopFiles(topFilesLimit)
+	// attach to view-model
+	d.TopFiles = topFiles
 
 	tmpl, err := template.New("report").Parse(reportHTML)
 	if err != nil {

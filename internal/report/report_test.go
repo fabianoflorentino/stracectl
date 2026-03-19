@@ -33,7 +33,7 @@ func TestWrite(t *testing.T) {
 	f.Close()
 	defer os.Remove(path)
 
-	if err := report.Write(path, agg, "test run"); err != nil {
+	if err := report.Write(path, agg, "test run", 50); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 
