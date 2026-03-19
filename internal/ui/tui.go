@@ -1039,7 +1039,7 @@ func sanitizeForTUI(s string) string {
 // variables `COLUMNS`/`LINES`, and finally to sensible defaults.
 func detectFallbackSize() (int, int) {
 	// Try using the terminal API on stdout
-	if fd := int(os.Stdout.Fd()); fd >= 0 {
+	if fd, ok := safeIntFromUintptr(os.Stdout.Fd()); ok && fd >= 0 {
 		if w, h, err := term.GetSize(fd); err == nil && w > 0 && h > 0 {
 			recordUIEvent("detect-term-getsize", w, h)
 			return w, h
@@ -1065,26 +1065,51 @@ func detectFallbackSize() (int, int) {
 	return 80, 24
 }
 
+// safeIntFromUintptr converts a uintptr to int if it fits within the int range.
+// This is used to safely handle file descriptors from os.Stdout.Fd() without
+// risking overflow on 32-bit systems.
+func safeIntFromUintptr(u uintptr) (int, bool) {
+	maxInt := int(^uint(0) >> 1) // max int
+
+	if u <= uintptr(maxInt) {
+		return int(u), true //nolint:gosec // #nosec G115 - guarded by u <= uintptr(maxInt) above
+	}
+
+	return 0, false
+}
+
 // recordFallbackEvent appends a small diagnostic entry when the UI applies
 // a fallback terminal size. This helps users report occurrences where the
 // WindowSizeMsg was never delivered.
 func recordFallbackEvent(w, h int) {
-	f, err := os.OpenFile("/tmp/stracectl_ui_fallback.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile("/tmp/stracectl_ui_fallback.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return
 	}
-	defer f.Close()
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			return
+		}
+	}()
+
 	_, _ = fmt.Fprintf(f, "%s pid=%d fallback width=%d height=%d\n", time.Now().Format(time.RFC3339Nano), os.Getpid(), w, h)
 }
 
 // recordUIEvent appends a timestamped UI event to a debug log to aid
 // diagnosing why the TUI sometimes doesn't receive WindowSizeMsg.
 func recordUIEvent(ev string, w, h int) {
-	f, err := os.OpenFile("/tmp/stracectl_ui_events.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile("/tmp/stracectl_ui_events.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return
 	}
-	defer f.Close()
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			return
+		}
+	}()
+
 	_, _ = fmt.Fprintf(f, "%s pid=%d ev=%s width=%d height=%d\n", time.Now().Format(time.RFC3339Nano), os.Getpid(), ev, w, h)
 }
 
@@ -1093,8 +1118,10 @@ func renderHeader(cw cols, sortBy aggregator.SortField) string {
 		if sortBy == f {
 			return activeSortStyle.Render(label + "▼")
 		}
+
 		return label + " "
 	}
+
 	return headerStyle.Render(
 		padR("SYSCALL", cw.name) +
 			padR("FILE", cw.file) +
