@@ -6,11 +6,13 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 )
@@ -69,11 +71,14 @@ type model struct {
 	helpOverlay   bool
 	detailOverlay bool
 	logOverlay    bool
+	filesOverlay  bool
 	logOffset     int
+	filesOffset   int
 	processDone   bool
 	cursor        int
 	width         int
 	height        int
+	sizeMisses    int // number of consecutive ticks without a WindowSizeMsg
 	started       time.Time
 }
 
@@ -92,7 +97,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		// record reception of a WindowSizeMsg for later diagnosis
+		recordUIEvent("window-size", m.width, m.height)
 	case tickMsg:
+		// If we never received a WindowSizeMsg, the TUI would stay stuck
+		// showing "Initialising stracectl…". After a few ticks, attempt a
+		// fallback terminal-size detection so the UI can render in degraded
+		// environments (sudo, re-exec, or piped stdout) instead of freezing.
+		if m.width == 0 {
+			m.sizeMisses++
+			if m.sizeMisses >= 5 {
+				w, h := detectFallbackSize()
+				m.width = w
+				m.height = h
+				// record diagnostic hint for remote debugging
+				recordFallbackEvent(w, h)
+			}
+		} else {
+			m.sizeMisses = 0
+		}
 		return m, tick()
 	case tea.KeyMsg:
 		if m.editing {
@@ -141,6 +164,22 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	// in the files overlay: scroll or close
+	if m.filesOverlay {
+		switch msg.String() {
+		case "up", "k":
+			if m.filesOffset > 0 {
+				m.filesOffset--
+			}
+		case "down", "j":
+			m.filesOffset++
+		case "q", "Q", "ctrl+c":
+			return m, tea.Quit
+		default:
+			m.filesOverlay = false
+		}
+		return m, nil
+	}
 	switch msg.String() {
 	case "q", "Q", "ctrl+c":
 		return m, tea.Quit
@@ -179,6 +218,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "l", "L":
 		m.logOverlay = true
 		m.logOffset = -1 // -1 signals "scroll to bottom" on first render
+	case "f", "F":
+		m.filesOverlay = true
+		m.filesOffset = 0
 	}
 	return m, nil
 }
@@ -208,6 +250,9 @@ func (m model) View() string {
 	}
 	if m.detailOverlay {
 		return m.renderDetail()
+	}
+	if m.filesOverlay {
+		return m.renderFiles()
 	}
 	if m.logOverlay {
 		return m.renderLog()
@@ -241,7 +286,7 @@ func (m model) View() string {
 	div := divStyle.Render(strings.Repeat("─", w))
 	hdr := renderHeader(cw, m.sortBy)
 
-	shortcuts := " q:quit  c:calls▼  t:total  a:avg  m:min  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  l:log  ?:help  esc:clear"
+	shortcuts := " q:quit  c:calls▼  t:total  a:avg  m:min  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  l:log  f:files  ?:help  esc:clear"
 	if m.filter != "" {
 		shortcuts += fmt.Sprintf("   [filter: %q]", m.filter)
 	}
@@ -318,7 +363,19 @@ func (m model) View() string {
 
 	for i, s := range stats {
 		bar := sparkBar(s.Count, maxCount, cw.bar)
-		catTag := catStyle(s.Category).Render(fmt.Sprintf("%-*s", cw.cat, s.Category.String()))
+
+		// Prepare per-cell values with strict truncation to avoid overflow
+		nameVal := truncateToWidth(sanitizeForTUI(s.Name), cw.name-2)
+
+		// File column: show top-1 observed path for this syscall, truncated.
+		fileVal := ""
+		if len(s.Files) > 0 {
+			fileVal = truncateToWidth(sanitizeForTUI(s.Files[0].Path), cw.file)
+		}
+
+		// Category tag: truncate visible label then apply style and pad to width.
+		catLabel := truncateToWidth(s.Category.String(), cw.cat)
+		catTag := catStyle(s.Category).Render(padR(catLabel, cw.cat))
 
 		cursor := "  "
 		if i+scrollOffset == m.cursor {
@@ -351,7 +408,8 @@ func (m model) View() string {
 			errPctPart = padL("—", cw.errpct)
 		}
 
-		row := cursor + padR(s.Name, cw.name-2) +
+		row := cursor + padR(nameVal, cw.name-2) +
+			padR(fileVal, cw.file) +
 			catTag +
 			padL(formatCount(s.Count), cw.count) +
 			" " + barFillStyle.Render(bar) + " " +
@@ -724,6 +782,65 @@ func (m model) renderLog() string {
 	return sb.String()
 }
 
+// renderFiles shows the top opened files overlay. Supports simple scrolling.
+func (m model) renderFiles() string {
+	w := m.width
+	if w == 0 {
+		w = 80
+	}
+	h := m.height
+	if h == 0 {
+		h = 24
+	}
+
+	files := m.agg.TopFiles(0)
+	n := len(files)
+
+	div := divStyle.Render(strings.Repeat("─", w))
+	title := detailTitleStyle.Width(w).Render(fmt.Sprintf(" stracectl  top files  (%d entries) ", n))
+	footer := footerStyle.Render(" any key:return  ↑↓/jk:scroll  q:quit ")
+
+	// Visible body height: title + div + footer accounted similar to log view.
+	bodyH := h - 3
+	if bodyH < 1 {
+		bodyH = 1
+	}
+
+	if m.filesOffset < 0 || m.filesOffset > n-bodyH {
+		m.filesOffset = 0
+	}
+	if m.filesOffset < 0 {
+		m.filesOffset = 0
+	}
+
+	end := m.filesOffset + bodyH
+	if end > n {
+		end = n
+	}
+	visible := files[m.filesOffset:end]
+
+	var sb strings.Builder
+	sb.WriteString(title + "\n")
+	sb.WriteString(div + "\n")
+
+	availPathW := w - 12
+	if availPathW < 10 {
+		availPathW = 10
+	}
+
+	for _, f := range visible {
+		p := f.Path
+		disp := truncateToWidth(p, availPathW)
+		line := fmt.Sprintf("  %-*s %6s", availPathW, disp, formatCount(f.Count))
+		sb.WriteString(detailDimStyle.Render(line) + "\n")
+	}
+	for i := len(visible); i < bodyH; i++ {
+		sb.WriteString("\n")
+	}
+	sb.WriteString(footer)
+	return sb.String()
+}
+
 // ── Help overlay ─────────────────────────────────────────────────────────────
 
 func (m model) renderHelp() string {
@@ -756,6 +873,7 @@ func (m model) renderHelp() string {
 
 	section("COLUMNS")
 	row("SYSCALL", "name of the kernel function called by the process")
+	row("FILE", "top observed file path for this syscall (truncated)")
 	row("CAT", "category: I/O · FS · NET · MEM · PROC · SIG · OTHER")
 	row("CALLS", "total number of times this syscall was called")
 	row("FREQ", "bar showing count relative to the most-called syscall")
@@ -814,17 +932,160 @@ func (m model) renderHelp() string {
 // ── Column layout ─────────────────────────────────────────────────────────────
 
 type cols struct {
-	name, cat, count, bar, avg, min, max, total, errors, errpct int
+	name, file, cat, count, bar, avg, min, max, total, errors, errpct int
 }
 
 func colWidths(w int) cols {
+	// Base widths for right-side columns (fixed-width fields)
 	cat, count, avg, min, max, total, errors, errpct := 6, 9, 10, 10, 10, 11, 8, 7
 	barW := 12
-	name := w - cat - count - barW - 2 - avg - min - max - total - errors - errpct
-	if name < 14 {
-		name = 14
+
+	// Compute remaining space after the fixed right-side columns.
+	fixed := cat + count + barW + 2 + avg + min + max + total + errors + errpct
+	avail := w - fixed
+
+	// Fallback for very narrow terminals: keep previous clamping behaviour.
+	if avail <= 0 {
+		file := 30
+		name := w - file - cat - count - barW - 2 - avg - min - max - total - errors - errpct
+		if name < 14 {
+			diff := 14 - name
+			file -= diff
+			if file < 8 {
+				file = 8
+			}
+			name = 14
+		}
+		return cols{name, file, cat, count, barW, avg, min, max, total, errors, errpct}
 	}
-	return cols{name, cat, count, barW, avg, min, max, total, errors, errpct}
+
+	// Prefer to keep FILE reasonably large but conservative so the main
+	// syscall `SYSCALL` column remains readable. Use ~60% of available
+	// left-side space, with sensible min/max and a larger minimum for
+	// the syscall name to avoid crushing it on medium-width terminals.
+	file := avail * 60 / 100 // reserve ~60% of the available space
+	if file < 30 {
+		file = 30
+	}
+	// Ensure we leave room for a reasonable syscall name (min 18)
+	if file > avail-18 {
+		file = avail - 18
+	}
+	name := avail - file
+	if name < 18 {
+		diff := 18 - name
+		file -= diff
+		if file < 8 {
+			file = 8
+		}
+		name = 18
+	}
+
+	return cols{name, file, cat, count, barW, avg, min, max, total, errors, errpct}
+}
+
+// truncateToWidth truncates a string to the given display width (measured by
+// lipgloss.Width) and appends an ellipsis if truncated. It preserves rune
+// boundaries.
+func truncateToWidth(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= w {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		b.WriteRune(r)
+		if lipgloss.Width(b.String()) > w {
+			// remove last rune
+			out := []rune(b.String())
+			if len(out) > 0 {
+				out = out[:len(out)-1]
+			}
+			return string(out) + "…"
+		}
+	}
+	return s
+}
+
+// sanitizeForTUI removes control characters that can corrupt terminal
+// rendering (including NUL). It preserves printable runes and tabs.
+func sanitizeForTUI(s string) string {
+	if s == "" {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if r == '\t' {
+			b.WriteRune(r)
+			continue
+		}
+		if r < 32 || r == 0x7f {
+			// replace control characters with U+FFFD replacement glyph
+			// so they don't shift terminal layout or inject escapes.
+			b.WriteRune('�')
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// detectFallbackSize tries several methods to determine a reasonable terminal
+// width/height when BubbleTea doesn't deliver a WindowSizeMsg (common when
+// running under sudo, piped stdout, or after a re-exec). It first attempts
+// to query the stdout file descriptor, then falls back to environment
+// variables `COLUMNS`/`LINES`, and finally to sensible defaults.
+func detectFallbackSize() (int, int) {
+	// Try using the terminal API on stdout
+	if fd := int(os.Stdout.Fd()); fd >= 0 {
+		if w, h, err := term.GetSize(fd); err == nil && w > 0 && h > 0 {
+			recordUIEvent("detect-term-getsize", w, h)
+			return w, h
+		} else if err != nil {
+			recordUIEvent("detect-term-getsize-failed", 0, 0)
+		}
+	}
+
+	// Next, try environment variables commonly set by shells
+	if s := os.Getenv("COLUMNS"); s != "" {
+		if w, err := strconv.Atoi(s); err == nil && w > 0 {
+			if l := os.Getenv("LINES"); l != "" {
+				if h, err2 := strconv.Atoi(l); err2 == nil && h > 0 {
+					return w, h
+				}
+			}
+			return w, 24
+		}
+	}
+
+	// Last resort: conservative defaults
+	recordUIEvent("detect-default", 80, 24)
+	return 80, 24
+}
+
+// recordFallbackEvent appends a small diagnostic entry when the UI applies
+// a fallback terminal size. This helps users report occurrences where the
+// WindowSizeMsg was never delivered.
+func recordFallbackEvent(w, h int) {
+	f, err := os.OpenFile("/tmp/stracectl_ui_fallback.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = fmt.Fprintf(f, "%s pid=%d fallback width=%d height=%d\n", time.Now().Format(time.RFC3339Nano), os.Getpid(), w, h)
+}
+
+// recordUIEvent appends a timestamped UI event to a debug log to aid
+// diagnosing why the TUI sometimes doesn't receive WindowSizeMsg.
+func recordUIEvent(ev string, w, h int) {
+	f, err := os.OpenFile("/tmp/stracectl_ui_events.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = fmt.Fprintf(f, "%s pid=%d ev=%s width=%d height=%d\n", time.Now().Format(time.RFC3339Nano), os.Getpid(), ev, w, h)
 }
 
 func renderHeader(cw cols, sortBy aggregator.SortField) string {
@@ -836,6 +1097,7 @@ func renderHeader(cw cols, sortBy aggregator.SortField) string {
 	}
 	return headerStyle.Render(
 		padR("SYSCALL", cw.name) +
+			padR("FILE", cw.file) +
 			padR(mark(aggregator.SortByCategory, "CAT"), cw.cat) +
 			padL(mark(aggregator.SortByCount, "CALLS"), cw.count) +
 			" " + padR("FREQ", cw.bar+1) +
@@ -953,7 +1215,9 @@ func runWithOpts(agg *aggregator.Aggregator, target string, done <-chan struct{}
 		sortBy:  aggregator.SortByCount,
 		started: time.Now(),
 	}
+	recordUIEvent("tea-newprogram", 0, 0)
 	p := tea.NewProgram(m, opts...)
+	recordUIEvent("tea-newprogram-created", 0, 0)
 
 	if done != nil {
 		go func() {
@@ -963,5 +1227,10 @@ func runWithOpts(agg *aggregator.Aggregator, target string, done <-chan struct{}
 	}
 
 	_, err := p.Run()
+	if err != nil {
+		recordUIEvent("tea-run-error", 0, 0)
+	} else {
+		recordUIEvent("tea-run-exit", 0, 0)
+	}
 	return err
 }
