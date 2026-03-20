@@ -288,9 +288,9 @@
   'use strict';
 
   const INTERVAL_MS   = 5000;   // 5 seconds per slide
-  const SLIDE_COUNT   = 4;
 
   const slides    = document.querySelectorAll('.carousel-slide');
+  let SLIDE_COUNT   = slides.length;
   const dots      = document.querySelectorAll('.carousel-dot');
   const captions  = document.querySelectorAll('.carousel-caption');
   const progress  = document.getElementById('carousel-progress');

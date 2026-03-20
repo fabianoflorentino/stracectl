@@ -214,7 +214,7 @@
                 </div>
                 <span class="slide-chrome-title">stracectl — syscall stats</span>
               </div>
-              <img src="{{ "img/dashboard.png" | relURL }}" alt="stracectl Syscall Stats Dashboard" loading="lazy" draggable="false">
+              <img src="img/dashweb_1.png" alt="stracectl Syscall Stats Dashboard" loading="lazy" draggable="false">
             </div>
           </div>
 
@@ -228,7 +228,7 @@
                 </div>
                 <span class="slide-chrome-title">stracectl — live log</span>
               </div>
-              <img src="{{ "img/log.png" | relURL }}" alt="stracectl Live Log Stream" loading="lazy" draggable="false">
+              <img src="img/dashweb_2.png" alt="stracectl Live Log Stream" loading="lazy" draggable="false">
             </div>
           </div>
 
@@ -240,9 +240,9 @@
                   <span class="dot dot-yellow"></span>
                   <span class="dot dot-green"></span>
                 </div>
-                <span class="slide-chrome-title">stracectl — syscall detail</span>
+                <span class="slide-chrome-title">stracectl — API</span>
               </div>
-              <img src="{{ "img/detail.png" | relURL }}" alt="stracectl Syscall Detail View" loading="lazy" draggable="false">
+              <img src="img/dashweb_3.png" alt="stracectl API Endpoints" loading="lazy" draggable="false">
             </div>
           </div>
 
@@ -254,12 +254,107 @@
                   <span class="dot dot-yellow"></span>
                   <span class="dot dot-green"></span>
                 </div>
-                <span class="slide-chrome-title">stracectl — HTML report</span>
+                <span class="slide-chrome-title">stracectl — Files</span>
               </div>
-              <img src="{{ "img/report.jpg" | relURL }}" alt="stracectl HTML Report" loading="lazy" draggable="false">
+              <img src="img/dashweb_4.png" alt="stracectl Files (Top opened files)" loading="lazy" draggable="false">
             </div>
           </div>
 
+          <div class="carousel-slide" data-idx="4">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — Syscall Detail</span>
+              </div>
+              <img src="img/dashweb_5.png" alt="stracectl Syscall Detail View" loading="lazy" draggable="false">
+            </div>
+          </div>
+
+          <div class="carousel-slide" data-idx="5">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — API stats (JSON)</span>
+              </div>
+              <img src="img/dashweb_6.png" alt="stracectl API /api/stats JSON output" loading="lazy" draggable="false">
+            </div>
+          </div>
+          <div class="carousel-slide" data-idx="6">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — Metrics</span>
+              </div>
+              <img src="img/metrics.png" alt="stracectl Prometheus metrics /metrics" loading="lazy" draggable="false">
+            </div>
+          </div>
+          <div class="carousel-slide" data-idx="7">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — TUI (main)</span>
+              </div>
+              <img src="img/tui_1.jpg" alt="stracectl TUI main screen" loading="lazy" draggable="false">
+            </div>
+          </div>
+
+          <div class="carousel-slide" data-idx="8">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — TUI Syscall Detail</span>
+              </div>
+              <img src="img/tui_2.jpg" alt="stracectl TUI syscall detail" loading="lazy" draggable="false">
+            </div>
+          </div>
+
+          <div class="carousel-slide" data-idx="9">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — TUI Live Log</span>
+              </div>
+              <img src="img/tui_3.jpg" alt="stracectl TUI live log" loading="lazy" draggable="false">
+            </div>
+          </div>
+
+          <div class="carousel-slide" data-idx="10">
+            <div class="slide-frame">
+              <div class="slide-chrome">
+                <div class="terminal-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span class="slide-chrome-title">stracectl — TUI Open Files</span>
+              </div>
+              <img src="img/tui_4.jpg" alt="stracectl TUI open files" loading="lazy" draggable="false">
+            </div>
+          </div>
         </div>
       </div>
 
@@ -274,12 +369,40 @@
             <span class="caption-desc">Real-time syscall feed with anomaly alerts highlighted in red and yellow</span>
           </div>
           <div class="carousel-caption" data-idx="2">
+            <span class="caption-label">API Endpoints</span>
+            <span class="caption-desc">List available API endpoints, health checks, and debug routes (metrics, pprof, files)</span>
+          </div>
+          <div class="carousel-caption" data-idx="3">
+            <span class="caption-label">Top Opened Files</span>
+            <span class="caption-desc">List of top opened files and file descriptor paths (useful to inspect which files the traced process touches)</span>
+          </div>
+          <div class="carousel-caption" data-idx="4">
             <span class="caption-label">Syscall Detail View</span>
             <span class="caption-desc">P95 / P99 latencies, error breakdown by errno, and recent error samples per syscall</span>
           </div>
-          <div class="carousel-caption" data-idx="3">
-            <span class="caption-label">HTML Report</span>
-            <span class="caption-desc">Self-contained report export — sortable table, category bars, no server or CDN required</span>
+          <div class="carousel-caption" data-idx="5">
+            <span class="caption-label">API Stats (JSON)</span>
+            <span class="caption-desc">JSON output from the <code>/api/stats</code> endpoint — aggregated syscall statistics</span>
+          </div>
+          <div class="carousel-caption" data-idx="6">
+            <span class="caption-label">Prometheus Metrics</span>
+            <span class="caption-desc">Prometheus metrics exposed at <code>/metrics</code> — counters and gauges for syscall statistics</span>
+          </div>
+          <div class="carousel-caption" data-idx="7">
+            <span class="caption-label">TUI — Main</span>
+            <span class="caption-desc">Main interactive TUI dashboard showing aggregated syscall stats</span>
+          </div>
+          <div class="carousel-caption" data-idx="8">
+            <span class="caption-label">TUI — Syscall Detail</span>
+            <span class="caption-desc">Detailed syscall view within the TUI — latencies, errors, recent samples</span>
+          </div>
+          <div class="carousel-caption" data-idx="9">
+            <span class="caption-label">TUI — Live Log</span>
+            <span class="caption-desc">Live syscall event stream inside the TUI</span>
+          </div>
+          <div class="carousel-caption" data-idx="10">
+            <span class="caption-label">TUI — Open Files</span>
+            <span class="caption-desc">TUI view listing open files and file descriptor paths</span>
           </div>
         </div>
 
@@ -292,6 +415,13 @@
             <button class="carousel-dot" data-idx="1" aria-label="Screenshot 2"></button>
             <button class="carousel-dot" data-idx="2" aria-label="Screenshot 3"></button>
             <button class="carousel-dot" data-idx="3" aria-label="Screenshot 4"></button>
+            <button class="carousel-dot" data-idx="4" aria-label="Screenshot 5"></button>
+            <button class="carousel-dot" data-idx="5" aria-label="Screenshot 6"></button>
+            <button class="carousel-dot" data-idx="6" aria-label="Screenshot 7"></button>
+            <button class="carousel-dot" data-idx="7" aria-label="Screenshot 8"></button>
+            <button class="carousel-dot" data-idx="8" aria-label="Screenshot 9"></button>
+            <button class="carousel-dot" data-idx="9" aria-label="Screenshot 10"></button>
+            <button class="carousel-dot" data-idx="10" aria-label="Screenshot 11"></button>
           </div>
           <button class="carousel-next" id="carousel-next" aria-label="Next screenshot">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
