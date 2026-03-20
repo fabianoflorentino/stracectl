@@ -22,7 +22,6 @@ on:
       - 'README.md'
       - 'LICENSE'
       - 'docs/**'
-      - '.github/**'
       - '**/*.md'
       - 'scripts/**'
       - 'site/**'
