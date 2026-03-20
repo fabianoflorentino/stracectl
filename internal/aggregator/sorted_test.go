@@ -18,7 +18,11 @@ func TestSorted_VariousSortsAndStats(t *testing.T) {
 	a.Add(models.SyscallEvent{Name: "open", Args: "\"/tmp/a\", O_RDONLY", RetVal: "3", PID: 1, Time: now})
 	a.Add(models.SyscallEvent{Name: "write", Latency: 800 * time.Nanosecond, Error: "EIO", Time: now})
 
-	sorts := []SortField{SortByCount, SortByTotal, SortByAvg, SortByMin, SortByMax, SortByErrors, SortByName, SortByCategory}
+	sorts := []SortField{
+		SortByCount, SortByTotal, SortByAvg, SortByMin,
+		SortByMax, SortByErrors, SortByName, SortByCategory,
+	}
+
 	for _, s := range sorts {
 		out := a.Sorted(s)
 		if len(out) == 0 {
