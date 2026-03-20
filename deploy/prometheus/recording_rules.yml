@@ -1,0 +1,18 @@
+groups:
+- name: stracectl-recording-rules
+  rules:
+  - record: stracectl:syscall:rate5m
+    expr: sum by (syscall) (rate(stracectl_syscall_calls_total[5m]))
+    labels:
+      unit: "calls/s"
+
+  - record: stracectl:syscall:rate5m:category
+    expr: sum by (category) (rate(stracectl_syscall_calls_total[5m]))
+    labels:
+      unit: "calls/s"
+
+  # If latency histograms are exported (histogram buckets named *_bucket)
+  - record: stracectl:syscall:p95
+    expr: histogram_quantile(0.95, sum(rate(stracectl_syscall_latency_seconds_bucket[5m])) by (le, syscall))
+    labels:
+      unit: "seconds"

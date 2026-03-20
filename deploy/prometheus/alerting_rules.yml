@@ -1,0 +1,30 @@
+groups:
+- name: stracectl-alerts
+  rules:
+  - alert: HighSyscallRate
+    expr: sum(rate(stracectl_syscall_calls_total[5m])) > 1000
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High total syscall rate on instance {{ $labels.instance }}"
+      description: "Total syscall rate > 1000 calls/s for more than 2 minutes. Investigate high syscall activity."
+
+  - alert: HighSyscallRateBySyscall
+    expr: topk(5, sum by (syscall) (rate(stracectl_syscall_calls_total[5m]))) > 500
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Top syscall has high rate"
+      description: "One of the top syscalls has a rate > 500 calls/s for 2 minutes."
+
+  - alert: HighSyscallLatencyP95
+    # Only valid if histogram metric exists: stracectl_syscall_latency_seconds_bucket
+    expr: histogram_quantile(0.95, sum(rate(stracectl_syscall_latency_seconds_bucket[5m])) by (le, syscall)) > 0.1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High syscall P95 latency (>100ms)"
+      description: "P95 syscall latency is >100ms for more than 5m for some syscall."

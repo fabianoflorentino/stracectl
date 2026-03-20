@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'stracectl'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:4321']
+    # If your service is served under a base path (e.g. /stracectl/), use metrics_path and relabeling accordingly.
+
+  # Example: scrape the HTTP dashboard (if running on another port)
+  - job_name: 'stracectl-dashboard'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:4321']
+
+# Optional: rule_files can point to recording/alerting rules
+rule_files:
+  - 'recording_rules.yml'
+  - 'alerting_rules.yml'
