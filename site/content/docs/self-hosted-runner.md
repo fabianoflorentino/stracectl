@@ -1,7 +1,7 @@
 ---
 title: "Self-hosted runner"
 description: "How to provision a self-hosted GitHub Actions runner and integrate `stracectl` (eBPF and strace)."
-weight: 11
+weight: 12
 ---
 
 This page explains how to provision a self-hosted runner to execute eBPF
