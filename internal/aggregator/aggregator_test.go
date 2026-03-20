@@ -1,12 +1,12 @@
-package aggregator_test
+package aggregator
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/models"
 	"github.com/fabianoflorentino/stracectl/internal/procinfo"
 )
@@ -34,7 +34,7 @@ func fail(name string, latency time.Duration) models.SyscallEvent {
 // ── Add / basic counters ──────────────────────────────────────────────────────
 
 func TestAdd_CountsAndTotals(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 
 	a.Add(ok("read", 10*time.Microsecond))
 	a.Add(ok("read", 20*time.Microsecond))
@@ -54,12 +54,12 @@ func TestAdd_CountsAndTotals(t *testing.T) {
 // ── SyscallStat fields ────────────────────────────────────────────────────────
 
 func TestStat_AvgMinMax(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(ok("write", 10*time.Microsecond))
 	a.Add(ok("write", 30*time.Microsecond))
 	a.Add(ok("write", 20*time.Microsecond))
 
-	stats := a.Sorted(aggregator.SortByCount)
+	stats := a.Sorted(SortByCount)
 	if len(stats) != 1 {
 		t.Fatalf("want 1 stat, got %d", len(stats))
 	}
@@ -80,12 +80,12 @@ func TestStat_AvgMinMax(t *testing.T) {
 }
 
 func TestStat_ErrPct(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(ok("access", 1*time.Microsecond))
 	a.Add(fail("access", 1*time.Microsecond))
 	a.Add(fail("access", 1*time.Microsecond))
 
-	stats := a.Sorted(aggregator.SortByCount)
+	stats := a.Sorted(SortByCount)
 	s := stats[0]
 
 	// 2 errors out of 3 calls = 66.6...%
@@ -99,27 +99,27 @@ func TestStat_ErrPct(t *testing.T) {
 func TestCategory_Classification(t *testing.T) {
 	cases := []struct {
 		syscall string
-		wantCat aggregator.Category
+		wantCat Category
 		wantStr string
 	}{
-		{"read", aggregator.CatIO, "I/O"},
-		{"openat", aggregator.CatIO, "I/O"},
-		{"fstat", aggregator.CatFS, "FS"},
-		{"lseek", aggregator.CatFS, "FS"},
-		{"connect", aggregator.CatNet, "NET"},
-		{"sendto", aggregator.CatNet, "NET"},
-		{"mmap", aggregator.CatMem, "MEM"},
-		{"mprotect", aggregator.CatMem, "MEM"},
-		{"execve", aggregator.CatProcess, "PROC"},
-		{"prctl", aggregator.CatProcess, "PROC"},
-		{"rt_sigaction", aggregator.CatSignal, "SIG"},
-		{"unknownsyscall", aggregator.CatOther, "OTHER"},
+		{"read", CatIO, "I/O"},
+		{"openat", CatIO, "I/O"},
+		{"fstat", CatFS, "FS"},
+		{"lseek", CatFS, "FS"},
+		{"connect", CatNet, "NET"},
+		{"sendto", CatNet, "NET"},
+		{"mmap", CatMem, "MEM"},
+		{"mprotect", CatMem, "MEM"},
+		{"execve", CatProcess, "PROC"},
+		{"prctl", CatProcess, "PROC"},
+		{"rt_sigaction", CatSignal, "SIG"},
+		{"unknownsyscall", CatOther, "OTHER"},
 	}
 
 	for _, tc := range cases {
-		a := aggregator.New()
+		a := New()
 		a.Add(ok(tc.syscall, 1*time.Microsecond))
-		stats := a.Sorted(aggregator.SortByCount)
+		stats := a.Sorted(SortByCount)
 		if len(stats) == 0 {
 			t.Fatalf("%s: no stats returned", tc.syscall)
 		}
@@ -136,7 +136,7 @@ func TestCategory_Classification(t *testing.T) {
 // ── CategoryBreakdown ─────────────────────────────────────────────────────────
 
 func TestCategoryBreakdown(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	// 3 I/O events
 	a.Add(ok("read", 1*time.Microsecond))
 	a.Add(ok("read", 1*time.Microsecond))
@@ -147,7 +147,7 @@ func TestCategoryBreakdown(t *testing.T) {
 
 	bd := a.CategoryBreakdown()
 
-	io := bd[aggregator.CatIO]
+	io := bd[CatIO]
 	if io.Count != 3 {
 		t.Errorf("CatIO count: want 3, got %d", io.Count)
 	}
@@ -155,7 +155,7 @@ func TestCategoryBreakdown(t *testing.T) {
 		t.Errorf("CatIO errs: want 0, got %d", io.Errs)
 	}
 
-	net := bd[aggregator.CatNet]
+	net := bd[CatNet]
 	if net.Count != 2 {
 		t.Errorf("CatNet count: want 2, got %d", net.Count)
 	}
@@ -167,12 +167,12 @@ func TestCategoryBreakdown(t *testing.T) {
 // ── SortByMax ─────────────────────────────────────────────────────────────────
 
 func TestSorted_ByMax(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(ok("read", 5*time.Millisecond))   // max 5ms
 	a.Add(ok("write", 50*time.Millisecond)) // max 50ms
 	a.Add(ok("fstat", 1*time.Millisecond))  // max 1ms
 
-	sorted := a.Sorted(aggregator.SortByMax)
+	sorted := a.Sorted(SortByMax)
 	if sorted[0].Name != "write" {
 		t.Errorf("SortByMax first: want write, got %s", sorted[0].Name)
 	}
@@ -184,12 +184,12 @@ func TestSorted_ByMax(t *testing.T) {
 // ── SortByErrors ─────────────────────────────────────────────────────────────
 
 func TestSorted_ByErrors(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(fail("openat", 1*time.Microsecond))
 	a.Add(fail("openat", 1*time.Microsecond))
 	a.Add(fail("access", 1*time.Microsecond))
 
-	sorted := a.Sorted(aggregator.SortByErrors)
+	sorted := a.Sorted(SortByErrors)
 	if sorted[0].Name != "openat" {
 		t.Errorf("SortByErrors first: want openat, got %s", sorted[0].Name)
 	}
@@ -198,7 +198,7 @@ func TestSorted_ByErrors(t *testing.T) {
 // ── ErrorBreakdown ────────────────────────────────────────────────────────────
 
 func TestErrorBreakdown_PopulatedOnError(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
 	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
 	a.Add(event("openat", 1*time.Microsecond, "EACCES"))
@@ -220,7 +220,7 @@ func TestErrorBreakdown_PopulatedOnError(t *testing.T) {
 }
 
 func TestErrorBreakdown_NilWhenNoErrors(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(ok("read", 1*time.Microsecond))
 
 	s, found := a.Get("read")
@@ -233,7 +233,7 @@ func TestErrorBreakdown_NilWhenNoErrors(t *testing.T) {
 }
 
 func TestTopErrors_SortedDescending(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
 	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
 	a.Add(event("openat", 1*time.Microsecond, "ENOENT"))
@@ -254,7 +254,7 @@ func TestTopErrors_SortedDescending(t *testing.T) {
 }
 
 func TestTopErrors_LimitN(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	for _, errno := range []string{"ENOENT", "EACCES", "EPERM", "EINVAL"} {
 		a.Add(event("openat", 1*time.Microsecond, errno))
 	}
@@ -266,7 +266,7 @@ func TestTopErrors_LimitN(t *testing.T) {
 }
 
 func TestTopErrors_EmptyWhenNoErrors(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(ok("read", 1*time.Microsecond))
 
 	s, _ := a.Get("read")
@@ -276,7 +276,7 @@ func TestTopErrors_EmptyWhenNoErrors(t *testing.T) {
 }
 
 func TestErrorBreakdown_ConcurrentSafe(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	done := make(chan struct{})
 	const goroutines = 10
 	const eventsEach = 200
@@ -311,7 +311,7 @@ func TestErrorBreakdown_ConcurrentSafe(t *testing.T) {
 // ── RecentErrors (ring buffer) ────────────────────────────────────────────────
 
 func TestRecentErrors_CappedAtMax(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	// Add 15 error events — ring buffer caps at 10
 	for i := 0; i < 15; i++ {
 		e := models.SyscallEvent{
@@ -330,7 +330,7 @@ func TestRecentErrors_CappedAtMax(t *testing.T) {
 }
 
 func TestRecentErrors_ContainsLatestArgs(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	// Fill ring buffer past capacity so only the last 10 remain
 	for i := 0; i < 15; i++ {
 		e := models.SyscallEvent{
@@ -350,7 +350,7 @@ func TestRecentErrors_ContainsLatestArgs(t *testing.T) {
 }
 
 func TestRecentErrors_EmptyWhenNoErrors(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(ok("read", 1*time.Microsecond))
 	s, _ := a.Get("read")
 	if len(s.RecentErrors) != 0 {
@@ -361,14 +361,14 @@ func TestRecentErrors_EmptyWhenNoErrors(t *testing.T) {
 // ── Rate ──────────────────────────────────────────────────────────────────────
 
 func TestRate_InitiallyZero(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	if r := a.Rate(); r != 0 {
 		t.Errorf("Rate before any events: want 0, got %f", r)
 	}
 }
 
 func TestRate_UpdatesAfterBurst(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 
 	// Add many events quickly, then sleep > 500ms to trigger the rate snapshot.
 	for i := 0; i < 100; i++ {
@@ -386,7 +386,7 @@ func TestRate_UpdatesAfterBurst(t *testing.T) {
 // ── Concurrency safety ────────────────────────────────────────────────────────
 
 func TestAdd_Concurrent(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	done := make(chan struct{})
 
 	const goroutines = 20
@@ -413,7 +413,7 @@ func TestAdd_Concurrent(t *testing.T) {
 // ── Latency percentiles (P95/P99) ─────────────────────────────────────────────
 
 func TestPercentile_ZeroWhenNoEvents(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(fail("open", 0)) // error, zero latency
 	s, _ := a.Get("open")
 	if s.P95 != 0 || s.P99 != 0 {
@@ -422,7 +422,7 @@ func TestPercentile_ZeroWhenNoEvents(t *testing.T) {
 }
 
 func TestPercentile_P95LessThanOrEqualP99(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	for i := 1; i <= 100; i++ {
 		a.Add(ok("read", time.Duration(i)*time.Microsecond))
 	}
@@ -437,7 +437,7 @@ func TestPercentile_P95LessThanOrEqualP99(t *testing.T) {
 
 func TestPercentile_UniformDistribution(t *testing.T) {
 	// 100 events: 1µs … 100µs. P99 should be in the bucket containing 99µs.
-	a := aggregator.New()
+	a := New()
 	for i := 1; i <= 100; i++ {
 		a.Add(ok("write", time.Duration(i)*time.Microsecond))
 	}
@@ -449,11 +449,11 @@ func TestPercentile_UniformDistribution(t *testing.T) {
 }
 
 func TestPercentile_SortedPopulatesBoth(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	for i := 1; i <= 50; i++ {
 		a.Add(ok("fstat", time.Duration(i)*time.Microsecond))
 	}
-	stats := a.Sorted(aggregator.SortByCount)
+	stats := a.Sorted(SortByCount)
 	if len(stats) == 0 {
 		t.Fatal("Sorted returned no stats")
 	}
@@ -492,7 +492,7 @@ func TestReadProcInfo_NonExistentPID(t *testing.T) {
 }
 
 func TestSetGetProcInfo(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	want := procinfo.ProcInfo{PID: 42, Comm: "testbin", Exe: "/usr/bin/testbin"}
 	a.SetProcInfo(want)
 	got := a.GetProcInfo()
@@ -502,7 +502,7 @@ func TestSetGetProcInfo(t *testing.T) {
 }
 
 func TestGetProcInfo_DefaultEmpty(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	info := a.GetProcInfo()
 	if info.PID != 0 || info.Comm != "" {
 		t.Errorf("default ProcInfo should be zero value; got %+v", info)
@@ -512,7 +512,7 @@ func TestGetProcInfo_DefaultEmpty(t *testing.T) {
 // ── ErrRate60s sliding window ─────────────────────────────────────────────────
 
 func TestErrRate60s_ReflectsRecentErrors(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	now := time.Now()
 	for i := 0; i < 5; i++ {
 		a.Add(models.SyscallEvent{Name: "read", Latency: time.Microsecond, Error: "EIO", Time: now})
@@ -526,7 +526,7 @@ func TestErrRate60s_ReflectsRecentErrors(t *testing.T) {
 }
 
 func TestErrRate60s_ZeroWhenNoErrors(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(ok("write", time.Microsecond))
 	s, _ := a.Get("write")
 	if s.ErrRate60s != 0 {
@@ -535,7 +535,7 @@ func TestErrRate60s_ZeroWhenNoErrors(t *testing.T) {
 }
 
 func TestErrRate60s_ExpiresOldBuckets(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	// Add an error 61 seconds in the past (outside the 60-second window).
 	old := time.Now().Add(-61 * time.Second)
 	a.Add(models.SyscallEvent{Name: "open", Latency: time.Microsecond, Error: "ENOENT", Time: old})
@@ -548,12 +548,12 @@ func TestErrRate60s_ExpiresOldBuckets(t *testing.T) {
 }
 
 func TestErrRate60s_SortedPopulates(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	now := time.Now()
 	for i := 0; i < 3; i++ {
 		a.Add(models.SyscallEvent{Name: "stat", Latency: time.Microsecond, Error: "ENOENT", Time: now})
 	}
-	stats := a.Sorted(aggregator.SortByErrors)
+	stats := a.Sorted(SortByErrors)
 	if len(stats) == 0 {
 		t.Fatal("no stats returned")
 	}
@@ -565,14 +565,14 @@ func TestErrRate60s_SortedPopulates(t *testing.T) {
 // ── Live log ring buffer ──────────────────────────────────────────────────────
 
 func TestRecentLog_EmptyInitially(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	if log := a.RecentLog(); len(log) != 0 {
 		t.Errorf("RecentLog should be empty initially, got %d entries", len(log))
 	}
 }
 
 func TestRecentLog_RecordsEvents(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.Add(ok("read", time.Microsecond))
 	a.Add(fail("open", time.Microsecond))
 	log := a.RecentLog()
@@ -588,7 +588,7 @@ func TestRecentLog_RecordsEvents(t *testing.T) {
 }
 
 func TestRecentLog_CappedAt500(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	for i := 0; i < 600; i++ {
 		a.Add(ok("read", time.Microsecond))
 	}
@@ -599,7 +599,7 @@ func TestRecentLog_CappedAt500(t *testing.T) {
 }
 
 func TestRecentLog_ReturnsLatestWhenFull(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	// fill to capacity
 	for i := 0; i < 500; i++ {
 		a.Add(ok("read", time.Microsecond))
@@ -613,14 +613,14 @@ func TestRecentLog_ReturnsLatestWhenFull(t *testing.T) {
 }
 
 func TestSetDone_FalseByDefault(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	if a.IsDone() {
 		t.Error("IsDone should be false for a new aggregator")
 	}
 }
 
 func TestSetDone_TrueAfterCall(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.SetDone()
 	if !a.IsDone() {
 		t.Error("IsDone should be true after SetDone()")
@@ -628,7 +628,7 @@ func TestSetDone_TrueAfterCall(t *testing.T) {
 }
 
 func TestSetDone_Idempotent(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 	a.SetDone()
 	a.SetDone()
 	if !a.IsDone() {
@@ -637,7 +637,7 @@ func TestSetDone_Idempotent(t *testing.T) {
 }
 
 func TestTopFiles_Counts(t *testing.T) {
-	a := aggregator.New()
+	a := New()
 
 	// two opens for /etc/hosts
 	a.Add(models.SyscallEvent{Name: "open", Args: "\"/etc/hosts\", O_RDONLY", Time: time.Now()})
@@ -667,5 +667,75 @@ func TestTopFiles_Counts(t *testing.T) {
 	}
 	if m["/etc/ld.so.cache"] != 1 {
 		t.Errorf("/etc/ld.so.cache count: want 1, got %d", m["/etc/ld.so.cache"])
+	}
+}
+
+func TestCategoryJSON(t *testing.T) {
+	b, err := json.Marshal(CatIO)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var c Category
+	if err := json.Unmarshal(b, &c); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if c != CatIO {
+		t.Fatalf("roundtrip failed: got %v", c)
+	}
+}
+
+func TestParseRetInt(t *testing.T) {
+	if v, ok := parseRetInt("123"); !ok || v != 123 {
+		t.Fatalf("parseRetInt decimal failed")
+	}
+	if v, ok := parseRetInt("0x1f"); !ok || v != 31 {
+		t.Fatalf("parseRetInt hex failed: %d", v)
+	}
+	if _, ok := parseRetInt(""); ok {
+		t.Fatalf("parseRetInt empty should fail")
+	}
+}
+
+func TestParseFirstIntArg(t *testing.T) {
+	if v, ok := parseFirstIntArg("4, foo"); !ok || v != 4 {
+		t.Fatalf("parseFirstIntArg failed")
+	}
+	if _, ok := parseFirstIntArg(""); ok {
+		t.Fatalf("parseFirstIntArg empty should fail")
+	}
+}
+
+func TestUnescapeAndExtractPath(t *testing.T) {
+	p := extractPathFromArgs("open", "\"/tmp/foo bar\", O_RDONLY")
+	if p != "/tmp/foo bar" {
+		t.Fatalf("expected /tmp/foo bar, got %q", p)
+	}
+	p2 := extractPathFromArgs("openat", "AT_FDCWD, \"/etc/hosts\", 0")
+	if p2 != "/etc/hosts" {
+		t.Fatalf("expected /etc/hosts, got %q", p2)
+	}
+	if extractPathFromArgs("read", "\"/tmp/x\"") != "" {
+		t.Fatalf("expected empty for read")
+	}
+}
+
+func TestTopFilesAndAttribution(t *testing.T) {
+	a := New()
+	a.Add(models.SyscallEvent{Name: "open", Args: "\"/tmp/foo\", O_RDONLY", RetVal: "3", PID: 1, Time: time.Now()})
+	a.Add(models.SyscallEvent{Name: "close", Args: "3", RetVal: "", PID: 1, Time: time.Now()})
+	files := a.TopFilesForSyscall("open", 0)
+	if len(files) == 0 || files[0].Path != "/tmp/foo" {
+		t.Fatalf("TopFilesForSyscall did not contain expected /tmp/foo; got %v", files)
+	}
+	top := a.TopFiles(0)
+	found := false
+	for _, f := range top {
+		if f.Path == "/tmp/foo" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("TopFiles missing /tmp/foo")
 	}
 }
