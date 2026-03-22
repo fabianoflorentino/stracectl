@@ -19,13 +19,15 @@ import (
 
 // sortErrnoCount sorts a slice of ErrnoCount descending by count, then ascending by name.
 func sortErrnoCount(s []ErrnoCount) {
-	sort.Slice(s, func(i, j int) bool {
+	var sortCount = func(i, j int) bool {
 		if s[i].Count != s[j].Count {
 			return s[i].Count > s[j].Count
 		}
 
 		return s[i].Errno < s[j].Errno
-	})
+	}
+
+	sort.Slice(s, sortCount)
 }
 
 // Category groups syscalls by purpose.
@@ -176,32 +178,21 @@ func classify(name string) Category {
 
 // SyscallStat holds aggregated statistics for a single syscall name.
 type SyscallStat struct {
-	Name     string
-	Category Category
-	Count    int64
-	Errors   int64
-	// Time spent inside the kernel (from strace -T).
-	TotalTime time.Duration
-	MinTime   time.Duration
-	MaxTime   time.Duration
-	// P95 and P99 are approximate latency percentiles derived from the log2 histogram.
-	// They are populated by Sorted() and Get() — not during Add().
-	P95 time.Duration
-	P99 time.Duration
-	// ErrRate60s is the number of errors recorded in the last 60 seconds.
-	// Populated by Sorted() and Get().
-	ErrRate60s int64
-	// Files holds top file paths associated with this syscall (populated by Sorted()).
-	Files []FileStat
-	// ErrorBreakdown counts occurrences of each distinct errno (e.g. "ENOENT").
-	// It is non-nil only when at least one error has been recorded.
-	ErrorBreakdown map[string]int64
-	// RecentErrors is a ring buffer of the last maxErrorSamples failed calls.
-	RecentErrors []ErrorSample
-	// latHist is an unexported log2 histogram used to compute P95/P99.
-	latHist [latencyBuckets]int64
-	// errWin is an unexported sliding-window error rate tracker.
-	errWin errWindow
+	Name           string
+	Category       Category
+	Count          int64
+	Errors         int64
+	TotalTime      time.Duration // Time spent inside the kernel (from strace -T).
+	MinTime        time.Duration
+	MaxTime        time.Duration
+	P95            time.Duration // P95 and P99 are approximate latency percentiles derived from the log2 histogram. They are populated by Sorted() and Get() — not during Add().
+	P99            time.Duration
+	ErrRate60s     int64                 // ErrRate60s is the number of errors recorded in the last 60 seconds. Populated by Sorted() and Get().
+	Files          []FileStat            // Files holds top file paths associated with this syscall (populated by Sorted()).
+	ErrorBreakdown map[string]int64      // ErrorBreakdown counts occurrences of each distinct errno (e.g. "ENOENT"). It is non-nil only when at least one error has been recorded.
+	RecentErrors   []ErrorSample         // RecentErrors is a ring buffer of the last maxErrorSamples failed calls.
+	latHist        [latencyBuckets]int64 // latHist is an unexported log2 histogram used to compute P95/P99.
+	errWin         errWindow             // errWin is an unexported sliding-window error rate tracker.
 }
 
 // TopErrors returns the errno breakdown sorted descending by count.
@@ -226,12 +217,11 @@ func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
 }
 
 const (
-	maxErrorSamples = 10  // max recent error samples retained per syscall
-	maxLogEntries   = 500 // max raw events kept in the live log ring buffer
-	// fileStatsCap limits distinct tracked file paths to avoid unbounded memory usage.
-	fileStatsCap = 10_000
-	// maxPathLen truncates observed paths to a safe maximum length.
-	maxPathLen = 1024
+	maxErrorSamples = 10     // max recent error samples retained per syscall
+	maxLogEntries   = 500    // max raw events kept in the live log ring buffer
+	fileStatsCap    = 10_000 // fileStatsCap limits distinct tracked file paths to avoid unbounded memory usage.
+	maxPathLen      = 1024   // maxPathLen truncates observed paths to a safe maximum length.
+	errWindowSize   = 60     // errWindowSize is the number of 1-second buckets kept for the sliding error-rate window.
 )
 
 // LogEntry is one line in the live-log ring buffer.
@@ -243,9 +233,6 @@ type LogEntry struct {
 	RetVal string
 	Error  string
 }
-
-// errWindowSize is the number of 1-second buckets kept for the sliding error-rate window.
-const errWindowSize = 60
 
 // errWindow is a circular buffer that counts errors per second over the last 60 s.
 // bucket[i] holds the error count for the Unix second (i % errWindowSize).
