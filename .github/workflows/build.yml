@@ -116,5 +116,5 @@ jobs:
       - name: Upload eBPF artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stracectl-linux-amd64
+          name: stracectl-linux-amd64-ebpf
           path: stracectl
