@@ -165,8 +165,11 @@ FROM gcr.io/distroless/static:nonroot AS production
 # `/usr/local/bin/stracectl`; the eBPF binary will also be present as
 # `/usr/local/bin/stracectl-ebpf` for direct execution when needed.
 COPY --from=strace-src /usr/bin/strace /usr/bin/strace
-COPY --from=base /usr/local/bin/stracectl-non-ebpf /usr/local/bin/stracectl
-COPY --from=base-ebpf /usr/local/bin/stracectl-ebpf /usr/local/bin/stracectl-ebpf
+# Install a single `stracectl` binary in the image. Prefer the eBPF
+# build (from `base-ebpf`) so the runtime image contains the fully-capable
+# binary at `/usr/local/bin/stracectl`. The non-eBPF build is no longer
+# separately installed in the final image.
+COPY --from=base-ebpf /usr/local/bin/stracectl-ebpf /usr/local/bin/stracectl
 
 USER nonroot:nonroot
 
