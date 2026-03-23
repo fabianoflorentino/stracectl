@@ -197,6 +197,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download standard build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stracectl-linux-amd64
+          path: .
+        continue-on-error: true
+
       - name: Upload binary asset to Release
         uses: actions/upload-release-asset@v1
         with:
