@@ -106,6 +106,7 @@ kubectl -n <ns> port-forward pod/<pod-name> 8080:8080
 open http://localhost:8080
 ```
 
+```yaml
   containers:
   - name: app
     image: myapp:latest          # replace with your workload
@@ -167,8 +168,6 @@ Key values (`values.yaml`):
 | `/api/log` | GET | Most recent 500 raw syscall events |
 | `/stream` | WS | WebSocket live feed (`SyscallEvent` JSON) |
 | `/metrics` | GET | Prometheus metrics |
-
-## Prometheus + Grafana
 
 ## Prometheus metrics
 
