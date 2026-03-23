@@ -84,21 +84,15 @@ jobs:
 
       - name: Build Docker image
         run: |
-          # Build standard production image
+          # Build single production image that contains both backends
           docker build --no-cache --rm --target production \
             -t ${{ github.repository }}:v1.0.${{ github.run_number }} \
             -f ./Dockerfile .
 
-          # Build eBPF-enabled production image (separate tag)
-          docker build --no-cache --rm --target production-ebpf \
-            -t ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf \
-            -f ./Dockerfile .
-
-      - name: Push Docker images to Docker Hub
+      - name: Push Docker image to Docker Hub
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           docker push ${{ github.repository }}:v1.0.${{ github.run_number }}
-          docker push ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf
 
       - name: Download standard binary artifact
         uses: actions/download-artifact@v4
@@ -136,13 +130,8 @@ jobs:
           only-severities: critical,high
           exit-code: true
 
-      - name: Docker Scout CVE scan (eBPF image)
-        uses: docker/scout-action@v1
-        with:
-          command: cves
-          image: ${{ github.repository }}:v1.0.${{ github.run_number }}-ebpf
-          only-severities: critical,high
-          exit-code: true
+      # eBPF image is now included in the single production image; no separate
+      # CVE scan needed for a separate -ebpf tag.
 
   # ── Create and push Git tag ──────────────────────────────────────────────────
   tag:
