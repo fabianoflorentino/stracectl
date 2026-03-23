@@ -172,16 +172,17 @@ Key values (`values.yaml`):
 
 ## Prometheus metrics
 
-A number of Prometheus metrics are exposed when running in sidecar mode:
+A number of Prometheus metrics are exposed when running in sidecar mode. Common
+metrics used in alerts and dashboards include:
 
 | Metric | Type | Description |
 | ------ | ---- | ----------- |
-| `stracectl_syscall_calls_total` | Counter | Total invocations per syscall/category |
-| `stracectl_syscall_errors_total` | Counter | Failed invocations per syscall/category |
-| `stracectl_syscall_duration_seconds_total` | Counter | Cumulative kernel time per syscall |
-| `stracectl_syscall_duration_avg_seconds` | Gauge | Average kernel time per syscall |
-| `stracectl_syscall_duration_max_seconds` | Gauge | Peak kernel time per syscall |
-| `stracectl_syscalls_per_second` | Gauge | Recent call rate |
+| `stracectl_syscall_calls_total{syscall,category}` | Counter | Total syscall invocations (labelled by `syscall` and `category`) |
+| `stracectl_syscall_errors_total{syscall,errno}` | Counter | Failed invocations grouped by `syscall` and `errno` |
+| `stracectl_syscall_latency_seconds_bucket` | Histogram (buckets) | Latency distribution for syscall kernel time (use with `histogram_quantile`) |
+| `stracectl_syscalls_per_second` | Gauge | Recent call rate (derived from counters) |
+| `stracectl_ws_clients` | Gauge | Number of active WebSocket clients |
+| `stracectl_tracer_backlog` | Gauge | Current tracer/parser backlog (channel depth) |
 
 ## Prometheus + Grafana
 

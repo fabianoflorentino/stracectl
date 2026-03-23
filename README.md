@@ -288,6 +288,9 @@ sudo stracectl --debug run --serve :8080 curl https://example.com
 | [docs/SELF_HOSTED_RUNNER.md](docs/SELF_HOSTED_RUNNER.md) | Self-hosted runner and proxy instructions, local VM quickstart |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release history |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned improvements |
+| [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md) | High-level system design and architecture diagram |
+| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | Functional and non-functional requirements |
+| [docs/ARCHITECTURE_DIAGRAM.md](docs/ARCHITECTURE_DIAGRAM.md) | Mermaid architecture diagram |
 
 ## Syscall Reference
 

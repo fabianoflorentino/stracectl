@@ -132,9 +132,10 @@ header or the `token` query parameter.
 
 ### `GET /metrics`
 
-Prometheus exposition format. Exposes per-syscall counters and gauges such as
-`stracectl_syscall_calls_total`, `stracectl_syscall_errors_total` and
-`stracectl_syscalls_per_second`.
+Prometheus exposition format. Exposes per-syscall counters, histograms and
+gauges such as `stracectl_syscall_calls_total`, `stracectl_syscall_errors_total`,
+`stracectl_syscall_latency_seconds` (histogram), `stracectl_syscalls_per_second`,
+and runtime gauges like `stracectl_ws_clients` and `stracectl_tracer_backlog`.
 
 ## Web detail page
 
