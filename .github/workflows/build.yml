@@ -111,10 +111,10 @@ jobs:
         env:
           CGO_ENABLED: 1
         run: |
-          CGO_ENABLED=1 go build -tags=ebpf -v -o stracectl-ebpf .
+          CGO_ENABLED=1 go build -tags=ebpf -v -o stracectl .
 
       - name: Upload eBPF artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stracectl-linux-amd64-ebpf
-          path: stracectl-ebpf
+          name: stracectl-linux-amd64
+          path: stracectl

@@ -168,7 +168,7 @@ go install github.com/cilium/ebpf/cmd/bpf2go@latest
 go generate ./internal/tracer/...
 
 # Build the binary with CGO enabled and the ebpf build tag
-CGO_ENABLED=1 go build -tags=ebpf -o stracectl-ebpf .
+CGO_ENABLED=1 go build -tags=ebpf -o stracectl .
 
 # Run eBPF-enabled tests (optional)
 CGO_ENABLED=1 go test -tags=ebpf ./internal/tracer -v
