@@ -156,27 +156,17 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
-# Stage 6: production (non-eBPF, uses the lightweight non-ebpf binary)
+# Stage 6: production — single image containing both non-eBPF and eBPF binaries
 # -----------------------------------------------------------------------------
-FROM gcr.io/distroless/base:nonroot AS production
+FROM gcr.io/distroless/static:nonroot AS production
 
+# Copy a glibc-linked `strace` (as before) and both built binaries so a single
+# image contains both backends. The non-eBPF binary will be the default
+# `/usr/local/bin/stracectl`; the eBPF binary will also be present as
+# `/usr/local/bin/stracectl-ebpf` for direct execution when needed.
 COPY --from=strace-src /usr/bin/strace /usr/bin/strace
 COPY --from=base /usr/local/bin/stracectl-non-ebpf /usr/local/bin/stracectl
-
-USER nonroot:nonroot
-
-EXPOSE 8080
-
-ENTRYPOINT ["/usr/local/bin/stracectl"]
-CMD ["--help"]
-
-# -----------------------------------------------------------------------------
-# Stage 7: production-ebpf (eBPF-enabled production binary; larger/static)
-# -----------------------------------------------------------------------------
-FROM gcr.io/distroless/static:nonroot AS production-ebpf
-
-COPY --from=strace-src /usr/bin/strace /usr/bin/strace
-COPY --from=base-ebpf /usr/local/bin/stracectl-ebpf /usr/local/bin/stracectl
+COPY --from=base-ebpf /usr/local/bin/stracectl-ebpf /usr/local/bin/stracectl-ebpf
 
 USER nonroot:nonroot
 
