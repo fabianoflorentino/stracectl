@@ -43,8 +43,8 @@ CGO_ENABLED=1 go build -tags=ebpf ./...
 ```
 
 - The repository includes helper scripts (`scripts/generate-bpf.sh`) and a
-  Docker target (`production-ebpf`) in the `Dockerfile` to produce an
-  eBPF-enabled binary.
+  Docker target (`production`) in the `Dockerfile` to produce a production
+  image containing both the non-eBPF and eBPF binaries.
 
 Submitting a pull request
 -------------------------

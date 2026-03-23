@@ -60,8 +60,8 @@ avoiding a `strace` subprocess. Requirements:
 
 To build an eBPF-enabled binary locally you need `clang`, linux headers, and
 the `bpf2go` tool (from `github.com/cilium/ebpf/cmd/bpf2go`). The repository's
-Dockerfile includes a `production-ebpf` target that builds an eBPF-capable
-static binary.
+Dockerfile includes a `production` target that builds a production image
+containing both the non-eBPF and eBPF binaries (see README for examples).
 
 For more details and troubleshooting see the dedicated documentation page in
 the project site: `site/content/docs/ebpf.md`.

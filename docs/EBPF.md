@@ -48,12 +48,12 @@ CGO_ENABLED=1 go build -tags=ebpf -o stracectl-ebpf ./...
 
 ## Docker build example
 
-The repository `Dockerfile` includes a `production-ebpf` target that builds
-the BPF object and produces a static eBPF-enabled binary. From the project
-root run:
+The repository `Dockerfile` includes a `production` target that builds the
+BPF object and produces a single production image containing both the
+non-eBPF and eBPF binaries. From the project root run:
 
 ```bash
-docker build --target production-ebpf -t stracectl:ebpf .
+docker build --target production -t stracectl:latest .
 ```
 
 ## Troubleshooting

@@ -143,11 +143,11 @@ Or use the pre-built container image:
 docker pull fabianoflorentino/stracectl:<version>
 ```
 
-To build an eBPF-enabled container (builds BPF objects and links with `-tags=ebpf`):
+To build the production container (contains both non-eBPF and eBPF binaries):
 
 ```bash
-# builds a static, eBPF-enabled binary inside the image
-docker build --target production-ebpf -t stracectl:ebpf .
+# builds a production image that includes both backends
+docker build --target production -t stracectl:latest .
 ```
 
 Build eBPF-enabled binary locally

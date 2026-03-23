@@ -38,11 +38,12 @@ go generate ./internal/tracer/...
 CGO_ENABLED=1 go build -tags=ebpf -o stracectl-ebpf ./...
 ```
 
-Alternatively, the project `Dockerfile` exposes a `production-ebpf` target that
-produces a static, eBPF-enabled binary:
+Alternatively, the project `Dockerfile` provides a `production` target that
+builds a single production image containing both the non-eBPF and eBPF
+binaries. Build the image from the repository root:
 
 ```bash
-docker build --target production-ebpf -t stracectl:ebpf .
+docker build --target production -t stracectl:latest .
 ```
 
 ## Troubleshooting

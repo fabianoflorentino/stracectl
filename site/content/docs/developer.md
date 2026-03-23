@@ -12,7 +12,7 @@ tests, generating eBPF assets, and common CI/release tasks.
 - Go 1.26+ (set `GOPATH`/`GOROOT` as needed)
 - `clang`, `llvm`, `libelf-dev`, matching kernel headers (for eBPF builds)
 - `bpf2go` (install via `go install github.com/cilium/ebpf/cmd/bpf2go@latest`)
-- Docker (optional, for `production-ebpf` image target)
+ - Docker (optional, to build a production image that includes both backends)
 
 ## Build locally
 
@@ -38,10 +38,11 @@ go generate ./internal/tracer/...
 CGO_ENABLED=1 go build -tags=ebpf -o stracectl-ebpf ./...
 ```
 
-Alternatively use the included Docker target to produce a static, eBPF-enabled artifact:
+Alternatively use the included Docker target to produce a production image
+containing both backends:
 
 ```bash
-docker build --target production-ebpf -t stracectl:ebpf .
+docker build --target production -t stracectl:latest .
 ```
 
 ## Generate BPF (helper script)
