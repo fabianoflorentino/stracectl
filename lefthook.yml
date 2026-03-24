@@ -4,6 +4,9 @@ pre-commit:
     fmt:
       glob: "**/*.go"
       run: bash -c 'files=$(gofmt -l .); [ -z "$files" ] && exit 0; printf "unformatted files (run gofmt):\n%s\n" "$files"; exit 1'
+    goimports:
+      glob: "**/*.go"
+      run: bash -c 'command -v goimports >/dev/null 2>&1 || exit 0; files=$(goimports -l .); [ -z "$files" ] && exit 0; printf "goimports issues (run goimports -w .):\n%s\n" "$files"; exit 1'
 
     vet:
       glob: "**/*.go"
@@ -11,7 +14,7 @@ pre-commit:
 
     lint:
       glob: "**/*.go"
-      run: golangci-lint run --fix
+      run: bash -c 'golangci-lint run --out-format=github-actions 2>/dev/null || golangci-lint run'
 
     test:
       glob: "**/*.go"
@@ -27,6 +30,8 @@ pre-push:
       run: |
         go mod tidy
         git diff --exit-code -- go.mod go.sum || (echo "go.mod/go.sum are not tidy — run 'go mod tidy' and stage the changes"; exit 1)
+    lint-full:
+      run: golangci-lint run --timeout=5m
 
     test-cover:
       run: |
@@ -37,3 +42,33 @@ pre-push:
 
     vuln:
       run: govulncheck ./...
+
+    semgrep:
+      run: |
+        command -v semgrep >/dev/null 2>&1 || { echo "semgrep not installed, skipping"; exit 0; }
+        semgrep --config p/go
+
+    trivy:
+      run: |
+        command -v trivy >/dev/null 2>&1 || { echo "trivy not installed, skipping"; exit 0; }
+        if git diff --name-only origin/main..HEAD | grep -qE '(^Dockerfile|^deploy/|^prometheus/|^site/)'; then
+          trivy fs --severity CRITICAL,HIGH --exit-code 1 .
+        else
+          echo "No docker/deploy/site changes, skipping trivy scan"
+        fi
+
+    site-build:
+      run: |
+        if git diff --name-only origin/main..HEAD | grep -q '^site/'; then
+          command -v hugo >/dev/null 2>&1 && (cd site && hugo --minify) || echo "hugo not installed, skipping site build"
+        else
+          echo "No site changes, skipping hugo"
+        fi
+
+    ebpf-check:
+      run: |
+        if git diff --name-only origin/main..HEAD | grep -q '^internal/tracer'; then
+          echo "internal/tracer changed — eBPF generation may be required. Run 'bash scripts/generate-bpf.sh' on a prepared machine."
+        else
+          echo "No eBPF-related changes"
+        fi
