@@ -29,6 +29,12 @@ const (
 	SortByCategory
 )
 
+const (
+	// caps and sizes used across aggregator
+	maxErrorSamples = 10
+	maxLogEntries   = 500
+)
+
 // LogEntry represents a single syscall event with its timestamp,
 // PID, name, arguments, return value and error (if any).
 type LogEntry struct {
@@ -163,12 +169,6 @@ func (s *SyscallStat) TopErrors(n int) []ErrnoCount {
 
 	return out
 }
-
-const (
-	// caps and sizes used across aggregator
-	maxErrorSamples = 10
-	maxLogEntries   = 500
-)
 
 // AvgTime returns the average latency for the syscall, computed as TotalTime divided by Count.
 func (s *SyscallStat) AvgTime() time.Duration {
