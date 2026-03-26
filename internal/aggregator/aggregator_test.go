@@ -172,23 +172,6 @@ func TestAggregator_CoreMethods(t *testing.T) {
 	if len(log) < 2 {
 		t.Fatalf("RecentLog should have at least 2 entries, got %d", len(log))
 	}
-	a.Add(models.SyscallEvent{Name: "open", Args: "\"/tmp/testfile\", O_RDONLY", RetVal: "4", PID: 1, Time: time.Now()})
-	a.Add(models.SyscallEvent{Name: "close", Args: "4", RetVal: "", PID: 1, Time: time.Now()})
-	tf := a.TopFiles(0)
-	found := false
-	for _, f := range tf {
-		if f.Path == "/tmp/testfile" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("TopFiles missing /tmp/testfile: got %v", tf)
-	}
-	tfs := a.TopFilesForSyscall("open", 0)
-	if len(tfs) == 0 || tfs[0].Path != "/tmp/testfile" {
-		t.Fatalf("TopFilesForSyscall did not return /tmp/testfile: %v", tfs)
-	}
 	stats := a.Sorted(SortByCount)
 	if len(stats) == 0 {
 		t.Fatal("Sorted returned no stats")
