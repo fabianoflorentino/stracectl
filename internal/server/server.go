@@ -107,9 +107,11 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	// parse pagination params
+	// parse pagination params. By default return all routes so the API
+	// and dashboard reflect every registered endpoint (unless caller
+	// requests a specific page or per_page).
 	page := 1
-	per := 20
+	per := 0
 	if p := r.URL.Query().Get("page"); p != "" {
 		if v, err := strconv.Atoi(p); err == nil && v > 0 {
 			page = v
@@ -122,6 +124,15 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	total := len(s.routes)
+	// if per was not provided or invalid, default to showing all routes
+	if per <= 0 {
+		if total == 0 {
+			per = 1
+		} else {
+			per = total
+		}
+	}
+
 	start := (page - 1) * per
 	if start > total {
 		start = total

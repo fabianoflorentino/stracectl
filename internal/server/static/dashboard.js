@@ -73,26 +73,33 @@ function fetchStatus() {
 }
 
 let apiPage = 1;
-let apiPerPage = 20;
+let apiPerPage = 0; // 0 means 'all'
 let apiTotal = 0;
 
 function fetchAPIs(page) {
   page = page || 1;
   const perSel = document.getElementById('api-per-page');
-  const per = perSel ? parseInt(perSel.value, 10) || 20 : 20;
-  fetch('/api?page=' + page + '&per_page=' + per).then(r => r.json()).then(d => {
+  const per = perSel ? parseInt(perSel.value, 10) || 0 : 0;
+  const url = (per === 0) ? '/api' : ('/api?page=' + page + '&per_page=' + per);
+  fetch(url).then(r => r.json()).then(d => {
     if (!d) return;
     apiPage = d.page || page;
     apiPerPage = d.per_page || per;
     apiTotal = d.total || 0;
     renderAPIs(d.items || []);
     const pageInfo = document.getElementById('api-page-info');
-    const pages = Math.max(1, Math.ceil(apiTotal / apiPerPage));
-    if (pageInfo) pageInfo.textContent = 'Page ' + apiPage + ' of ' + pages + ' (' + apiTotal + ' total)';
     const prev = document.getElementById('api-prev');
     const next = document.getElementById('api-next');
-    if (prev) prev.disabled = apiPage <= 1;
-    if (next) next.disabled = apiPage >= pages;
+    if (per === 0) {
+      if (pageInfo) pageInfo.textContent = 'All (' + apiTotal + ' total)';
+      if (prev) prev.disabled = true;
+      if (next) next.disabled = true;
+    } else {
+      const pages = Math.max(1, Math.ceil(apiTotal / apiPerPage));
+      if (pageInfo) pageInfo.textContent = 'Page ' + apiPage + ' of ' + pages + ' (' + apiTotal + ' total)';
+      if (prev) prev.disabled = apiPage <= 1;
+      if (next) next.disabled = apiPage >= pages;
+    }
   }).catch(() => { });
 }
 
