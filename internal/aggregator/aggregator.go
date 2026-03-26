@@ -15,20 +15,16 @@ import (
 // concurrency control and orchestration; helpers and types are defined in
 // smaller files within the package to follow SRP.
 type Aggregator struct {
-	mu        sync.RWMutex
-	stats     map[string]*SyscallStat
-	total     int64
-	errors    int64
-	started   time.Time
-	prevRate  rateSnapshot
-	rate      float64
-	procInfo  procinfo.ProcInfo
-	logBuf    []LogEntry
-	fileStats map[string]int64
-	// fileStatsByCall maps syscall name -> (path -> count)
-	fileStatsByCall map[string]map[string]int64
-	// fdToPath maps pid -> fd -> path, used to attribute fd-based syscalls to paths
-	fdToPath map[int]map[int]string
+	mu       sync.RWMutex
+	stats    map[string]*SyscallStat
+	total    int64
+	errors   int64
+	started  time.Time
+	prevRate rateSnapshot
+	rate     float64
+	procInfo procinfo.ProcInfo
+	logBuf   []LogEntry
+	fileAttr FileAttributor
 	done     bool
 }
 
@@ -41,12 +37,10 @@ func New() *Aggregator {
 	now := time.Now()
 
 	return &Aggregator{
-		stats:           make(map[string]*SyscallStat),
-		fileStats:       make(map[string]int64),
-		fileStatsByCall: make(map[string]map[string]int64),
-		fdToPath:        make(map[int]map[int]string),
-		started:         now,
-		prevRate:        rateSnapshot{total: 0, at: now},
+		stats:    make(map[string]*SyscallStat),
+		fileAttr: NewDefaultFileAttributor(),
+		started:  now,
+		prevRate: rateSnapshot{total: 0, at: now},
 	}
 }
 
@@ -78,16 +72,15 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 	}
 	a.appendLogLocked(entry)
 
-	// file attribution and fd mapping
+	// file attribution and fd mapping (delegated)
 	if p := extractPathFromArgs(e.Name, e.Args); p != "" {
 		if len(p) > maxPathLen {
 			p = p[:maxPathLen]
 		}
-
-		a.attributeFileLocked(e, p)
+		a.fileAttr.AttributeFile(e, p)
 	} else {
-		a.handleFdBasedCallLocked(e)
-		a.handleDupCloseLocked(e)
+		a.fileAttr.HandleFdBasedCall(e)
+		a.fileAttr.HandleDupClose(e)
 	}
 }
 
@@ -240,15 +233,13 @@ func (a *Aggregator) IsDone() bool {
 func (a *Aggregator) TopFiles(n int) []FileStat {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-
-	return topFilesFromMap(a.fileStats, n)
+	return a.fileAttr.TopFiles(n)
 }
 
 func (a *Aggregator) TopFilesForSyscall(name string, n int) []FileStat {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-
-	return topFilesFromMap(a.fileStatsByCall[name], n)
+	return a.fileAttr.TopFilesForSyscall(name, n)
 }
 
 // -- private helper functions (assume lock is held) -----------------------
@@ -325,94 +316,6 @@ func (a *Aggregator) appendLogLocked(entry LogEntry) {
 	}
 }
 
-func (a *Aggregator) attributeFileLocked(e models.SyscallEvent, p string) {
-	if a.fileStats == nil {
-		a.fileStats = make(map[string]int64)
-	}
-	if len(a.fileStats) < fileStatsCap || a.fileStats[p] > 0 {
-		a.fileStats[p]++
-	}
-	if a.fileStatsByCall == nil {
-		a.fileStatsByCall = make(map[string]map[string]int64)
-	}
-	if a.fileStatsByCall[e.Name] == nil {
-		a.fileStatsByCall[e.Name] = make(map[string]int64)
-	}
-	if len(a.fileStatsByCall[e.Name]) < fileStatsCap || a.fileStatsByCall[e.Name][p] > 0 {
-		a.fileStatsByCall[e.Name][p]++
-	}
-
-	if (e.Name == "open" || e.Name == "openat") && e.RetVal != "" {
-		if fd, ok := parseRetInt(e.RetVal); ok && fd >= 0 {
-			if a.fdToPath == nil {
-				a.fdToPath = make(map[int]map[int]string)
-			}
-			if a.fdToPath[e.PID] == nil {
-				a.fdToPath[e.PID] = make(map[int]string)
-			}
-			a.fdToPath[e.PID][fd] = p
-		}
-	}
-}
-
-func (a *Aggregator) handleFdBasedCallLocked(e models.SyscallEvent) {
-	if fd, ok := parseFirstIntArg(e.Args); ok {
-		if a.fdToPath != nil {
-			if m := a.fdToPath[e.PID]; m != nil {
-				if path, ok2 := m[fd]; ok2 && path != "" {
-					if a.fileStatsByCall == nil {
-						a.fileStatsByCall = make(map[string]map[string]int64)
-					}
-					if a.fileStatsByCall[e.Name] == nil {
-						a.fileStatsByCall[e.Name] = make(map[string]int64)
-					}
-					if len(a.fileStatsByCall[e.Name]) < fileStatsCap || a.fileStatsByCall[e.Name][path] > 0 {
-						a.fileStatsByCall[e.Name][path]++
-					}
-				}
-			}
-		}
-	}
-}
-
-func (a *Aggregator) handleDupCloseLocked(e models.SyscallEvent) {
-	switch e.Name {
-	case "dup", "dup2", "dup3":
-		if oldfd, ok := parseFirstIntArg(e.Args); ok {
-			if newfd, ok2 := parseRetInt(e.RetVal); ok2 && newfd >= 0 {
-				if a.fdToPath == nil {
-					a.fdToPath = make(map[int]map[int]string)
-				}
-				if a.fdToPath[e.PID] == nil {
-					a.fdToPath[e.PID] = make(map[int]string)
-				}
-				if path, ok3 := a.fdToPath[e.PID][oldfd]; ok3 && path != "" {
-					a.fdToPath[e.PID][newfd] = path
-				}
-			}
-		}
-	case "close":
-		if fd, ok := parseFirstIntArg(e.Args); ok {
-			if a.fdToPath != nil {
-				if m := a.fdToPath[e.PID]; m != nil {
-					if path, ok2 := m[fd]; ok2 && path != "" {
-						if a.fileStatsByCall == nil {
-							a.fileStatsByCall = make(map[string]map[string]int64)
-						}
-						if a.fileStatsByCall[e.Name] == nil {
-							a.fileStatsByCall[e.Name] = make(map[string]int64)
-						}
-						if len(a.fileStatsByCall[e.Name]) < fileStatsCap || a.fileStatsByCall[e.Name][path] > 0 {
-							a.fileStatsByCall[e.Name][path]++
-						}
-					}
-					delete(m, fd)
-				}
-			}
-		}
-	}
-}
-
 func (a *Aggregator) getOrCreateStatLocked(name string) *SyscallStat {
 	s := a.stats[name]
 
@@ -428,8 +331,9 @@ func (a *Aggregator) getOrCreateStatLocked(name string) *SyscallStat {
 // It assumes the caller holds `a.mu` (RLock or Lock).
 func (a *Aggregator) snapshotLocked() ([]SyscallStat, map[string]map[string]int64) {
 	statsCopy := make([]SyscallStat, 0, len(a.stats))
-	fileMapSnap := make(map[string]map[string]int64, len(a.fileStatsByCall))
-	for name, s := range a.stats {
+	// obtain a snapshot of fileStatsByCall from the file attributor
+	fileMapSnap := a.fileAttr.Snapshot()
+	for _, s := range a.stats {
 		cp := *s
 
 		if s.ErrorBreakdown != nil {
@@ -443,11 +347,7 @@ func (a *Aggregator) snapshotLocked() ([]SyscallStat, map[string]map[string]int6
 
 		statsCopy = append(statsCopy, cp)
 
-		if m := a.fileStatsByCall[name]; m != nil {
-			mm := make(map[string]int64, len(m))
-			maps.Copy(mm, m)
-			fileMapSnap[name] = mm
-		}
+		// fileMapSnap already contains a copy per-name from the attributor
 	}
 
 	return statsCopy, fileMapSnap
