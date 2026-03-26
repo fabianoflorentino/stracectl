@@ -75,6 +75,7 @@ var syscallCategories = func() map[string]Category {
 	return m
 }()
 
+// classify returns the Category for a given syscall name, defaulting to CatOther if the name is not recognized.
 func classify(name string) Category {
 	if c, ok := syscallCategories[name]; ok {
 		return c
@@ -83,11 +84,12 @@ func classify(name string) Category {
 	return CatOther
 }
 
-// tiny helpers to avoid importing encoding/json in types.go
+// jsonMarshalString and jsonUnmarshalString are helper functions to marshal/unmarshal strings to/from JSON.
 func jsonMarshalString(s string) ([]byte, error) {
 	return json.Marshal(s)
 }
 
+// jsonUnmarshalString unmarshals JSON data into a string pointer.
 func jsonUnmarshalString(data []byte, v *string) error {
 	return json.Unmarshal(data, v)
 }
