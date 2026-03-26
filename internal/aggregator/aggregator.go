@@ -2,6 +2,7 @@
 package aggregator
 
 import (
+	"maps"
 	"sort"
 	"sync"
 	"time"
@@ -67,7 +68,14 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 	a.updateRateLocked(now)
 
 	// append to live log
-	entry := LogEntry{Time: e.Time, PID: e.PID, Name: e.Name, Args: e.Args, RetVal: e.RetVal, Error: e.Error}
+	entry := LogEntry{
+		Time:   e.Time,
+		PID:    e.PID,
+		Name:   e.Name,
+		Args:   e.Args,
+		RetVal: e.RetVal,
+		Error:  e.Error,
+	}
 	a.appendLogLocked(entry)
 
 	// file attribution and fd mapping
@@ -75,6 +83,7 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 		if len(p) > maxPathLen {
 			p = p[:maxPathLen]
 		}
+
 		a.attributeFileLocked(e, p)
 	} else {
 		a.handleFdBasedCallLocked(e)
@@ -144,24 +153,28 @@ func (a *Aggregator) CategoryBreakdown() map[Category]CategoryStats {
 		cs.Errs += s.Errors
 		m[s.Category] = cs
 	}
+
 	return m
 }
 
 func (a *Aggregator) Total() int64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.total
 }
 
 func (a *Aggregator) Errors() int64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.errors
 }
 
 func (a *Aggregator) UniqueCount() int {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return len(a.stats)
 }
 
@@ -169,6 +182,7 @@ func (a *Aggregator) UniqueCount() int {
 func (a *Aggregator) Rate() float64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.rate
 }
 
@@ -176,6 +190,7 @@ func (a *Aggregator) Rate() float64 {
 func (a *Aggregator) StartTime() time.Time {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.started
 }
 
@@ -183,6 +198,7 @@ func (a *Aggregator) StartTime() time.Time {
 func (a *Aggregator) SetProcInfo(info procinfo.ProcInfo) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
 	a.procInfo = info
 }
 
@@ -190,6 +206,7 @@ func (a *Aggregator) SetProcInfo(info procinfo.ProcInfo) {
 func (a *Aggregator) GetProcInfo() procinfo.ProcInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.procInfo
 }
 
@@ -197,8 +214,10 @@ func (a *Aggregator) GetProcInfo() procinfo.ProcInfo {
 func (a *Aggregator) RecentLog() []LogEntry {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	out := make([]LogEntry, len(a.logBuf))
 	copy(out, a.logBuf)
+
 	return out
 }
 
@@ -206,6 +225,7 @@ func (a *Aggregator) RecentLog() []LogEntry {
 func (a *Aggregator) SetDone() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
 	a.done = true
 }
 
@@ -213,18 +233,21 @@ func (a *Aggregator) SetDone() {
 func (a *Aggregator) IsDone() bool {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.done
 }
 
 func (a *Aggregator) TopFiles(n int) []FileStat {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return topFilesFromMap(a.fileStats, n)
 }
 
 func (a *Aggregator) TopFilesForSyscall(name string, n int) []FileStat {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return topFilesFromMap(a.fileStatsByCall[name], n)
 }
 
@@ -250,6 +273,7 @@ func (a *Aggregator) handleErrorLocked(e models.SyscallEvent) {
 	if !e.IsError() {
 		return
 	}
+
 	s := a.getOrCreateStatLocked(e.Name)
 	s.Errors++
 	a.errors++
@@ -259,14 +283,20 @@ func (a *Aggregator) handleErrorLocked(e models.SyscallEvent) {
 		}
 		s.ErrorBreakdown[e.Error]++
 	}
+
 	// sliding window: record error in the 1-second bucket
 	sec := e.Time.Unix()
 	if sec == 0 {
 		sec = time.Now().Unix()
 	}
+
 	s.errWin.record(sec)
 	// ring buffer: keep the most recent maxErrorSamples samples
-	sample := ErrorSample{Args: e.Args, Errno: e.Error, Time: e.Time}
+	sample := ErrorSample{
+		Args:  e.Args,
+		Errno: e.Error,
+		Time:  e.Time,
+	}
 	if len(s.RecentErrors) < maxErrorSamples {
 		s.RecentErrors = append(s.RecentErrors, sample)
 	} else {
@@ -281,6 +311,7 @@ func (a *Aggregator) updateRateLocked(now time.Time) {
 		if dt > 0 {
 			a.rate = float64(a.total-a.prevRate.total) / dt
 		}
+
 		a.prevRate = rateSnapshot{total: a.total, at: now}
 	}
 }
@@ -384,10 +415,12 @@ func (a *Aggregator) handleDupCloseLocked(e models.SyscallEvent) {
 
 func (a *Aggregator) getOrCreateStatLocked(name string) *SyscallStat {
 	s := a.stats[name]
+
 	if s == nil {
 		s = &SyscallStat{Name: name, Category: classify(name)}
 		a.stats[name] = s
 	}
+
 	return s
 }
 
@@ -398,25 +431,25 @@ func (a *Aggregator) snapshotLocked() ([]SyscallStat, map[string]map[string]int6
 	fileMapSnap := make(map[string]map[string]int64, len(a.fileStatsByCall))
 	for name, s := range a.stats {
 		cp := *s
+
 		if s.ErrorBreakdown != nil {
 			cp.ErrorBreakdown = make(map[string]int64, len(s.ErrorBreakdown))
-			for k, v := range s.ErrorBreakdown {
-				cp.ErrorBreakdown[k] = v
-			}
+			maps.Copy(cp.ErrorBreakdown, s.ErrorBreakdown)
 		}
 		if len(s.RecentErrors) > 0 {
 			cp.RecentErrors = make([]ErrorSample, len(s.RecentErrors))
 			copy(cp.RecentErrors, s.RecentErrors)
 		}
+
 		statsCopy = append(statsCopy, cp)
+
 		if m := a.fileStatsByCall[name]; m != nil {
 			mm := make(map[string]int64, len(m))
-			for k, v := range m {
-				mm[k] = v
-			}
+			maps.Copy(mm, m)
 			fileMapSnap[name] = mm
 		}
 	}
+
 	return statsCopy, fileMapSnap
 }
 
@@ -425,19 +458,23 @@ func (a *Aggregator) snapshotLocked() ([]SyscallStat, map[string]map[string]int6
 // on copies produced by `snapshotLocked`.
 func (a *Aggregator) finalizeSnapshot(statsCopy []SyscallStat, fileMapSnap map[string]map[string]int64, now int64) []SyscallStat {
 	out := make([]SyscallStat, 0, len(statsCopy))
+
 	for _, cp := range statsCopy {
 		cp.P95 = latPercentile(&cp.latHist, 95)
 		cp.P99 = latPercentile(&cp.latHist, 99)
 		cp.ErrRate60s = cp.errWin.sum(now)
+
 		if mm, ok := fileMapSnap[cp.Name]; ok && len(mm) > 0 {
 			var bestPath string
 			var bestCount int64
+
 			for p, c := range mm {
 				if c > bestCount {
 					bestCount = c
 					bestPath = p
 				}
 			}
+
 			if bestPath != "" {
 				cp.Files = []FileStat{{Path: bestPath, Count: bestCount}}
 			} else {
@@ -446,7 +483,9 @@ func (a *Aggregator) finalizeSnapshot(statsCopy []SyscallStat, fileMapSnap map[s
 		} else {
 			cp.Files = nil
 		}
+
 		out = append(out, cp)
 	}
+
 	return out
 }
