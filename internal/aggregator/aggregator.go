@@ -28,11 +28,14 @@ type Aggregator struct {
 	done     bool
 }
 
+// rateSnapshot is a helper struct to track previous total and timestamp for rate calculations.
 type rateSnapshot struct {
 	total int64
 	at    time.Time
 }
 
+// New creates and initializes a new Aggregator instance.
+// The start time is set to the current time, and internal maps and slices are initialized.
 func New() *Aggregator {
 	now := time.Now()
 
@@ -44,7 +47,9 @@ func New() *Aggregator {
 	}
 }
 
-// Add records one event.
+// Add incorporates a new SyscallEvent into the aggregator, updating all relevant statistics,
+// error counts, rates, and file attributions. It also appends the event to the live log buffer.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) Add(e models.SyscallEvent) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -84,6 +89,9 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 	}
 }
 
+// Sorted returns a slice of SyscallStat sorted by the specified field. It first obtains a snapshot
+// of the current stats and file attributions under lock, then releases the lock to perform sorting
+// and percentile calculations on the snapshot copy. This minimizes lock contention while still providing a consistent view of the data at the time of the call.
 func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 	a.mu.RLock()
 	statsCopy, fileMapSnap := a.snapshotLocked()
@@ -118,6 +126,9 @@ func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 	return out
 }
 
+// Get returns the SyscallStat for the specified syscall name, if it exists.
+// It computes percentiles and error rates on the fly before returning the stat.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) Get(name string) (SyscallStat, bool) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -135,6 +146,8 @@ func (a *Aggregator) Get(name string) (SyscallStat, bool) {
 	return cp, true
 }
 
+// CategoryBreakdown returns a map of syscall categories to their aggregated counts and error counts.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) CategoryBreakdown() map[Category]CategoryStats {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -150,6 +163,8 @@ func (a *Aggregator) CategoryBreakdown() map[Category]CategoryStats {
 	return m
 }
 
+// Total returns the total number of syscall events recorded by the aggregator.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) Total() int64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -157,6 +172,8 @@ func (a *Aggregator) Total() int64 {
 	return a.total
 }
 
+// Errors returns the total number of syscall events that resulted in an error.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) Errors() int64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -164,6 +181,8 @@ func (a *Aggregator) Errors() int64 {
 	return a.errors
 }
 
+// UniqueCount returns the number of unique syscalls recorded by the aggregator.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) UniqueCount() int {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -172,6 +191,7 @@ func (a *Aggregator) UniqueCount() int {
 }
 
 // Rate returns the recent syscalls-per-second rate.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) Rate() float64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -180,6 +200,7 @@ func (a *Aggregator) Rate() float64 {
 }
 
 // StartTime returns the time the aggregator was created.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) StartTime() time.Time {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -188,6 +209,7 @@ func (a *Aggregator) StartTime() time.Time {
 }
 
 // SetProcInfo stores process metadata for the traced process.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) SetProcInfo(info procinfo.ProcInfo) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -196,6 +218,7 @@ func (a *Aggregator) SetProcInfo(info procinfo.ProcInfo) {
 }
 
 // GetProcInfo returns the stored process metadata.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) GetProcInfo() procinfo.ProcInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -204,6 +227,7 @@ func (a *Aggregator) GetProcInfo() procinfo.ProcInfo {
 }
 
 // RecentLog returns a copy of the live-log ring buffer (oldest first).
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) RecentLog() []LogEntry {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -215,6 +239,7 @@ func (a *Aggregator) RecentLog() []LogEntry {
 }
 
 // SetDone marks the traced process as having exited.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) SetDone() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -223,6 +248,7 @@ func (a *Aggregator) SetDone() {
 }
 
 // IsDone reports whether the traced process has exited.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) IsDone() bool {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -230,20 +256,28 @@ func (a *Aggregator) IsDone() bool {
 	return a.done
 }
 
+// TopFiles returns the most commonly accessed files across all syscalls, sorted by access count.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) TopFiles(n int) []FileStat {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.fileAttr.TopFiles(n)
 }
 
+// TopFilesForSyscall returns the most commonly accessed files for a specific syscall, sorted by access count.
+// This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) TopFilesForSyscall(name string, n int) []FileStat {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.fileAttr.TopFilesForSyscall(name, n)
 }
 
 // -- private helper functions (assume lock is held) -----------------------
 
+// addStatsLocked updates the syscall stat for the event's syscall name, incrementing counts and updating latency histograms.
+// This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
 func (a *Aggregator) addStatsLocked(e models.SyscallEvent) {
 	s := a.getOrCreateStatLocked(e.Name)
 	s.Count++
@@ -260,6 +294,8 @@ func (a *Aggregator) addStatsLocked(e models.SyscallEvent) {
 	}
 }
 
+// handleErrorLocked updates the error stats for the event's syscall name.
+// This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
 func (a *Aggregator) handleErrorLocked(e models.SyscallEvent) {
 	if !e.IsError() {
 		return
@@ -288,6 +324,7 @@ func (a *Aggregator) handleErrorLocked(e models.SyscallEvent) {
 		Errno: e.Error,
 		Time:  e.Time,
 	}
+
 	if len(s.RecentErrors) < maxErrorSamples {
 		s.RecentErrors = append(s.RecentErrors, sample)
 	} else {
@@ -296,6 +333,8 @@ func (a *Aggregator) handleErrorLocked(e models.SyscallEvent) {
 	}
 }
 
+// updateRateLocked updates the recent syscalls-per-second rate if at least 500ms have passed since the last update.
+// This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
 func (a *Aggregator) updateRateLocked(now time.Time) {
 	if now.Sub(a.prevRate.at) >= 500*time.Millisecond {
 		dt := now.Sub(a.prevRate.at).Seconds()
@@ -307,6 +346,8 @@ func (a *Aggregator) updateRateLocked(now time.Time) {
 	}
 }
 
+// appendLogLocked appends a log entry to the log buffer.
+// This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
 func (a *Aggregator) appendLogLocked(entry LogEntry) {
 	if len(a.logBuf) < maxLogEntries {
 		a.logBuf = append(a.logBuf, entry)
@@ -316,6 +357,8 @@ func (a *Aggregator) appendLogLocked(entry LogEntry) {
 	}
 }
 
+// getOrCreateStatLocked retrieves the SyscallStat for the given syscall name, creating it if it does not exist.
+// This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
 func (a *Aggregator) getOrCreateStatLocked(name string) *SyscallStat {
 	s := a.stats[name]
 
@@ -346,8 +389,6 @@ func (a *Aggregator) snapshotLocked() ([]SyscallStat, map[string]map[string]int6
 		}
 
 		statsCopy = append(statsCopy, cp)
-
-		// fileMapSnap already contains a copy per-name from the attributor
 	}
 
 	return statsCopy, fileMapSnap
