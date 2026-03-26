@@ -31,7 +31,7 @@ func extractPathFromArgs(name, args string) string {
 		return ""
 	}
 
-	// 1) look for a quoted string "..." and unescape it
+	// 1) prefer quoted strings as they are more likely to be correct paths
 	if i := strings.Index(args, "\""); i >= 0 {
 		if j := strings.Index(args[i+1:], "\""); j >= 0 {
 			s := args[i+1 : i+1+j]
@@ -58,20 +58,24 @@ func extractPathFromArgs(name, args string) string {
 	default:
 		// For other path-taking syscalls, we don't attempt the numeric fallback.
 	}
+
 	// sanitize common non-path tokens (NULL or numeric/pointer-like values)
 	if cand == "" || cand == "NULL" || cand == "0" || strings.HasPrefix(cand, "0x") {
 		return ""
 	}
+
 	// If the candidate is quoted (e.g. '"/path"'), strip quotes and unescape.
 	if strings.HasPrefix(cand, "\"") && strings.HasSuffix(cand, "\"") {
 		return unescapePath(cand[1 : len(cand)-1])
 	}
+
 	return cand
 }
 
 // unescapePath attempts to handle C-style escapes using strconv.Unquote.
 func unescapePath(s string) string {
 	if unq, err := strconv.Unquote("\"" + s + "\""); err == nil {
+
 		// Reject strings that contain control characters (including NUL)
 		// as they are very likely to be binary payloads rather than paths.
 		for _, r := range unq {
@@ -79,6 +83,7 @@ func unescapePath(s string) string {
 				return ""
 			}
 		}
+
 		return unq
 	}
 	// If Unquote failed, fall back to returning the raw input only if it
@@ -88,16 +93,18 @@ func unescapePath(s string) string {
 			return ""
 		}
 	}
+
 	return s
 }
 
-// parseFirstIntArg attempts to parse the first comma-separated argument as an int.
-// Returns (value, true) on success.
+// parseFirstIntArg parses the first argument from a syscall args string and attempts to convert it to an int.
+// It returns the int value and a boolean indicating whether the parsing was successful.
 func parseFirstIntArg(args string) (int, bool) {
 	parts := strings.SplitN(args, ",", 2)
 	if len(parts) == 0 {
 		return 0, false
 	}
+
 	s := strings.TrimSpace(parts[0])
 	if s == "" {
 		return 0, false
@@ -105,21 +112,26 @@ func parseFirstIntArg(args string) (int, bool) {
 	if v, err := strconv.Atoi(s); err == nil {
 		return v, true
 	}
+
 	return 0, false
 }
 
-// parseRetInt parses a syscall return value (decimal or hex) into int.
+// parseRetInt attempts to parse the return value of a syscall as an integer. It handles both decimal and hexadecimal formats.
+// It returns the integer value and a boolean indicating whether the parsing was successful.
 func parseRetInt(ret string) (int, bool) {
 	if ret == "" {
 		return 0, false
 	}
+
 	if v, err := strconv.Atoi(ret); err == nil {
 		return v, true
 	}
+
 	if strings.HasPrefix(ret, "0x") {
 		if v, err := strconv.ParseInt(ret, 0, 0); err == nil {
 			return int(v), true
 		}
 	}
+
 	return 0, false
 }
