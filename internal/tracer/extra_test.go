@@ -68,3 +68,18 @@ func Test_EbpfClose_Helper(t *testing.T) {
 		t.Fatalf("_EbpfClose expected error, got nil")
 	}
 }
+
+func TestStart_EAGAINEmpty_LogsDebug(t *testing.T) {
+	tr := NewStraceTracer()
+	// Enable debug to hit the noisy logging branch.
+	Debug = true
+	defer func() { Debug = false }()
+
+	ch, err := tr.start(fakeCmd(t, "eagain_empty"), 1)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	// Drain channel until closed to ensure goroutine runs to completion.
+	for range ch {
+	}
+}

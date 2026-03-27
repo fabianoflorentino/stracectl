@@ -55,6 +55,10 @@ func TestMain(m *testing.M) {
 		// Exits non-zero without any strace diagnostics, hitting the else branch
 		// (generic "strace exited with error" log) inside the deferred Wait handler.
 		os.Exit(1)
+	case "eagain_empty":
+		// EAGAIN with empty args — used to exercise the Debug logging branch.
+		fmt.Fprintln(os.Stderr, `[pid 1] read() = -1 EAGAIN (Resource temporarily unavailable) <0.000001>`)
+		os.Exit(0)
 	}
 	os.Exit(m.Run())
 }
