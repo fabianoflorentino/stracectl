@@ -369,9 +369,11 @@ func syscallInfo(name string) syscallDetail {
 	if canonical, ok := syscallAliases[name]; ok {
 		name = canonical
 	}
+
 	if d, ok := syscallDetails[name]; ok {
 		return d
 	}
+
 	return syscallDetail{
 		description: fmt.Sprintf("Kernel syscall %q — no reference entry available.", name),
 		notes:       "See 'man 2 " + name + "' for full documentation.",
