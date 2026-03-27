@@ -3,7 +3,11 @@ package tracer
 import (
 	"context"
 	"errors"
+	"fmt"
+	"runtime"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 // Test explicit Select branches and unknown backend error.
@@ -81,5 +85,61 @@ func TestStart_EAGAINEmpty_LogsDebug(t *testing.T) {
 	}
 	// Drain channel until closed to ensure goroutine runs to completion.
 	for range ch {
+	}
+}
+
+func TestEbpfAvailable_UnameErrorAndBadParse(t *testing.T) {
+	// Backup and restore globals
+	origUname := unameFunc
+	origBuild := ebpfBuild
+	t.Cleanup(func() {
+		unameFunc = origUname
+		ebpfBuild = origBuild
+	})
+
+	ebpfBuild = true
+	// Simulate uname failing
+	unameFunc = func(u *unix.Utsname) error { return fmt.Errorf("fail uname") }
+	if ebpfAvailable() {
+		t.Fatal("expected ebpfAvailable=false when uname returns error")
+	}
+
+	// Simulate unparsable release string
+	unameFunc = func(u *unix.Utsname) error {
+		writeRelease(u, "not-a-version")
+		return nil
+	}
+	if ebpfAvailable() {
+		t.Fatal("expected ebpfAvailable=false for unparsable release")
+	}
+}
+
+func TestSelect_Auto_NotRootFallsBack(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("requires linux")
+	}
+	origUname := unameFunc
+	origBuild := ebpfBuild
+	origEuid := getEuid
+	t.Cleanup(func() {
+		unameFunc = origUname
+		ebpfBuild = origBuild
+		getEuid = origEuid
+	})
+
+	ebpfBuild = true
+	unameFunc = func(u *unix.Utsname) error {
+		writeRelease(u, "5.8.0")
+		return nil
+	}
+	// Simulate non-root
+	getEuid = func() int { return 1000 }
+
+	tr, err := Select("auto")
+	if err != nil {
+		t.Fatalf("Select(auto) returned error: %v", err)
+	}
+	if _, ok := tr.(*StraceTracer); !ok {
+		t.Fatalf("Select(auto) returned %T for non-root, want *StraceTracer", tr)
 	}
 }
