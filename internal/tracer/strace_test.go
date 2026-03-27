@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -314,6 +315,13 @@ func TestAttach_WithStrace_ReturnsChannel(t *testing.T) {
 	// Attach to our own PID; cancel immediately so strace doesn't linger.
 	ch, err := tr.Attach(ctx, os.Getpid())
 	if err != nil {
+		// If strace cannot ptrace due to lacking permissions (e.g. not root or
+		// restrictive ptrace_scope), skip this test rather than failing the
+		// whole suite. This environment-dependent failure is common on CI.
+		if strings.Contains(err.Error(), "ptrace") || strings.Contains(err.Error(), "Operation not permitted") {
+			t.Skipf("skipping Attach test due to ptrace permission error: %v", err)
+		}
+
 		t.Fatalf("Attach: %v", err)
 	}
 	cancel()
@@ -336,6 +344,9 @@ func TestRun_WithStrace_ReturnsChannel(t *testing.T) {
 	// Trace a trivially-fast command.
 	ch, err := tr.Run(ctx, "true", nil)
 	if err != nil {
+		if strings.Contains(err.Error(), "ptrace") || strings.Contains(err.Error(), "Operation not permitted") {
+			t.Skipf("skipping Run test due to ptrace permission error: %v", err)
+		}
 		t.Fatalf("Run: %v", err)
 	}
 	// Drain all events; channel must close after "true" exits.
