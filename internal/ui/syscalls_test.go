@@ -3,19 +3,21 @@ package ui
 import (
 	"fmt"
 	"testing"
+
+	uirender "github.com/fabianoflorentino/stracectl/internal/ui/render"
 )
 
 // TestSyscallAliasesPointToValidCanonicals verifies that every entry in
-// syscallAliases resolves to a key that actually exists in syscallDetails.
+// SyscallAliases resolves to a key that actually exists in SyscallDetails.
 func TestSyscallAliasesPointToValidCanonicals(t *testing.T) {
-	for alias, canonical := range syscallAliases {
-		if _, ok := syscallDetails[canonical]; !ok {
-			t.Errorf("syscallAliases[%q] = %q, but %q has no entry in syscallDetails", alias, canonical, canonical)
+	for alias, canonical := range uirender.SyscallAliases {
+		if _, ok := uirender.SyscallDetails[canonical]; !ok {
+			t.Errorf("SyscallAliases[%q] = %q, but %q has no entry in SyscallDetails", alias, canonical, canonical)
 		}
 	}
 }
 
-// TestSyscallInfoKnownNames verifies that syscallInfo returns the expected
+// TestSyscallInfoKnownNames verifies that SyscallInfo returns the expected
 // description for a canonical name and for its aliases.
 func TestSyscallInfoKnownNames(t *testing.T) {
 	cases := []struct {
@@ -35,9 +37,9 @@ func TestSyscallInfoKnownNames(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.input, func(t *testing.T) {
-			got := syscallInfo(tc.input)
-			if got.description != tc.wantDesc {
-				t.Errorf("syscallInfo(%q).description =\n  %q\nwant:\n  %q", tc.input, got.description, tc.wantDesc)
+			got := uirender.SyscallInfo(tc.input)
+			if got.Description != tc.wantDesc {
+				t.Errorf("SyscallInfo(%q).Description =\n  %q\nwant:\n  %q", tc.input, got.Description, tc.wantDesc)
 			}
 		})
 	}
@@ -47,12 +49,12 @@ func TestSyscallInfoKnownNames(t *testing.T) {
 // non-empty generic description instead of a zero value.
 func TestSyscallInfoUnknownName(t *testing.T) {
 	name := "totally_unknown_syscall_xyz"
-	got := syscallInfo(name)
-	if got.description == "" {
-		t.Errorf("syscallInfo(%q).description is empty; expected a generic fallback", name)
+	got := uirender.SyscallInfo(name)
+	if got.Description == "" {
+		t.Errorf("SyscallInfo(%q).Description is empty; expected a generic fallback", name)
 	}
 	want := fmt.Sprintf("Kernel syscall %q — no reference entry available.", name)
-	if got.description != want {
-		t.Errorf("syscallInfo(%q).description =\n  %q\nwant:\n  %q", name, got.description, want)
+	if got.Description != want {
+		t.Errorf("SyscallInfo(%q).Description =\n  %q\nwant:\n  %q", name, got.Description, want)
 	}
 }

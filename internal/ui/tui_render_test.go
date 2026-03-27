@@ -6,6 +6,8 @@ import (
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/models"
+	"github.com/fabianoflorentino/stracectl/internal/ui/overlays"
+	uirender "github.com/fabianoflorentino/stracectl/internal/ui/render"
 )
 
 func TestRenderLogAndFiles(t *testing.T) {
@@ -15,7 +17,7 @@ func TestRenderLogAndFiles(t *testing.T) {
 	a.Add(models.SyscallEvent{Name: "read", Args: "3, 64", RetVal: "0", PID: 1, Time: time.Now()})
 
 	m := model{agg: a, width: 80, height: 10, logOffset: -1, filesOffset: 0}
-	logView := m.renderLog()
+	logView := overlays.RenderLog(m.width, m.height, m.agg, &m.logOffset)
 	if logView == "" {
 		t.Fatal("expected non-empty log view")
 	}
@@ -23,7 +25,7 @@ func TestRenderLogAndFiles(t *testing.T) {
 		t.Fatalf("expected live log title in view: %q", logView)
 	}
 
-	filesView := m.renderFiles()
+	filesView := overlays.RenderFiles(m.width, m.height, m.agg, &m.filesOffset)
 	if filesView == "" {
 		t.Fatal("expected non-empty files view")
 	}
@@ -33,7 +35,7 @@ func TestRenderLogAndFiles(t *testing.T) {
 
 	// render detail overlay for a syscall
 	m2 := model{agg: a, width: 80, height: 24, cursor: 0}
-	detail := m2.renderDetail()
+	detail := uirender.RenderDetail(m2.agg, m2.sortBy, m2.filter, m2.cursor, m2.width, m2.height)
 	if detail == "" {
 		t.Fatal("expected non-empty detail view")
 	}
@@ -43,7 +45,7 @@ func TestRenderLogAndFiles(t *testing.T) {
 
 	// exercise category bar
 	m3 := model{agg: a, width: 80}
-	cat := m3.renderCategoryBar(80)
+	cat := uirender.RenderCategoryBar(m3.agg, 80)
 	if cat == "" {
 		t.Fatal("expected non-empty category bar")
 	}

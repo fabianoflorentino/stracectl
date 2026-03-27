@@ -11,6 +11,11 @@ import (
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/models"
+	"github.com/fabianoflorentino/stracectl/internal/ui/helpers"
+	umodel "github.com/fabianoflorentino/stracectl/internal/ui/model"
+	"github.com/fabianoflorentino/stracectl/internal/ui/overlays"
+	uirender "github.com/fabianoflorentino/stracectl/internal/ui/render"
+	"github.com/fabianoflorentino/stracectl/internal/ui/widgets"
 )
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -25,14 +30,21 @@ func newTestModel() model {
 	}
 }
 
-func addEvent(agg *aggregator.Aggregator, name string, latency time.Duration, errName string) {
-	agg.Add(models.SyscallEvent{
-		PID:     1,
-		Name:    name,
-		Latency: latency,
-		Error:   errName,
-		Time:    time.Now(),
-	})
+func addEvent(agg umodel.AggregatorView, name string, latency time.Duration, errName string) {
+	// Tests drive the underlying Aggregator; attempt to type-assert to the concrete
+	// type used by tests and call Add directly.
+	if a, ok := agg.(*aggregator.Aggregator); ok {
+		a.Add(models.SyscallEvent{
+			PID:     1,
+			Name:    name,
+			Latency: latency,
+			Error:   errName,
+			Time:    time.Now(),
+		})
+		return
+	}
+	// If the provided AggregatorView is not the concrete Aggregator, tests can
+	// not inject events — ignore silently.
 }
 
 func pressKey(m model, key string) model {
@@ -58,7 +70,7 @@ func pressKey(m model, key string) model {
 // ── wordWrap ──────────────────────────────────────────────────────────────────
 
 func TestWordWrap_ShortText(t *testing.T) {
-	lines := wordWrap("hello world", 80)
+	lines := widgets.WordWrap("hello world", 80)
 	if len(lines) != 1 || lines[0] != "hello world" {
 		t.Errorf("got %v, want [\"hello world\"]", lines)
 	}
@@ -66,7 +78,7 @@ func TestWordWrap_ShortText(t *testing.T) {
 
 func TestWordWrap_ExactWidth(t *testing.T) {
 	text := "abc def"
-	lines := wordWrap(text, len(text))
+	lines := widgets.WordWrap(text, len(text))
 	if len(lines) != 1 {
 		t.Errorf("expected 1 line, got %d: %v", len(lines), lines)
 	}
@@ -74,7 +86,7 @@ func TestWordWrap_ExactWidth(t *testing.T) {
 
 func TestWordWrap_WrapsLongText(t *testing.T) {
 	text := "one two three four five six seven eight nine ten"
-	lines := wordWrap(text, 20)
+	lines := widgets.WordWrap(text, 20)
 	if len(lines) < 2 {
 		t.Errorf("expected multiple lines, got %d: %v", len(lines), lines)
 	}
@@ -87,7 +99,7 @@ func TestWordWrap_WrapsLongText(t *testing.T) {
 
 func TestWordWrap_ZeroWidth(t *testing.T) {
 	// maxWidth <= 0 returns the text as-is
-	lines := wordWrap("hello world", 0)
+	lines := widgets.WordWrap("hello world", 0)
 	if len(lines) != 1 || lines[0] != "hello world" {
 		t.Errorf("got %v", lines)
 	}
@@ -95,7 +107,7 @@ func TestWordWrap_ZeroWidth(t *testing.T) {
 
 func TestWordWrap_SingleLongWord(t *testing.T) {
 	// a word longer than maxWidth must not be split (just placed on its own line)
-	lines := wordWrap("superlongwordthatexceedslimit", 5)
+	lines := widgets.WordWrap("superlongwordthatexceedslimit", 5)
 	if len(lines) != 1 || lines[0] != "superlongwordthatexceedslimit" {
 		t.Errorf("got %v", lines)
 	}
@@ -104,34 +116,34 @@ func TestWordWrap_SingleLongWord(t *testing.T) {
 // ── formatDur ─────────────────────────────────────────────────────────────────
 
 func TestFormatDur_Zero(t *testing.T) {
-	if got := formatDur(0); got != "—" {
+	if got := helpers.FormatDur(0); got != "—" {
 		t.Errorf("got %q, want \"—\"", got)
 	}
 }
 
 func TestFormatDur_Nanoseconds(t *testing.T) {
-	got := formatDur(500 * time.Nanosecond)
+	got := helpers.FormatDur(500 * time.Nanosecond)
 	if !strings.HasSuffix(got, "ns") {
 		t.Errorf("got %q, expected suffix ns", got)
 	}
 }
 
 func TestFormatDur_Microseconds(t *testing.T) {
-	got := formatDur(42_500 * time.Nanosecond)
+	got := helpers.FormatDur(42_500 * time.Nanosecond)
 	if !strings.HasSuffix(got, "µs") {
 		t.Errorf("got %q, expected suffix µs", got)
 	}
 }
 
 func TestFormatDur_Milliseconds(t *testing.T) {
-	got := formatDur(7_200 * time.Microsecond)
+	got := helpers.FormatDur(7_200 * time.Microsecond)
 	if !strings.HasSuffix(got, "ms") {
 		t.Errorf("got %q, expected suffix ms", got)
 	}
 }
 
 func TestFormatDur_Seconds(t *testing.T) {
-	got := formatDur(2 * time.Second)
+	got := helpers.FormatDur(2 * time.Second)
 	if !strings.HasSuffix(got, "s") {
 		t.Errorf("got %q, expected suffix s", got)
 	}
@@ -140,20 +152,20 @@ func TestFormatDur_Seconds(t *testing.T) {
 // ── formatCount ───────────────────────────────────────────────────────────────
 
 func TestFormatCount_Small(t *testing.T) {
-	if got := formatCount(42); got != "42" {
+	if got := helpers.FormatCount(42); got != "42" {
 		t.Errorf("got %q", got)
 	}
 }
 
 func TestFormatCount_Thousands(t *testing.T) {
-	got := formatCount(1_500)
+	got := helpers.FormatCount(1_500)
 	if !strings.HasSuffix(got, "k") {
 		t.Errorf("got %q, expected 'k' suffix", got)
 	}
 }
 
 func TestFormatCount_Millions(t *testing.T) {
-	got := formatCount(2_300_000)
+	got := helpers.FormatCount(2_300_000)
 	if !strings.HasSuffix(got, "M") {
 		t.Errorf("got %q, expected 'M' suffix", got)
 	}
@@ -170,14 +182,14 @@ func TestAlertExplanation_KnownSyscalls(t *testing.T) {
 		"unlink", "unlinkat", "mkdir", "mkdirat",
 	}
 	for _, name := range known {
-		if got := alertExplanation(name); got == "" {
-			t.Errorf("alertExplanation(%q) returned empty, want non-empty", name)
+		if got := uirender.AlertExplanation(name); got == "" {
+			t.Errorf("AlertExplanation(%q) returned empty, want non-empty", name)
 		}
 	}
 }
 
 func TestAlertExplanation_Unknown(t *testing.T) {
-	if got := alertExplanation("nonexistentsyscall"); got != "" {
+	if got := uirender.AlertExplanation("nonexistentsyscall"); got != "" {
 		t.Errorf("got %q, want empty string for unknown syscall", got)
 	}
 }
@@ -579,21 +591,21 @@ func TestRenderHelp_ContainsKeyBindings(t *testing.T) {
 // ── sparkBar ─────────────────────────────────────────────────────────────────
 
 func TestSparkBar_ZeroMax(t *testing.T) {
-	out := sparkBar(0, 0, 10)
+	out := widgets.SparkBar(0, 0, 10)
 	if !strings.Contains(out, "░") || strings.Contains(out, "█") {
 		t.Errorf("sparkBar with maxCount=0 should be all empty, got %q", out)
 	}
 }
 
 func TestSparkBar_FullBar(t *testing.T) {
-	out := sparkBar(10, 10, 8)
+	out := widgets.SparkBar(10, 10, 8)
 	if out != "████████" {
 		t.Errorf("sparkBar full fill = %q, want all █", out)
 	}
 }
 
 func TestSparkBar_HalfBar(t *testing.T) {
-	out := sparkBar(5, 10, 10)
+	out := widgets.SparkBar(5, 10, 10)
 	// Half filled: 5 filled + 5 empty = 10 bar characters total
 	filled := strings.Count(out, "█")
 	empty := strings.Count(out, "░")
@@ -603,7 +615,7 @@ func TestSparkBar_HalfBar(t *testing.T) {
 }
 
 func TestSparkBar_ZeroWidth(t *testing.T) {
-	out := sparkBar(5, 10, 0)
+	out := widgets.SparkBar(5, 10, 0)
 	if out != "" {
 		t.Errorf("sparkBar with width=0 should be empty, got %q", out)
 	}
@@ -639,14 +651,14 @@ func TestCatStyle_AllCategories(t *testing.T) {
 
 func TestPadR_TooLong(t *testing.T) {
 	// When the input is longer than n, return it unchanged (no truncation/corruption).
-	out := padR("toolongstring", 5)
+	out := widgets.PadR("toolongstring", 5)
 	if out != "toolongstring" {
 		t.Errorf("padR too-long: got %q, want unchanged string", out)
 	}
 }
 
 func TestPadR_Pads(t *testing.T) {
-	out := padR("hi", 6)
+	out := widgets.PadR("hi", 6)
 	if len(out) != 6 {
 		t.Errorf("padR padded len = %d, want 6", len(out))
 	}
@@ -654,7 +666,7 @@ func TestPadR_Pads(t *testing.T) {
 
 func TestPadR_MultibytePads(t *testing.T) {
 	// "µs" visual width = 2, padded to 5 → should add 3 spaces, total visual 5.
-	out := padR("µs", 5)
+	out := widgets.PadR("µs", 5)
 	if lipgloss.Width(out) != 5 {
 		t.Errorf("padR multibyte visual width = %d, want 5", lipgloss.Width(out))
 	}
@@ -662,14 +674,14 @@ func TestPadR_MultibytePads(t *testing.T) {
 
 func TestPadL_TooLong(t *testing.T) {
 	// When the input is longer than n, return it unchanged.
-	out := padL("toolongstring", 5)
+	out := widgets.PadL("toolongstring", 5)
 	if out != "toolongstring" {
 		t.Errorf("padL too-long: got %q, want unchanged string", out)
 	}
 }
 
 func TestPadL_Pads(t *testing.T) {
-	out := padL("hi", 6)
+	out := widgets.PadL("hi", 6)
 	if len(out) != 6 {
 		t.Errorf("padL padded len = %d, want 6", len(out))
 	}
@@ -678,7 +690,7 @@ func TestPadL_Pads(t *testing.T) {
 func TestPadL_MultibytePads(t *testing.T) {
 	// "37.3µs" visual width = 6 (µ is 2 bytes but 1 column).
 	// padL to 10 should prepend 4 spaces, total visual width 10.
-	out := padL("37.3µs", 10)
+	out := widgets.PadL("37.3µs", 10)
 	if lipgloss.Width(out) != 10 {
 		t.Errorf("padL multibyte visual width = %d, want 10", lipgloss.Width(out))
 	}
@@ -686,7 +698,7 @@ func TestPadL_MultibytePads(t *testing.T) {
 
 func TestPadL_EmDashPads(t *testing.T) {
 	// "—" is 3 bytes but 1 visible column; padL to 8 should produce 7 spaces + —.
-	out := padL("—", 8)
+	out := widgets.PadL("—", 8)
 	if lipgloss.Width(out) != 8 {
 		t.Errorf("padL em-dash visual width = %d, want 8", lipgloss.Width(out))
 	}
@@ -769,7 +781,7 @@ func TestDetailOverlay_QQuits(t *testing.T) {
 func TestRenderHelp_ZeroWidthDirect(t *testing.T) {
 	m := newTestModel()
 	m.width = 0
-	out := m.renderHelp()
+	out := overlays.RenderHelp(m.width)
 	if out == "" {
 		t.Error("renderHelp() with width=0 returned empty string")
 	}
@@ -779,9 +791,9 @@ func TestRenderHelp_ZeroWidthDirect(t *testing.T) {
 
 func TestColWidths_NarrowTerminalClampsName(t *testing.T) {
 	// width=50: computed name = 50-75 = -25, clamped to 14
-	cw := colWidths(50)
-	if cw.name != 14 {
-		t.Errorf("colWidths(50).name = %d, want 14 (clamped)", cw.name)
+	cw := widgets.ColWidths(50)
+	if cw.Name != 14 {
+		t.Errorf("colWidths(50).Name = %d, want 14 (clamped)", cw.Name)
 	}
 }
 
@@ -789,7 +801,7 @@ func TestColWidths_NarrowTerminalClampsName(t *testing.T) {
 
 func TestSparkBar_CountExceedsMax(t *testing.T) {
 	// Passing count > maxCount should not produce more █ than width.
-	out := sparkBar(20, 10, 5)
+	out := widgets.SparkBar(20, 10, 5)
 	if len([]rune(out)) != 5 {
 		t.Errorf("sparkBar len = %d, want 5", len([]rune(out)))
 	}
@@ -953,7 +965,7 @@ func TestRenderDetail_ZeroWidthDirect(t *testing.T) {
 	m := newTestModel()
 	m.width = 0
 	addEvent(m.agg, "read", 1*time.Millisecond, "")
-	out := m.renderDetail()
+	out := uirender.RenderDetail(m.agg, m.sortBy, m.filter, m.cursor, m.width, m.height)
 	if !strings.Contains(out, "read") {
 		t.Errorf("renderDetail direct w=0: expected 'read' in output, got:\n%s", out)
 	}
@@ -965,7 +977,7 @@ func TestRenderDetail_CursorClampedToLastRow(t *testing.T) {
 	m := newTestModel()
 	addEvent(m.agg, "read", 1*time.Millisecond, "")
 	m.cursor = 99 // well beyond the 1-item stats list
-	out := m.renderDetail()
+	out := uirender.RenderDetail(m.agg, m.sortBy, m.filter, m.cursor, m.width, m.height)
 	if !strings.Contains(out, "read") {
 		t.Errorf("renderDetail cursor clamp: expected 'read' in output, got:\n%s", out)
 	}
