@@ -94,6 +94,33 @@ LIVE STATISTICS
 - **HTML report export** — `--report report.html` writes a self-contained, sortable HTML file with no external dependencies
 - **Kubernetes-ready** — Dockerfile, raw manifests, and Helm chart with a hardened sidecar security context
 
+## Privacy & Security
+
+Privacy is a core feature of stracectl. The tool runs in a conservative "safe mode" by default: syscall payloads and sensitive argument contents are redacted unless explicitly enabled. Use the privacy controls to minimize risk when tracing production systems.
+
+- Default: safe mode with automatic redaction and limited argument capture.
+- Explicit full capture: `--full` must be used deliberately; a clear warning is shown and `--force` is required for non-interactive flows.
+- Auditing: when writing a privacy log with `--privacy-log <path>`, stracectl also writes an audit file `<path>.audit` containing `trace_start`/`trace_end` metadata and a SHA256 hash of the trace file for provenance.
+
+Recommended operational practices (security-first):
+
+- Store privacy logs on secure storage (tmpfs, encrypted volume) and restrict access to the file owner. Files are created with mode `0600` by default.
+- Use `--privacy-ttl <duration>` to automatically expire ephemeral logs (example: `24h`, `15m`).
+- Prefer `--privacy-log stdout` for ephemeral streaming when possible (no audit file is created for stdout).
+- Do not enable `--full` unless you have explicit authorization to capture sensitive data.
+
+Example quick commands:
+
+```bash
+# write a redacted JSON privacy log that expires in 24 hours
+stracectl run --privacy-log trace.json --privacy-ttl 24h --no-args curl https://example.com
+
+# explicit full capture (dangerous) — only with authorization
+stracectl run --privacy-log trace-full.json --full --force curl https://example.com
+```
+
+More usage examples, guidelines, and audit details: see `docs/privacy-usage-examples.md` and `docs/privacy-implementation-plan.md`.
+
 ## Requirements
 
 ## What's New (v1.0.94)
