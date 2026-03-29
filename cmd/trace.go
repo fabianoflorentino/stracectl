@@ -156,9 +156,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 			return err
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer close(done)
 			for event := range events {
 				agg.Add(event)
@@ -174,7 +172,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 				}
 			}
 			agg.SetDone()
-		}()
+		})
 
 		fmt.Fprintf(os.Stderr, "serving on %s\n", serveAddr)
 		srv := server.New(serveAddr, agg, wsToken)
@@ -185,11 +183,9 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 		// runTrace can manage the tracer lifecycle; we wait for the UI to
 		// return and then cancel the tracer.
 		uiErrCh := make(chan error, 1)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			uiErrCh <- ui.Run(agg, label, done)
-		}()
+		})
 
 		// Allow the UI a short time to initialize and produce a window-size
 		// event. We also poll the UI debug event log (if present) for a
@@ -217,9 +213,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 		// runTraceWithEvents compatibility logic moved to top-level; continue
 		// draining events below.
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer close(done)
 			for event := range events {
 				agg.Add(event)
@@ -234,7 +228,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 				}
 			}
 			agg.SetDone()
-		}()
+		})
 
 		// Wait for UI to exit; runErr receives the ui.Run result.
 		runErr = <-uiErrCh
