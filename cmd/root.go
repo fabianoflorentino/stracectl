@@ -16,6 +16,15 @@ const (
 
 var wsToken string
 var debugFlag bool
+var privacyLogPath string
+var privacyNoArgs bool
+var privacyMaxArgSize int
+var privacyRedactPatterns string
+var privacySyscalls string
+var privacyExclude string
+var privacyPrivacyLevel string
+var privacyFull bool
+var privacyTTL string
 
 var rootCmd = &cobra.Command{
 	Use:   "stracectl",
@@ -56,6 +65,15 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().StringVar(&wsToken, "ws-token", "", "require a Bearer token for WebSocket connections")
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "enable verbose debug logging (gates raw strace diagnostics)")
+	rootCmd.PersistentFlags().StringVar(&privacyLogPath, "privacy-log", "", "write redacted JSON trace events to this file (use 'stdout' to write to stdout)")
+	rootCmd.PersistentFlags().BoolVar(&privacyNoArgs, "no-args", false, "do not capture syscall argument content (redact everything)")
+	rootCmd.PersistentFlags().IntVar(&privacyMaxArgSize, "max-arg-size", 64, "maximum bytes of each arg to retain when redacting")
+	rootCmd.PersistentFlags().StringVar(&privacyRedactPatterns, "redact-patterns", "", "additional comma-separated regex patterns to redact")
+	rootCmd.PersistentFlags().StringVar(&privacySyscalls, "syscalls", "", "comma-separated list of syscalls to include")
+	rootCmd.PersistentFlags().StringVar(&privacyExclude, "exclude", "", "comma-separated list of syscalls to exclude")
+	rootCmd.PersistentFlags().StringVar(&privacyPrivacyLevel, "privacy-level", "high", "privacy level: low|medium|high")
+	rootCmd.PersistentFlags().BoolVar(&privacyFull, "full", false, "explicitly enable full payload capture (dangerous)")
+	rootCmd.PersistentFlags().StringVar(&privacyTTL, "privacy-ttl", "", "optional TTL for privacy log file (e.g. 24h, 15m); empty disables auto-expire")
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		tracer.Debug = debugFlag
 	}

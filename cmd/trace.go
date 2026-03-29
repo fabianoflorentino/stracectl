@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -14,6 +17,14 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/server"
 	"github.com/fabianoflorentino/stracectl/internal/tracer"
 	"github.com/fabianoflorentino/stracectl/internal/ui"
+
+	p "github.com/fabianoflorentino/stracectl/internal/privacy"
+	paudit "github.com/fabianoflorentino/stracectl/internal/privacy/audit"
+	pfilters "github.com/fabianoflorentino/stracectl/internal/privacy/filters"
+	pformat "github.com/fabianoflorentino/stracectl/internal/privacy/formatter"
+	pout "github.com/fabianoflorentino/stracectl/internal/privacy/output"
+	ppipeline "github.com/fabianoflorentino/stracectl/internal/privacy/pipeline"
+	predact "github.com/fabianoflorentino/stracectl/internal/privacy/redactor"
 )
 
 // runTrace wires events from the tracer into the aggregator, then either
@@ -42,6 +53,95 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 
 	var runErr error
 
+	startTime := time.Now()
+
+	// Initialize privacy pipeline components if a privacy log path was provided.
+	var (
+		pEnabled    = privacyLogPath != ""
+		pFilter     *pfilters.FilterSet
+		pRedactor   p.Redactor
+		pFormatter  p.Formatter
+		pOutput     p.Output
+		auditLogger *paudit.Logger
+		eventCount  int
+		ttl         time.Duration
+	)
+	if privacyTTL != "" {
+		if d, err := time.ParseDuration(privacyTTL); err == nil {
+			ttl = d
+		} else {
+			fmt.Fprintf(os.Stderr, "warning: invalid privacy-ttl %q: %v; ignoring TTL\n", privacyTTL, err)
+		}
+	}
+	if pEnabled {
+		pFilter = pfilters.New(privacySyscalls, privacyExclude, nil, nil)
+
+		// Build redactor config
+		patterns := []string{}
+		if privacyRedactPatterns != "" {
+			for _, s := range strings.Split(privacyRedactPatterns, ",") {
+				s = strings.TrimSpace(s)
+				if s != "" {
+					patterns = append(patterns, s)
+				}
+			}
+		}
+		rcfg := predact.Config{NoArgs: privacyNoArgs, MaxArgSize: privacyMaxArgSize, Patterns: patterns}
+		r, err := predact.New(rcfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to initialize redactor: %v; disabling privacy logging\n", err)
+			pEnabled = false
+		} else {
+			pRedactor = r
+		}
+
+		pFormatter = pformat.NewJSONFormatter()
+
+		if pEnabled {
+			if privacyLogPath == "stdout" {
+				pOutput = pout.NewStdout()
+			} else {
+				of, err := pout.NewFile(privacyLogPath, ttl)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: cannot open privacy log %s: %v; disabling privacy logging\n", privacyLogPath, err)
+					pEnabled = false
+				} else {
+					pOutput = of
+				}
+			}
+		}
+
+		// Initialize audit logger if privacy logging enabled and output created.
+		if pEnabled && pOutput != nil {
+			if privacyLogPath == "stdout" {
+				// no audit file for stdout
+			} else {
+				al, err := paudit.New(privacyLogPath + ".audit")
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: cannot create audit log: %v\n", err)
+				} else {
+					auditLogger = al
+					// Log initial entry
+					_ = auditLogger.Log(paudit.Entry{
+						"action": "trace_start",
+						"label":  label,
+						"privacy_opts": map[string]interface{}{
+							"no_args":       privacyNoArgs,
+							"max_arg_size":  privacyMaxArgSize,
+							"syscalls":      privacySyscalls,
+							"exclude":       privacyExclude,
+							"privacy_level": privacyPrivacyLevel,
+							"full":          privacyFull,
+							"ttl":           privacyTTL,
+						},
+						"program": program,
+						"args":    strings.Join(args, " "),
+					})
+				}
+			}
+		}
+	}
+
 	if serveAddr != "" {
 		// Server mode: start tracer first (so the dashboard has data immediately),
 		// then start HTTP server in the foreground.
@@ -62,6 +162,16 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 			defer close(done)
 			for event := range events {
 				agg.Add(event)
+				if pEnabled && pOutput != nil {
+					te := p.NewTraceEventFromModel(event)
+					if err := ppipeline.Process(&te, pFilter, pRedactor, pFormatter, pOutput); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
+					} else {
+						// separate JSON objects with newline
+						_ = pOutput.Write([]byte("\n"))
+						eventCount++
+					}
+				}
 			}
 			agg.SetDone()
 		}()
@@ -113,6 +223,15 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 			defer close(done)
 			for event := range events {
 				agg.Add(event)
+				if pEnabled && pOutput != nil {
+					te := p.NewTraceEventFromModel(event)
+					if err := ppipeline.Process(&te, pFilter, pRedactor, pFormatter, pOutput); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
+					} else {
+						_ = pOutput.Write([]byte("\n"))
+						eventCount++
+					}
+				}
 			}
 			agg.SetDone()
 		}()
@@ -125,6 +244,31 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 	// closes the events channel so the consumer goroutine can finish.
 	cancelTracer()
 	wg.Wait()
+
+	// If privacy output is enabled, ensure we flush/close and record audit end
+	// entry with event count and SHA256 of the final file (if applicable).
+	if pEnabled && pOutput != nil {
+		// close to flush writes before hashing
+		_ = pOutput.Close()
+		if auditLogger != nil && privacyLogPath != "stdout" {
+			// compute SHA256 of the privacy log file
+			f, err := os.Open(privacyLogPath)
+			if err == nil {
+				hasher := sha256.New()
+				if _, err := io.Copy(hasher, f); err == nil {
+					sum := hasher.Sum(nil)
+					_ = auditLogger.Log(paudit.Entry{
+						"action":      "trace_end",
+						"label":       label,
+						"event_count": eventCount,
+						"file_hash":   hex.EncodeToString(sum),
+						"duration":    time.Since(startTime).String(),
+					})
+				}
+				_ = f.Close()
+			}
+		}
+	}
 
 	if runErr == nil && reportPath != "" {
 		if err := writeHTMLReport(reportPath, agg, label, reportTopFiles); err != nil {
@@ -168,12 +312,75 @@ func writeHTMLReport(path string, agg *aggregator.Aggregator, label string, topF
 func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, events <-chan models.SyscallEvent, agg *aggregator.Aggregator, serveAddr, wsToken, reportPath string, reportTopFiles int, label string) error {
 	done := make(chan struct{})
 	var wg sync.WaitGroup
+	startTime := time.Now()
+	// Initialize privacy pipeline components if a privacy log path was provided.
+	var (
+		pEnabled    = privacyLogPath != ""
+		pFilter     *pfilters.FilterSet
+		pRedactor   p.Redactor
+		pFormatter  p.Formatter
+		pOutput     p.Output
+		auditLogger *paudit.Logger
+		eventCount  int
+		ttl         time.Duration
+	)
+	if privacyTTL != "" {
+		if d, err := time.ParseDuration(privacyTTL); err == nil {
+			ttl = d
+		}
+	}
+	if pEnabled {
+		pFilter = pfilters.New(privacySyscalls, privacyExclude, nil, nil)
+
+		patterns := []string{}
+		if privacyRedactPatterns != "" {
+			for _, s := range strings.Split(privacyRedactPatterns, ",") {
+				s = strings.TrimSpace(s)
+				if s != "" {
+					patterns = append(patterns, s)
+				}
+			}
+		}
+		rcfg := predact.Config{NoArgs: privacyNoArgs, MaxArgSize: privacyMaxArgSize, Patterns: patterns}
+		r, err := predact.New(rcfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to initialize redactor: %v; disabling privacy logging\n", err)
+			pEnabled = false
+		} else {
+			pRedactor = r
+		}
+
+		pFormatter = pformat.NewJSONFormatter()
+
+		if pEnabled {
+			if privacyLogPath == "stdout" {
+				pOutput = pout.NewStdout()
+			} else {
+				of, err := pout.NewFile(privacyLogPath, ttl)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: cannot open privacy log %s: %v; disabling privacy logging\n", privacyLogPath, err)
+					pEnabled = false
+				} else {
+					pOutput = of
+				}
+			}
+		}
+	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		defer close(done)
 		for event := range events {
 			agg.Add(event)
+			if pEnabled && pOutput != nil {
+				te := p.NewTraceEventFromModel(event)
+				if err := ppipeline.Process(&te, pFilter, pRedactor, pFormatter, pOutput); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
+				} else {
+					_ = pOutput.Write([]byte("\n"))
+					eventCount++
+				}
+			}
 		}
 		agg.SetDone()
 	}()
@@ -189,6 +396,26 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 
 	cancelTracer()
 	wg.Wait()
+
+	if pEnabled && pOutput != nil {
+		_ = pOutput.Close()
+		if auditLogger != nil && privacyLogPath != "stdout" {
+			f, err := os.Open(privacyLogPath)
+			if err == nil {
+				hasher := sha256.New()
+				if _, err := io.Copy(hasher, f); err == nil {
+					_ = auditLogger.Log(paudit.Entry{
+						"action":      "trace_end",
+						"label":       label,
+						"event_count": eventCount,
+						"file_hash":   hex.EncodeToString(hasher.Sum(nil)),
+						"duration":    time.Since(startTime).String(),
+					})
+				}
+				_ = f.Close()
+			}
+		}
+	}
 
 	if runErr == nil && reportPath != "" {
 		if err := writeHTMLReport(reportPath, agg, label, reportTopFiles); err != nil {
