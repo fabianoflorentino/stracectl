@@ -51,3 +51,33 @@ func Test_SyscallInfo_AliasAndUnknown(t *testing.T) {
 		t.Fatalf("expected generic fallback for unknown syscall, got: %v", u)
 	}
 }
+
+func Test_AlertExplanation_KnownCases(t *testing.T) {
+	cases := map[string]string{
+		"openat":  "files not found",
+		"connect": "connection attempts failed",
+		"recv":    "EAGAIN on non-blocking socket",
+		"mkdir":   "directory already exists",
+	}
+	for k, want := range cases {
+		got := AlertExplanation(k)
+		if got == "" || !strings.Contains(got, want) {
+			t.Fatalf("AlertExplanation(%q) did not contain %q: %q", k, want, got)
+		}
+	}
+}
+
+func Test_RenderCategoryBar_ShowsCategories(t *testing.T) {
+	agg := aggregator.New()
+	// add calls that map to different categories
+	agg.Add(models.SyscallEvent{Name: "openat", Time: time.Now()})
+	agg.Add(models.SyscallEvent{Name: "stat", Time: time.Now()})
+
+	out := RenderCategoryBar(umodel.AggregatorView(agg), 80)
+	if out == "" {
+		t.Fatalf("expected non-empty category bar")
+	}
+	if !strings.Contains(out, "I/O") && !strings.Contains(out, "FS") {
+		t.Fatalf("expected category names in output, got: %q", out)
+	}
+}
