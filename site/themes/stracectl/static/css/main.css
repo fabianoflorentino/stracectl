@@ -1404,6 +1404,24 @@ code, pre, kbd {
   margin: 2rem 0;
 }
 
+/* Subtle full-width section divider used on the homepage */
+.section-divider {
+  /* Use same horizontal faded-line style as features-section::before */
+  height: 1px;
+  display: block;
+  width: 100%;
+  margin: 2rem 0;
+  /* layered subtle gradient: faint edges, very light centre to match existing dividers */
+  background: linear-gradient(
+    90deg,
+    rgba(33,38,45,0) 0%,
+    rgba(255,255,255,0.02) 8%,
+    rgba(33,38,45,0.06) 50%,
+    rgba(255,255,255,0.02) 92%,
+    rgba(33,38,45,0) 100%
+  );
+}
+
 /* Doc list cards */
 .list-cards {
   display: grid;

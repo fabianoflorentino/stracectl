@@ -108,6 +108,49 @@
 </section>
 
 <!-- ============================================================
+     PRIVACY HIGHLIGHT
+     ============================================================ -->
+<section class="features-section" id="privacy-highlight">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title reveal">Privacy-first by default —<br><span class="gradient-text">safe, auditable tracing</span></h2>
+      <p class="section-sub reveal">Minimise accidental exposure: automatic redaction, TTL-backed ephemeral logs, and an auditable provenance trail make traces safe to collect and share.</p>
+    </div>
+
+    <div class="features-grid" style="grid-template-columns: repeat(2, 1fr);">
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div class="feature-icon">🔒</div>
+        <h3>Safe defaults</h3>
+        <p>Runs in a conservative privacy mode by default: syscall argument payloads are redacted unless explicitly requested with <code>--full</code>.</p>
+        <p style="margin-top:0.6rem"><strong>Flags:</strong> <code>--no-args</code>, <code>--max-arg-size</code>, <code>--redact-patterns</code>, <code>--privacy-level</code></p>
+      </div>
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div class="feature-icon">📁</div>
+        <h3>Ephemeral logs &amp; audit</h3>
+        <p>Write redacted events to a privacy log with <code>--privacy-log</code>. Use <code>--privacy-ttl</code> to auto-expire files and rely on the generated <code>.audit</code> file for provenance and integrity (SHA256).</p>
+        <div style="margin-top:0.6rem; font-size:0.9rem; color:var(--muted)"><code>stracectl run --privacy-log trace.json --privacy-ttl 24h --no-args &lt;cmd&gt;</code></div>
+      </div>
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div class="feature-icon">🛡️</div>
+        <h3>Deterministic redaction</h3>
+        <p>Built-in pattern set (JWT, emails, tokens, IPs) with configurable additions via <code>--redact-patterns</code>. Redaction is applied before any formatting or output.</p>
+      </div>
+
+      <div class="feature-card reveal" style="text-align:left">
+        <div class="feature-icon">📚</div>
+        <h3>Explain &amp; audit</h3>
+        <p>Use <code>stracectl explain</code> to preview what will be captured. When writing a file, the accompanying audit log records actor, options, event counts and a file hash for secure sharing.</p>
+        <a href="{{ "docs/privacy/" | absURL }}" class="btn btn-outline" style="margin-top:0.6rem">Privacy docs →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
      FEATURES
      ============================================================ -->
 <!-- ============================================================
@@ -155,6 +198,12 @@
         <div class="feature-icon">📄</div>
         <h3>HTML Report Export</h3>
         <p><code>--report report.html</code> writes a self-contained, sortable HTML file — no server, no CDN, no stracectl needed to view it.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔒</div>
+        <h3>Privacy-First Tracing</h3>
+        <p>Safe-by-default tracing with automatic redaction, TTLs, and audit provenance to minimise exposure of tokens, PII, and secrets during investigations.</p>
       </div>
 
       <div class="feature-card reveal">
@@ -618,16 +667,18 @@
   </div>
 </section>
 
+<!-- divider removed — install section will reuse the features/modes header style -->
+
 <!-- ============================================================
      QUICK INSTALL
      ============================================================ -->
-<section class="install-section" id="install">
+<section class="modes-section install-section" id="install">
   <div class="container">
     <div class="install-inner">
-      <div class="install-text reveal">
-        <h2>Up and running<br><span class="gradient-text">in seconds</span></h2>
-        <p>Linux only (uses <code>ptrace</code> via the <code>strace</code> binary). Requires Go 1.26+ or pull the pre-built container image.</p>
-        <a href="{{ "docs/install/" | absURL }}" class="btn btn-primary">Full install guide →</a>
+      <div class="section-header">
+        <h2 class="section-title reveal">Up and running<br><span class="gradient-text">in seconds</span></h2>
+        <p class="section-sub reveal">Linux only (uses <code>ptrace</code> via the <code>strace</code> binary). Requires Go 1.26+ or pull the pre-built container image.</p>
+        <a href="{{ "docs/install/" | absURL }}" class="btn btn-primary reveal" style="margin-top:0.75rem">Full install guide →</a>
       </div>
       <div class="install-blocks reveal-right">
         <div class="install-tab-group">
