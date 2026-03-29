@@ -365,10 +365,38 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 				}
 			}
 		}
+
+		// Initialize audit logger if privacy logging enabled and output created.
+		if pEnabled && pOutput != nil {
+			if privacyLogPath == "stdout" {
+				// no audit file for stdout
+			} else {
+				al, err := paudit.New(privacyLogPath + ".audit")
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: cannot create audit log: %v\n", err)
+				} else {
+					auditLogger = al
+					// Log initial entry
+					_ = auditLogger.Log(paudit.Entry{
+						"action": "trace_start",
+						"label":  label,
+						"privacy_opts": map[string]any{
+							"no_args":       privacyNoArgs,
+							"max_arg_size":  privacyMaxArgSize,
+							"syscalls":      privacySyscalls,
+							"exclude":       privacyExclude,
+							"privacy_level": privacyPrivacyLevel,
+							"full":          privacyFull,
+							"ttl":           privacyTTL,
+						},
+						"program": "",
+						"args":    "",
+					})
+				}
+			}
+		}
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer close(done)
 		for event := range events {
 			agg.Add(event)
@@ -383,7 +411,7 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 			}
 		}
 		agg.SetDone()
-	}()
+	})
 
 	var runErr error
 	if serveAddr != "" {
