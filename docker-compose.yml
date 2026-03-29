@@ -18,6 +18,7 @@
 
 services:
   stracectl:
+    image: fabianoflorentino/stracectl:dev
     build:
       context: .
       dockerfile: Dockerfile
@@ -38,6 +39,7 @@ services:
       - seccomp:unconfined
 
   site:
+    image: fabianoflorentino/stracectl:site
     build:
       context: .
       dockerfile: Dockerfile
