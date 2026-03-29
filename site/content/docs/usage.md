@@ -101,6 +101,33 @@ kubectl -n <ns> port-forward pod/<sidecar-pod> 8080:8080
 
 These measures keep troubleshooting convenient while reducing the risk of accidental public exposure.
 
+## Privacy flags
+
+Use the following flags to control privacy-sensitive behaviour. These flags are designed to default to safe behavior and provide explicit, auditable options when more data is required.
+
+- `--privacy-log <path|stdout>` — write newline-delimited redacted JSON events to a file or `stdout`. When writing to a file, an audit file `<path>.audit` is created alongside it with `trace_start`/`trace_end` metadata and a SHA256 of the trace file.
+- `--privacy-ttl <duration>` — optional TTL to automatically expire ephemeral privacy logs (examples: `24h`, `15m`). Best-effort overwrite is attempted before deletion; prefer encrypted volumes or tmpfs for stronger guarantees.
+- `--no-args` — suppress capture of syscall argument content entirely (maximal privacy).
+- `--max-arg-size N` — when arguments are captured, truncate each to at most `N` bytes (default: 64).
+- `--redact-patterns=pat1,pat2` — add custom regex patterns to the redaction set.
+- `--privacy-level low|medium|high` — pre-baked privacy preset (default: `high`). `low` enables more verbose captures; `high` limits to metadata and aggressive redaction.
+- `--full` — enable full payload capture (dangerous). `--force` is required in non-interactive contexts to proceed with `--full`.
+
+Quick examples:
+
+```bash
+# redacted file output that expires in 24 hours
+stracectl run --privacy-log trace.json --privacy-ttl 24h --no-args curl https://example.com
+
+# stream redacted events to stdout (no audit file created)
+stracectl run --privacy-log stdout --no-args my-command
+
+# explicit full capture (use only with authorization)
+stracectl run --privacy-log trace-full.json --full --force my-command
+```
+
+See also: [Privacy page](/docs/privacy/) and `docs/privacy-usage-examples.md` for more guidance.
+
 ## Keyboard shortcuts
 
 | Key | Action |
