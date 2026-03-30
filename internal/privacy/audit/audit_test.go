@@ -18,13 +18,17 @@ func TestNewRejectsDotDot(t *testing.T) {
 func TestNewRejectsSymlink(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "target")
+
 	if err := os.WriteFile(target, []byte("x"), 0600); err != nil {
 		t.Fatalf("write target: %v", err)
 	}
+
 	link := filepath.Join(dir, "link")
+
 	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("symlink not supported: %v", err)
 	}
+
 	if _, err := New(link); err == nil {
 		t.Fatalf("expected New to reject symlink path")
 	}
@@ -34,17 +38,22 @@ func TestLogWritesEntry(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "a.log")
 	l, err := New(p)
+
 	if err != nil {
 		t.Fatalf("new logger: %v", err)
 	}
+
 	defer l.Close()
+
 	if err := l.Log(Entry{"action": "test"}); err != nil {
 		t.Fatalf("log: %v", err)
 	}
+
 	b, err := os.ReadFile(p)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
+
 	s := string(b)
 	if s == "" || (len(s) > 0 && s[0] != '{') {
 		t.Fatalf("unexpected log content: %q", s)
@@ -79,7 +88,8 @@ func TestAuditLogger_WriteAndClose(t *testing.T) {
 	}
 	line := scanner.Text()
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
+
 	if err := json.Unmarshal([]byte(line), &parsed); err != nil {
 		t.Fatalf("invalid json in audit file: %v", err)
 	}
@@ -87,6 +97,7 @@ func TestAuditLogger_WriteAndClose(t *testing.T) {
 	if _, ok := parsed["ts"]; !ok {
 		t.Fatalf("expected ts in audit entry")
 	}
+
 	if parsed["action"] != "test" {
 		t.Fatalf("unexpected action value: %v", parsed["action"])
 	}
@@ -103,6 +114,7 @@ func TestLogMarshalError(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "bad.log")
 	l, err := New(p)
+
 	if err != nil {
 		t.Fatalf("new logger: %v", err)
 	}
@@ -117,9 +129,11 @@ func TestLogMarshalError(t *testing.T) {
 
 func TestLogAndCloseOnNilLogger(t *testing.T) {
 	var l *Logger
+
 	if err := l.Log(Entry{"a": "b"}); err != nil {
 		t.Fatalf("expected nil when logging with nil logger, got %v", err)
 	}
+
 	if err := l.Close(); err != nil {
 		t.Fatalf("expected nil when closing nil logger, got %v", err)
 	}
@@ -127,6 +141,7 @@ func TestLogAndCloseOnNilLogger(t *testing.T) {
 
 func TestNewRejectsDirectoryPath(t *testing.T) {
 	dir := t.TempDir()
+
 	// pass directory path itself
 	if _, err := New(dir); err == nil {
 		t.Fatalf("expected error when audit path is a directory")
@@ -135,6 +150,7 @@ func TestNewRejectsDirectoryPath(t *testing.T) {
 
 func TestNewOpenFilePermissionDenied(t *testing.T) {
 	dir := t.TempDir()
+
 	// make directory non-writable to cause OpenFile to fail
 	if err := os.Chmod(dir, 0500); err != nil {
 		t.Skipf("chmod unsupported: %v", err)
