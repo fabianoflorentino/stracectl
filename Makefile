@@ -275,3 +275,9 @@ update-changelog: ## Update changelogs for a version (Usage: make update-changel
 	else \
 		bash scripts/update_changelog.sh --version "$(VERSION)"; \
 	fi && echo "Updated changelogs for $(VERSION)"
+
+.PHONY: go-clean
+go-clean: ## Clean Go build, module and test caches
+	@echo -e "$(YELLOW)🧹 Cleaning Go caches...$(NC)"
+	@go clean -cache -modcache -testcache
+	@echo -e "$(GREEN)✓ Go caches cleaned$(NC)"
