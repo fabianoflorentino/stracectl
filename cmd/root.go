@@ -24,6 +24,7 @@ var privacySyscalls string
 var privacyExclude string
 var privacyPrivacyLevel string
 var privacyFull bool
+var privacyForce bool
 var privacyTTL string
 
 var rootCmd = &cobra.Command{
@@ -73,6 +74,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&privacyExclude, "exclude", "", "comma-separated list of syscalls to exclude")
 	rootCmd.PersistentFlags().StringVar(&privacyPrivacyLevel, "privacy-level", "high", "privacy level: low|medium|high (default: high)")
 	rootCmd.PersistentFlags().BoolVar(&privacyFull, "full", false, "explicitly enable full payload capture (dangerous; may expose sensitive data)")
+	rootCmd.PersistentFlags().BoolVar(&privacyForce, "force", false, "bypass confirmation prompts (required to enable --full in non-interactive flows)")
 	rootCmd.PersistentFlags().StringVar(&privacyTTL, "privacy-ttl", "", "optional TTL for privacy log file (e.g. 24h, 15m); empty disables auto-expire")
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		tracer.Debug = debugFlag
