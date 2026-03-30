@@ -17,8 +17,8 @@ type Logger struct {
 
 // New creates or appends to the given audit file path (mode 0600).
 func New(path string) (*Logger, error) {
-	// Basic path validation to reduce risks flagged by gosec G304.
 	clean := filepath.Clean(path)
+
 	if strings.Contains(clean, "..") {
 		return nil, errors.New("invalid audit path")
 	}
@@ -34,12 +34,14 @@ func New(path string) (*Logger, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// Ensure the created file is a regular file.
 	if fi, err := f.Stat(); err == nil {
 		if !fi.Mode().IsRegular() {
 			if err := f.Close(); err != nil {
 				return nil, err
 			}
+
 			return nil, errors.New("audit path is not a regular file")
 		}
 	}
@@ -48,26 +50,31 @@ func New(path string) (*Logger, error) {
 }
 
 // Entry represents a single audit log entry.
-type Entry map[string]interface{}
+type Entry map[string]any
 
 // Log writes the entry with timestamp and actor info.
 func (l *Logger) Log(e Entry) error {
 	if l == nil || l.f == nil {
 		return nil
 	}
+
 	// Add timestamp and actor
 	e["ts"] = time.Now().UTC().Format(time.RFC3339)
+
 	if u, err := user.Current(); err == nil {
 		e["actor"] = u.Username
 		e["uid"] = u.Uid
 	}
+
 	b, err := json.Marshal(e)
 	if err != nil {
 		return err
 	}
+
 	if _, err := l.f.Write(append(b, '\n')); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -76,5 +83,6 @@ func (l *Logger) Close() error {
 	if l == nil || l.f == nil {
 		return nil
 	}
+
 	return l.f.Close()
 }
