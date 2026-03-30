@@ -124,3 +124,49 @@ func TestPrivacyLevelHigh_SuppressesArgs(t *testing.T) {
 		t.Fatalf("runTraceWithEvents failed: %v", err)
 	}
 }
+
+func Test_writeHTMLReport_errorPath(t *testing.T) {
+	// Passing a directory path should cause report.Write (os.Create) to fail
+	tmp := t.TempDir()
+	// use the directory itself as the target path
+	if err := writeHTMLReport(tmp, aggregator.New(), "label", 0); err == nil {
+		t.Fatalf("expected error when writing report to a directory path")
+	}
+}
+
+func TestRunTraceWithEvents_ServerMode(t *testing.T) {
+	f := &eventsTracer{events: make(chan models.SyscallEvent)}
+	agg := aggregator.New()
+
+	// close events immediately (consumer will drain)
+	close(f.events)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	// serveAddr non-empty triggers server path
+	err := runTraceWithEvents(ctx, func() {}, f.events, agg, ":0", "", "", 0, "lbl")
+	if err != nil {
+		t.Fatalf("runTraceWithEvents server mode failed: %v", err)
+	}
+}
+
+func TestRunTrace_ServerMode_Basic(t *testing.T) {
+	// create a fake tracer whose Run returns a closed events channel
+	f := &eventsTracer{events: make(chan models.SyscallEvent)}
+	close(f.events)
+
+	agg := aggregator.New()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	// tracerCtx and cancelTracer are simple placeholders for this test
+	tracerCtx := context.Background()
+	cancelTracer := func() {}
+
+	// call runTrace with serveAddr to exercise server branch
+	if err := runTrace(ctx, tracerCtx, cancelTracer, f, "prog", []string{}, agg, ":0", "", "", 0, "lbl"); err != nil {
+		t.Fatalf("runTrace server mode returned error: %v", err)
+	}
+}
