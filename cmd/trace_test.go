@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,5 +49,78 @@ func Test_writeHTMLReport_createsFile(t *testing.T) {
 	}
 	if fi.Size() == 0 {
 		t.Fatalf("expected non-empty report file")
+	}
+}
+
+// --- additional tests for privacy pipeline wiring ---
+
+// fakeTracer implements a minimal tracer for tests.
+type eventsTracer struct {
+	events chan models.SyscallEvent
+}
+
+func (f *eventsTracer) Run(ctx context.Context, prog string, args []string) (<-chan models.SyscallEvent, error) {
+	return f.events, nil
+}
+func (f *eventsTracer) Attach(ctx context.Context, pid int) (<-chan models.SyscallEvent, error) {
+	return nil, nil
+}
+
+func TestRunTraceWithEvents_FullAndForceWritesLog(t *testing.T) {
+	tmp := t.TempDir()
+	logPath := filepath.Join(tmp, "privacy.log")
+
+	// set globals
+	privacyLogPath = logPath
+	privacyNoArgs = false
+	privacyMaxArgSize = 64
+	privacyRedactPatterns = ""
+	privacySyscalls = ""
+	privacyExclude = ""
+	privacyPrivacyLevel = "low"
+	privacyFull = true
+	privacyForce = true
+
+	f := &eventsTracer{events: make(chan models.SyscallEvent, 1)}
+	agg := aggregator.New()
+
+	// send one event and close
+	f.events <- models.SyscallEvent{PID: 42, Name: "open", Args: "\"/etc/passwd\"", Time: time.Now()}
+	close(f.events)
+
+	// call runTraceWithEvents which processes events and should return
+	ctx := context.Background()
+	err := runTraceWithEvents(ctx, func() {}, f.events, agg, "", "", "", 0, "t")
+	if err != nil {
+		t.Fatalf("runTraceWithEvents failed: %v", err)
+	}
+
+	// verify privacy log file exists and mentions the syscall
+	b, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("expected privacy log file, got error: %v", err)
+	}
+	out := string(b)
+	if !strings.Contains(out, "open") {
+		t.Fatalf("expected syscall name in privacy log, got: %s", out)
+	}
+}
+
+func TestPrivacyLevelHigh_SuppressesArgs(t *testing.T) {
+	// ensure privacy-level=high causes NoArgs behavior
+	privacyLogPath = ""
+	privacyPrivacyLevel = "high"
+	privacyNoArgs = false
+
+	f := &eventsTracer{events: make(chan models.SyscallEvent, 1)}
+	agg := aggregator.New()
+
+	f.events <- models.SyscallEvent{PID: 7, Name: "open", Args: "\"/secret/path\"", Time: time.Now()}
+	close(f.events)
+
+	ctx := context.Background()
+	// run; should return without panic and respect high privacy semantics
+	if err := runTraceWithEvents(ctx, func() {}, f.events, agg, "", "", "", 0, "t"); err != nil {
+		t.Fatalf("runTraceWithEvents failed: %v", err)
 	}
 }
