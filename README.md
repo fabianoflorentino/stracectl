@@ -377,42 +377,35 @@ For full details — signatures, argument descriptions, return values, common er
 
 ## Project structure
 
-```text
-stracectl/
-├── main.go
-├── Dockerfile
-├── cmd/
-│   ├── root.go              # Cobra root command
-│   ├── attach.go            # stracectl attach [--serve] [--report] <pid>
-│   ├── run.go               # stracectl run [--serve] [--report] <cmd>
-│   ├── stats.go             # stracectl stats [--serve] [--report] <file>
-│   └── discover.go          # stracectl discover <container-name>
-├── deploy/
-│   ├── k8s/
-│   │   ├── sidecar-pod.yaml # example Pod with hardened sidecar securityContext
-│   │   └── servicemonitor.yaml
-│   └── helm/stracectl/      # Helm chart
-└── internal/
-    ├── models/
-    │   └── event.go         # SyscallEvent struct
-    ├── parser/
-    │   └── parser.go        # parses strace output lines → SyscallEvent
-    ├── aggregator/
-    │   └── aggregator.go    # thread-safe stats, categories, sorting
-    ├── tracer/
-    │   └── strace.go        # spawns strace subprocess, emits events on a channel
-    ├── discover/
-    │   └── discover.go      # PID discovery via /proc/<pid>/cgroup
-    ├── report/
-    │   ├── report.go        # HTML report renderer (html/template + go:embed)
-    │   └── static/
-    │       └── report.html  # embedded report template
-    ├── server/
-    │   └── server.go        # HTTP API (JSON + WebSocket + Prometheus)
-    └── ui/
-        ├── tui.go           # BubbleTea full-screen TUI
-        └── syscall_help.go  # syscall descriptions and errno explanations
-```
+The full repository tree has been moved to a dedicated file to keep the README concise.
+
+<details>
+<summary>Project structure and package descriptions (click to expand)</summary>
+
+The table below contains notable paths and short descriptions. For the full tree, see [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md).
+
+| Path | Description |
+| --- | --- |
+| [`bin/`](bin) | Optional build artifacts and convenience binaries produced by local `go build` runs. |
+| [`cmd/`](cmd/root.go) | Cobra-based CLI entrypoints and command tests; implements `run`, `attach`, `stats`, `discover`, and related commands. |
+| [`deploy/`](deploy/helm/stracectl) | Deployment and operational assets: Helm chart, Kubernetes manifests, Prometheus rules, and helper scripts. |
+| [`docker-compose.yml`](docker-compose.yml) | Local compose configuration for integration or demo environments. |
+| [`Dockerfile`](Dockerfile) | Multi-stage container build for production images (non-eBPF and eBPF targets). |
+| [`docs/`](docs) | User and architecture documentation, diagrams, and guides. |
+| [`go.mod`](go.mod), [`go.sum`](go.sum) | Go module configuration and dependency checksums. |
+| [`internal/`](internal) | Non-public Go packages used by the binaries (not for external import). |
+| [`internal/aggregator`](internal/aggregator/aggregator.go) | Thread-safe aggregation of syscall events, categories, counters, and sorted views. |
+| [`internal/discover`](internal/discover/discover.go) | PID and container discovery helpers used by `attach` and container workflows. |
+| [`internal/models`](internal/models/event.go) | Core domain structs (e.g., `SyscallEvent`) and related fixtures. |
+| [`internal/parser`](internal/parser/parser.go) | Parser converting raw `strace` lines or eBPF events into structured `SyscallEvent` records. |
+| [`internal/privacy`](internal/privacy/types.go) | Privacy pipeline: redaction, filters, audit metadata, and privacy-log formatting. |
+| [`internal/procinfo`](internal/procinfo/procinfo.go) | Helpers for inspecting `/proc` (fd→path mapping, cgroup/container info). |
+| [`internal/report`](internal/report/report.go) | HTML report generation using `html/template` and embedded static assets. |
+| [`internal/server`](internal/server/server.go) | HTTP sidecar server: JSON endpoints, WebSocket stream, and Prometheus metrics. |
+| [`internal/tracer`](internal/tracer/strace.go) | Tracer backends: `strace` subprocess wrapper and optional eBPF backend and artifacts. |
+| [`internal/ui`](internal/ui/tui.go) | TUI implementation (BubbleTea) and subpackages for rendering, input, controllers, and widgets. |
+
+</details>
 
 ### Architectural flows
 
