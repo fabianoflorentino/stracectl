@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
@@ -25,6 +27,7 @@ import (
 	pout "github.com/fabianoflorentino/stracectl/internal/privacy/output"
 	ppipeline "github.com/fabianoflorentino/stracectl/internal/privacy/pipeline"
 	predact "github.com/fabianoflorentino/stracectl/internal/privacy/redactor"
+	"golang.org/x/term"
 )
 
 // runTrace wires events from the tracer into the aggregator, then either
@@ -73,6 +76,34 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 			fmt.Fprintf(os.Stderr, "warning: invalid privacy-ttl %q: %v; ignoring TTL\n", privacyTTL, err)
 		}
 	}
+	// If user requested full capture, require explicit confirmation in
+	// interactive mode or `--force` in non-interactive flows.
+	if privacyFull {
+		if !privacyForce {
+			if term.IsTerminal(syscall.Stdin) {
+				fmt.Fprintln(os.Stderr, "\n⚠ WARNING: --full enables full payload capture and may expose sensitive data")
+				fmt.Fprint(os.Stderr, "Continue? (y/N): ")
+				r := bufio.NewReader(os.Stdin)
+				ans, _ := r.ReadString('\n')
+				ans = strings.TrimSpace(strings.ToLower(ans))
+				if ans != "y" && ans != "yes" {
+					fmt.Fprintln(os.Stderr, "--full not enabled; proceeding with safer defaults")
+					privacyFull = false
+				}
+			} else {
+				fmt.Fprintln(os.Stderr, "error: --full requires --force in non-interactive contexts; ignoring --full")
+				privacyFull = false
+			}
+		}
+	}
+
+	// Derive privacy semantics from privacy-level and flags.
+	derivedNoArgs := privacyNoArgs
+	if privacyPrivacyLevel == "high" {
+		derivedNoArgs = true
+	}
+	derivedAllowFull := privacyFull || privacyPrivacyLevel == "low"
+
 	if pEnabled {
 		pFilter = pfilters.New(privacySyscalls, privacyExclude, nil, nil)
 
@@ -86,7 +117,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 				}
 			}
 		}
-		rcfg := predact.Config{NoArgs: privacyNoArgs, MaxArgSize: privacyMaxArgSize, Patterns: patterns}
+		rcfg := predact.Config{NoArgs: derivedNoArgs, MaxArgSize: privacyMaxArgSize, Patterns: patterns}
 		r, err := predact.New(rcfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to initialize redactor: %v; disabling privacy logging\n", err)
@@ -162,6 +193,9 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 				agg.Add(event)
 				if pEnabled && pOutput != nil {
 					te := p.NewTraceEventFromModel(event)
+					if derivedAllowFull {
+						te.Args = []p.Arg{{Name: "raw", Value: []byte(event.Args)}}
+					}
 					if err := ppipeline.Process(&te, pFilter, pRedactor, pFormatter, pOutput); err != nil {
 						fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
 					} else {
@@ -219,6 +253,9 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 				agg.Add(event)
 				if pEnabled && pOutput != nil {
 					te := p.NewTraceEventFromModel(event)
+					if derivedAllowFull {
+						te.Args = []p.Arg{{Name: "raw", Value: []byte(event.Args)}}
+					}
 					if err := ppipeline.Process(&te, pFilter, pRedactor, pFormatter, pOutput); err != nil {
 						fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
 					} else {
@@ -323,6 +360,32 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 			ttl = d
 		}
 	}
+	// Confirmation and level-derived semantics for compatibility wrapper.
+	if privacyFull {
+		if !privacyForce {
+			if term.IsTerminal(syscall.Stdin) {
+				fmt.Fprintln(os.Stderr, "\n⚠ WARNING: --full enables full payload capture and may expose sensitive data")
+				fmt.Fprint(os.Stderr, "Continue? (y/N): ")
+				r := bufio.NewReader(os.Stdin)
+				ans, _ := r.ReadString('\n')
+				ans = strings.TrimSpace(strings.ToLower(ans))
+				if ans != "y" && ans != "yes" {
+					fmt.Fprintln(os.Stderr, "--full not enabled; proceeding with safer defaults")
+					privacyFull = false
+				}
+			} else {
+				fmt.Fprintln(os.Stderr, "error: --full requires --force in non-interactive contexts; ignoring --full")
+				privacyFull = false
+			}
+		}
+	}
+
+	derivedNoArgs := privacyNoArgs
+	if privacyPrivacyLevel == "high" {
+		derivedNoArgs = true
+	}
+	derivedAllowFull := privacyFull || privacyPrivacyLevel == "low"
+
 	if pEnabled {
 		pFilter = pfilters.New(privacySyscalls, privacyExclude, nil, nil)
 
@@ -335,7 +398,7 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 				}
 			}
 		}
-		rcfg := predact.Config{NoArgs: privacyNoArgs, MaxArgSize: privacyMaxArgSize, Patterns: patterns}
+		rcfg := predact.Config{NoArgs: derivedNoArgs, MaxArgSize: privacyMaxArgSize, Patterns: patterns}
 		r, err := predact.New(rcfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to initialize redactor: %v; disabling privacy logging\n", err)
@@ -396,6 +459,9 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 			agg.Add(event)
 			if pEnabled && pOutput != nil {
 				te := p.NewTraceEventFromModel(event)
+				if derivedAllowFull {
+					te.Args = []p.Arg{{Name: "raw", Value: []byte(event.Args)}}
+				}
 				if err := ppipeline.Process(&te, pFilter, pRedactor, pFormatter, pOutput); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
 				} else {
@@ -413,7 +479,16 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 		srv := server.New(serveAddr, agg, wsToken)
 		runErr = srv.Start(ctx)
 	} else {
-		runErr = ui.Run(agg, label, done)
+		// If stdin is not a terminal (e.g., running under `go test`),
+		// don't start the interactive TUI which would take over the
+		// terminal and block the test process. Instead, wait for the
+		// events consumer to finish draining `done` and continue.
+		if term.IsTerminal(syscall.Stdin) {
+			runErr = ui.Run(agg, label, done)
+		} else {
+			<-done
+			runErr = nil
+		}
 	}
 
 	cancelTracer()
