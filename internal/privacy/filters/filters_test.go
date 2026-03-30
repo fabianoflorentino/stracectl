@@ -38,3 +38,23 @@ func TestAllow_NoInclude(t *testing.T) {
 		t.Fatalf("expected unlink excluded")
 	}
 }
+
+func TestAllow_EmptySyscallWithInclude(t *testing.T) {
+	f := New("open", "", nil, nil)
+	e := &privacy.TraceEvent{PID: 1, Syscall: ""}
+	if f.Allow(e) {
+		t.Fatalf("expected empty syscall to be rejected when include list non-empty")
+	}
+}
+
+func TestAllow_UIDFiltering(t *testing.T) {
+	f := New("", "", nil, []int{200})
+	e := &privacy.TraceEvent{UID: 100, Syscall: "open"}
+	if f.Allow(e) {
+		t.Fatalf("expected event with UID 100 to be rejected when UID filter only allows 200")
+	}
+	e2 := &privacy.TraceEvent{UID: 200, Syscall: "open"}
+	if !f.Allow(e2) {
+		t.Fatalf("expected event with UID 200 to be allowed")
+	}
+}

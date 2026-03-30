@@ -49,6 +49,9 @@ func New(includeList, excludeList string, pids []int, uids []int) *FilterSet {
 
 // Allow returns true if the event passes the filter.
 func (f *FilterSet) Allow(e *privacy.TraceEvent) bool {
+	if e == nil {
+		return false
+	}
 	// PID/user filtering: if PID list is non-empty and PID not in list => reject
 	if len(f.pids) > 0 {
 		if !f.pids[e.PID] {
