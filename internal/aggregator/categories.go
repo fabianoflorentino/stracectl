@@ -66,6 +66,7 @@ var syscallCategories = func() map[string]Category {
 	}
 
 	m := make(map[string]Category)
+
 	for _, l := range lists {
 		for _, name := range l.calls {
 			m[name] = l.cat
