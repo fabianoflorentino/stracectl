@@ -35,39 +35,11 @@ permissions:
 
 jobs:
   generate_bpf:
-    name: Generate BPF artifacts
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm libelf-dev build-essential libbpf-dev linux-headers-$(uname -r)
-
-      - name: Ensure bpf2go available
-        run: |
-          set -euo pipefail
-          echo "Installing bpf2go"
-          go install github.com/cilium/ebpf/cmd/bpf2go@latest
-          echo "bpf2go installed to: $(go env GOPATH)/bin"
-
-      - name: Build BPF objects with installed bpf2go
-        run: |
-          set -euo pipefail
-          bash scripts/generate-bpf.sh
-
-      - name: Upload BPF artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: bpf-artifacts
-          path: internal/tracer/*.o
+    name: Generate BPF artifacts (reusable)
+    uses: ./.github/workflows/ebpf-build.yml
+    with:
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
+    secrets: inherit
 
   # ── Lint ────────────────────────────────────────────────────────────────────
   lint:
