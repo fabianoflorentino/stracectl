@@ -70,6 +70,17 @@ generate-bpf: ## Generate BPF artifacts (requires clang + bpf2go)
 	@go generate -tags=ebpf ./internal/tracer/...
 	@echo -e "$(GREEN)✓ BPF artifacts generated$(NC)"
 
+# Build only the bpf-build stage and export vmlinux.h from the build image
+.PHONY: export-vmlinux
+export-vmlinux: ## Build bpf-build stage and copy vmlinux.h to internal/tracer/bpf/
+	@echo -e "$(BLUE)📦 Building bpf-build stage to export vmlinux.h...$(NC)"
+	@DOCKER_BUILDKIT=1 docker build --no-cache --target bpf-build -t stracectl-bpf -f Dockerfile .
+	@echo -e "$(BLUE)📤 Extracting vmlinux.h from build image...$(NC)"
+	-@docker create --name stracectl-bpf-export stracectl-bpf >/dev/null 2>&1 || true
+	-@docker cp stracectl-bpf-export:/bpf/vmlinux.h internal/tracer/bpf/vmlinux.h >/dev/null 2>&1 || (echo "warning: vmlinux.h not found inside image" && true)
+	-@docker rm -f stracectl-bpf-export >/dev/null 2>&1 || true
+	@echo -e "$(GREEN)✓ vmlinux.h exported to internal/tracer/bpf/vmlinux.h$(NC)"
+
 build-ebpf: generate-bpf ## Build the binary with eBPF support (uses -tags=ebpf)
 	@echo -e "$(BLUE)🔨 Building $(BINARY) with eBPF support...$(NC)"
 	@mkdir -p bin
