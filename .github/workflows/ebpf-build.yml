@@ -55,45 +55,8 @@ jobs:
         run: |
           go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
 
-      - name: Generate kernel vmlinux.h (if possible)
-        run: |
-          set -euo pipefail
-          sudo apt-get update || true
-          sudo apt-get install -y bpftool dwarves || true
-          mkdir -p internal/tracer/bpf
-          if [ -f /sys/kernel/btf/vmlinux ]; then
-            echo "Found /sys/kernel/btf/vmlinux - dumping to internal/tracer/bpf/vmlinux.h"
-            sudo bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/tracer/bpf/vmlinux.h || true
-          elif [ -f /boot/vmlinux-$(uname -r) ]; then
-            echo "Found /boot/vmlinux-$(uname -r) - dumping to internal/tracer/bpf/vmlinux.h"
-            sudo bpftool btf dump file /boot/vmlinux-$(uname -r) format c > internal/tracer/bpf/vmlinux.h || true
-          else
-            echo "No kernel BTF found on runner; generate-bpf may fail unless vmlinux.h is provided"
-          fi
-
-      - name: Generate BPF artifacts
-        run: |
-          set -euo pipefail
-          set -x
-          bash scripts/generate-bpf.sh
       - name: Run tracer unit tests (no tags)
         run: go test ./internal/tracer -v
-
-      - name: Build eBPF-enabled binary
-        run: |
-          CGO_ENABLED=1 go build -tags=ebpf -v -o stracectl .
-
-      - name: Upload eBPF binary artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: stracectl-linux-amd64-ebpf
-          path: stracectl
-
-      - name: Upload eBPF object artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ebpf-objects
-          path: internal/tracer/ebpf_*.o
 
   integration:
     name: eBPF Integration (self-hosted)
@@ -112,19 +75,51 @@ jobs:
         with:
           go-version: '1.26'
 
-      - name: Download eBPF object artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: ebpf-objects
-          path: internal/tracer
-
       - name: Install system dependencies (if available)
         run: |
           sudo apt-get update || true
-          sudo apt-get install -y clang llvm libelf-dev build-essential libbpf-dev linux-headers-$(uname -r) || true
+          sudo apt-get install -y clang llvm libelf-dev build-essential libbpf-dev linux-headers-$(uname -r) bpftool dwarves || true
 
-      - name: Generate BPF artifacts
-        run: make generate-bpf || true
+      - name: Generate kernel vmlinux.h (self-hosted)
+        run: |
+          set -euo pipefail
+          mkdir -p internal/tracer/bpf
+          if [ -f /sys/kernel/btf/vmlinux ]; then
+            echo "Found /sys/kernel/btf/vmlinux - dumping to internal/tracer/bpf/vmlinux.h"
+            sudo bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/tracer/bpf/vmlinux.h
+          elif [ -f /boot/vmlinux-$(uname -r) ]; then
+            echo "Found /boot/vmlinux-$(uname -r) - dumping to internal/tracer/bpf/vmlinux.h"
+            sudo bpftool btf dump file /boot/vmlinux-$(uname -r) format c > internal/tracer/bpf/vmlinux.h
+          else
+            echo "No kernel BTF found on self-hosted runner; ensure runner provides vmlinux BTF or a vmlinux file"
+            exit 1
+          fi
+
+      - name: Ensure bpf2go available
+        run: |
+          go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
+
+      - name: Generate BPF artifacts (self-hosted)
+        run: |
+          set -euo pipefail
+          set -x
+          bash scripts/generate-bpf.sh
+
+      - name: Build eBPF-enabled binary
+        run: |
+          CGO_ENABLED=1 go build -tags=ebpf -v -o stracectl .
+
+      - name: Upload eBPF binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stracectl-linux-amd64-ebpf
+          path: stracectl
+
+      - name: Upload eBPF object artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebpf-objects
+          path: internal/tracer/ebpf_*.o
 
       - name: Run eBPF integration tests
         if: ${{ github.event.inputs.dry_run != 'true' }}
