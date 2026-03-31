@@ -2,7 +2,9 @@
 set -euo pipefail
 
 # Ensure bpf2go is reachable
-export PATH="$(go env GOPATH)/bin:$PATH"
+# Declare GOPATH_BIN first to avoid masking `go env` return status
+GOPATH_BIN="$(go env GOPATH)/bin"
+export PATH="$GOPATH_BIN:$PATH"
 export GOPACKAGE=tracer
 
 # Find bpf2go in PATH without masking failures: declare then assign
