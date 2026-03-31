@@ -32,6 +32,12 @@ if [ -n "$KHEADERS" ]; then
   CLANG_CFLAGS="$CLANG_CFLAGS -I$KHEADERS -I$KHEADERS/uapi -I$KHEADERS/generated -I$KHEADERS/asm"
   echo "Detected kernel headers: $KHEADERS"
 fi
+# Ensure linux types are included so __u32/__u64 typedefs are available
+if [ -n "$KHEADERS" ] && [ -f "$KHEADERS/linux/types.h" ]; then
+  CLANG_CFLAGS="$CLANG_CFLAGS -include $KHEADERS/linux/types.h"
+elif [ -f "/usr/include/linux/types.h" ]; then
+  CLANG_CFLAGS="$CLANG_CFLAGS -include /usr/include/linux/types.h"
+fi
 
 echo "Using clang cflags: $CLANG_CFLAGS"
 GOPACKAGE=$GOPACKAGE bpf2go -cc clang -cflags "$CLANG_CFLAGS" ebpf bpf/syscall.c
