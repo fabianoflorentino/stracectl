@@ -5,8 +5,20 @@ set -euo pipefail
 export PATH="$(go env GOPATH)/bin:$PATH"
 export GOPACKAGE=tracer
 
+# Find bpf2go in PATH without masking failures: declare then assign
+BPF2GO=""
+if BPF2GO_TMP=$(which bpf2go 2>/dev/null); then
+  BPF2GO="$BPF2GO_TMP"
+else
+  echo "bpf2go not found in PATH; attempting 'go install' as best-effort"
+  go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
+  if BPF2GO_TMP=$(which bpf2go 2>/dev/null); then
+    BPF2GO="$BPF2GO_TMP"
+  fi
+fi
+
 echo "GOPACKAGE=$GOPACKAGE"
-echo "Using bpf2go: $(which bpf2go || true)"
+echo "Using bpf2go: ${BPF2GO:-not found}"
 echo "PWD: $(pwd)"
 
 cd internal/tracer || { echo "internal/tracer not found"; exit 1; }
@@ -29,10 +41,14 @@ else
   else
     # fallback: pick the first matching linux-headers dir (use find to handle
     # arbitrary filenames safely instead of parsing ls output)
-    KDIR=$(find /usr/src -maxdepth 1 -type d -name 'linux-headers-*' 2>/dev/null | head -n1 || true)
-    if [ -n "$KDIR" ] && [ -d "$KDIR/include" ]; then
-      KHEADERS="$KDIR/include"
+    # Find a linux-headers directory (declare then assign to avoid masking failures)
+    KDIR=""
+    if KDIR_TMP=$(find /usr/src -maxdepth 1 -type d -name 'linux-headers-*' 2>/dev/null | head -n1); then
+      KDIR="$KDIR_TMP"
     fi
+      if [ -n "$KDIR" ] && [ -d "$KDIR/include" ]; then
+        KHEADERS="$KDIR/include"
+      fi
   fi
 
   if [ -n "$KHEADERS" ]; then

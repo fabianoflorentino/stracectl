@@ -31,5 +31,6 @@ Thumbs.db
 **.json
 bin/
 internal/tracer/*.o
+internal/tracer/bpf/vmlinux.h
 .venv
 **.log
