@@ -27,8 +27,9 @@ else
   if [ -d "/usr/src/linux-headers-$(uname -r)/include" ]; then
     KHEADERS="/usr/src/linux-headers-$(uname -r)/include"
   else
-    # fallback: pick the first matching linux-headers dir
-    KDIR=$(ls -d /usr/src/linux-headers-* 2>/dev/null | head -n1 || true)
+    # fallback: pick the first matching linux-headers dir (use find to handle
+    # arbitrary filenames safely instead of parsing ls output)
+    KDIR=$(find /usr/src -maxdepth 1 -type d -name 'linux-headers-*' 2>/dev/null | head -n1 || true)
     if [ -n "$KDIR" ] && [ -d "$KDIR/include" ]; then
       KHEADERS="$KDIR/include"
     fi
