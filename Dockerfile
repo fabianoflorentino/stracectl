@@ -21,17 +21,32 @@ FROM debian:bookworm-slim AS bpf-build
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-       clang \
-       llvm \
-       linux-headers-amd64 \
-       libbpf-dev \
-       make \
+    clang \
+    llvm \
+    linux-headers-amd64 \
+    libbpf-dev \
+    make \
+    bpftool \
+    dwarves \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /bpf
 
 # Copy only BPF sources and compile to syscall.o for use by the ebpf build.
 COPY internal/tracer/bpf/ ./
+
+# Attempt to dump kernel BTF into a vmlinux.h in the build context so the
+# subsequent clang invocation can include it. This will succeed when the
+# build environment exposes kernel BTF (most hosts expose /sys/kernel/btf).
+RUN if [ -f /sys/kernel/btf/vmlinux ]; then \
+      echo "Dumping /sys/kernel/btf/vmlinux -> /bpf/vmlinux.h" && \
+      bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h || true; \
+    elif [ -f /boot/vmlinux-$(uname -r) ]; then \
+      echo "Dumping /boot/vmlinux-$(uname -r) -> /bpf/vmlinux.h" && \
+      bpftool btf dump file /boot/vmlinux-$(uname -r) format c > vmlinux.h || true; \
+    else \
+      echo "No kernel BTF found in build environment; continuing without vmlinux.h"; \
+    fi && ls -la /bpf || true
 
 RUN clang -O2 -g -target bpf \
       -D__TARGET_ARCH_x86 \
@@ -75,6 +90,12 @@ RUN apt-get update \
        linux-headers-amd64 \
        libbpf-dev \
   && rm -rf /var/lib/apt/lists/*
+  # Install bpftool and dwarves (pahole) so we can dump BTF to vmlinux.h when available
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+       bpftool \
+       dwarves \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -85,11 +106,21 @@ COPY . .
 # Copying the whole `/bpf/` ensures `syscall.c` is available for bpf2go.
 COPY --from=bpf-build /bpf/ ./internal/tracer/bpf/
 
-# Ensure `bpf2go` is available (best-effort) and generate BPF artifacts
-# inside the image so the `-tags=ebpf` build has the required generated
-# Go wrappers and .o files embedded.
+# Ensure `bpf2go` is available (best-effort), attempt to dump vmlinux BTF
+# into `internal/tracer/bpf/vmlinux.h` (if builder exposes it), then
+# generate BPF artifacts so the `-tags=ebpf` build has the required
+# generated Go wrappers and .o files embedded.
 RUN go install github.com/cilium/ebpf/cmd/bpf2go@latest || true && \
     export PATH="$(go env GOPATH)/bin:$PATH" && \
+    if [ -f /sys/kernel/btf/vmlinux ]; then \
+      echo "Found /sys/kernel/btf/vmlinux - dumping to internal/tracer/bpf/vmlinux.h" && \
+      bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/tracer/bpf/vmlinux.h || true ; \
+    elif [ -f /boot/vmlinux-$(uname -r) ]; then \
+      echo "Found /boot/vmlinux-$(uname -r) - dumping to internal/tracer/bpf/vmlinux.h" && \
+      bpftool btf dump file /boot/vmlinux-$(uname -r) format c > internal/tracer/bpf/vmlinux.h || true ; \
+    else \
+      echo "No kernel BTF found in build environment; skipping vmlinux.h generation" ; \
+    fi && \
     bash scripts/generate-bpf.sh
 
 # Build the eBPF-enabled binary (static linking as in project Dockerfile.eBPF).
