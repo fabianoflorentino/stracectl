@@ -55,6 +55,14 @@ jobs:
         run: |
           go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
 
+      - name: Create placeholder ebpf .o files (CI)
+        run: |
+          mkdir -p internal/tracer
+          # bpf2go-generated Go files embed these .o files; create empty placeholders
+          # so `go test`/build doesn't fail on runners that can't generate BTF.
+          touch internal/tracer/ebpf_bpfel.o internal/tracer/ebpf_bpfeb.o || true
+          ls -la internal/tracer || true
+
       - name: Run tracer unit tests (no tags)
         run: go test ./internal/tracer -v
 
