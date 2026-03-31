@@ -3,6 +3,14 @@ permissions:
   contents: read
 
 on:
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Dry-run (skip integration tests)"
+        required: false
+        type: boolean
+        default: false
+
   workflow_dispatch:
     inputs:
       dry_run:
@@ -36,6 +44,7 @@ jobs:
   bpf:
     name: Generate and Test eBPF artifacts
     runs-on: ubuntu-latest
+    needs: integration
 
     steps:
       - name: Checkout
@@ -55,13 +64,17 @@ jobs:
         run: |
           go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
 
-      - name: Create placeholder ebpf .o files (CI)
+      - name: Download eBPF object artifacts (if present)
+        uses: actions/download-artifact@v4
+        with:
+          name: ebpf-objects
+          path: internal/tracer
+        continue-on-error: true
+
+      - name: Ensure ebpf .o files exist (create placeholders if needed)
         run: |
           mkdir -p internal/tracer
-          # bpf2go-generated Go files embed these .o files; create empty placeholders
-          # so `go test`/build doesn't fail on runners that can't generate BTF.
-          touch internal/tracer/ebpf_bpfel.o internal/tracer/ebpf_bpfeb.o || true
-          ls -la internal/tracer || true
+          sh -c 'if compgen -G "internal/tracer/ebpf_*.o" > /dev/null; then echo "Artifacts present"; ls -la internal/tracer/ebpf_*.o; else echo "No artifacts found; creating placeholders"; touch internal/tracer/ebpf_bpfel.o internal/tracer/ebpf_bpfeb.o || true; ls -la internal/tracer || true; fi'
 
       - name: Run tracer unit tests (no tags)
         run: go test ./internal/tracer -v
@@ -72,7 +85,6 @@ jobs:
     # See README.md and site docs (site/content/docs/self-hosted-runner.md)
     # for provisioning instructions and required packages/privileges.
     runs-on: [self-hosted, linux, ebpf]
-    needs: bpf
 
     steps:
       - name: Checkout
