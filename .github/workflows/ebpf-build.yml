@@ -141,6 +141,12 @@ jobs:
           name: ebpf-objects
           path: internal/tracer/ebpf_*.o
 
+      - name: Upload BPF artifacts (compatibility)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpf-artifacts
+          path: internal/tracer/*.o
+
       - name: Run eBPF integration tests
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
