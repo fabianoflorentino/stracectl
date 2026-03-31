@@ -55,6 +55,22 @@ jobs:
         run: |
           go install github.com/cilium/ebpf/cmd/bpf2go@latest || true
 
+      - name: Generate kernel vmlinux.h (if possible)
+        run: |
+          set -euo pipefail
+          sudo apt-get update || true
+          sudo apt-get install -y bpftool dwarves || true
+          mkdir -p internal/tracer/bpf
+          if [ -f /sys/kernel/btf/vmlinux ]; then
+            echo "Found /sys/kernel/btf/vmlinux - dumping to internal/tracer/bpf/vmlinux.h"
+            sudo bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/tracer/bpf/vmlinux.h || true
+          elif [ -f /boot/vmlinux-$(uname -r) ]; then
+            echo "Found /boot/vmlinux-$(uname -r) - dumping to internal/tracer/bpf/vmlinux.h"
+            sudo bpftool btf dump file /boot/vmlinux-$(uname -r) format c > internal/tracer/bpf/vmlinux.h || true
+          else
+            echo "No kernel BTF found on runner; generate-bpf may fail unless vmlinux.h is provided"
+          fi
+
       - name: Generate BPF artifacts
         run: |
           set -euo pipefail
