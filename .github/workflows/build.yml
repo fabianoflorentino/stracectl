@@ -86,16 +86,17 @@ jobs:
             ls -la internal/tracer || true
           fi
 
-      - name: Run tests
-        if: ${{ inputs.run_tests }}
-        run: |
-          go test -race -timeout 120s ./internal/... -v
       - name: Download eBPF object artifacts (if any)
         uses: actions/download-artifact@v4
         with:
           name: ebpf-objects
           path: internal/tracer
         continue-on-error: true
+
+      - name: Run tests
+        if: ${{ inputs.run_tests }}
+        run: |
+          go test -race -timeout 120s ./internal/... -v
 
       - name: Build binary
         run: |
