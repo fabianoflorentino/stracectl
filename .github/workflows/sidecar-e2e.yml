@@ -1,6 +1,16 @@
 name: Sidecar E2E (kind)
 
 on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (skip publishing actions)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
   push:
     branches: [main]
     paths:
