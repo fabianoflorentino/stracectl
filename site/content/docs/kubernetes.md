@@ -215,3 +215,62 @@ pre-built syscall breakdown view.
   `ServiceAccount`) when deploying observability tooling.
 - `ptrace` in attach mode is non-intrusive: it observes syscall entry/exit without altering
   the target process's behaviour or memory.
+
+## Troubleshooting
+
+### `exec /usr/local/bin/stracectl: no such file or directory`
+
+The sidecar container exits immediately with this error. The binary was linked
+against glibc but the runtime image does not provide it.
+
+**Cause:** the image was built with the `distroless/static` base, which has no
+C runtime. `stracectl` requires glibc (`CGO_ENABLED=1`).
+
+**Fix:** the published image uses `gcr.io/distroless/cc:nonroot` as its base.
+If you build a custom image, ensure the production stage is:
+
+```dockerfile
+FROM gcr.io/distroless/cc:nonroot AS production
+```
+
+---
+
+### `no process found for container "X"`
+
+`stracectl` cannot locate the target process and exits without tracing.
+
+**Causes and fixes:**
+
+1. **Container not yet ready** — the sidecar may start before the app process
+  is visible at `/proc`. Add a short `sleep` or retry loop before the `attach`
+  call when running manually.
+
+2. **Name mismatch** — `--container X` is matched against the process name
+  (`/proc/<pid>/comm`, up to 15 characters) and the full command-line. Use the
+  exact executable base name. Inspect visible names with:
+
+  ```bash
+  kubectl exec <pod> -c stracectl -- stracectl discover X
+  ```
+
+3. **cgroupv2 / containerd / kind** — cgroup paths may carry hex IDs rather
+  than human-readable names. `stracectl` falls back to comm/cmdline matching
+  automatically; if that also fails, verify the process name as above.
+
+---
+
+### `ImagePullBackOff` on the sidecar
+
+Kubernetes cannot pull the image.
+
+**Fixes:**
+
+- Use `fabianoflorentino/stracectl:latest` or a known pinned tag. Check
+  available tags on [Docker Hub](https://hub.docker.com/r/fabianoflorentino/stracectl/tags).
+- In a local kind cluster, load the image directly instead of pulling:
+
+  ```bash
+  kind load docker-image fabianoflorentino/stracectl:latest --name <cluster>
+  ```
+
+  Set `imagePullPolicy: Never` on the sidecar container.
