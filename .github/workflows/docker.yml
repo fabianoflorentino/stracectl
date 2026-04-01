@@ -5,7 +5,7 @@
 #     DOCKERHUB_TOKEN     Docker Hub access token
 #
 #   Environment: GITHUB
-#     GIT_HUB_TOKEN  GitHub personal access token with contents:write scope
+#     GIT_HUB_TOKEN  GitHub personal access token with contents:write + workflow scope
 
 name: Image, Publish, Tag and Release
 
@@ -36,6 +36,7 @@ on:
 permissions:
   contents: write
   packages: write
+  workflows: write
 
 jobs:
   # Reusable build job (produces artifacts used by later jobs)
