@@ -12,13 +12,14 @@
 ## Quick start with raw manifests
 
 ```bash
-# 1. Edit the target container name in the manifest
+# 1. Replace myapp:latest with your real app image in the manifest
 kubectl apply -f deploy/k8s/sidecar-pod.yaml
 
 # 2. Forward the port
-kubectl port-forward pod/myapp-stracectl 8080
+kubectl port-forward pod/myapp-stracectl 8080:8080
 
 # 3. Query
+curl http://localhost:8080/healthz
 curl http://localhost:8080/api/stats | jq .
 curl http://localhost:8080/metrics
 # wscat -c ws://localhost:8080/stream
@@ -27,7 +28,15 @@ curl http://localhost:8080/metrics
 ## Discover a container PID
 
 When `shareProcessNamespace: true` is set, all container processes are visible from
-the sidecar. Use `--container` to automatically resolve the right PID:
+the sidecar. Use `--container` to automatically resolve the right PID.
+
+> **cgroupv2 / containerd / kind note:** some CRI implementations (including
+> containerd used by kind) store hex container IDs in `/proc/<pid>/cgroup`
+> instead of human-readable names. `stracectl` detects this automatically and
+> falls back to matching the container name against the process name (`comm`)
+> and full command-line (`cmdline`). `--container app` therefore works in both
+> classic and cgroupv2 environments as long as the target process name or
+> cmdline contains the given string.
 
 ```bash
 stracectl attach --serve :8080 --container myapp

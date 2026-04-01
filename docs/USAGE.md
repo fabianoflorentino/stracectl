@@ -163,7 +163,15 @@ These measures keep troubleshooting convenient while reducing the risk of accide
 ### Discover a container PID (Kubernetes sidecar)
 
 When `shareProcessNamespace: true` is set on a Pod, all container processes are visible
-from the sidecar. Use the `--container` flag to automatically attach to the right PID:
+from the sidecar. Use the `--container` flag to automatically attach to the right PID.
+
+> **cgroupv2 / containerd / kind:** some CRI implementations (including containerd
+> used by kind) store hex container IDs in `/proc/<pid>/cgroup` instead of
+> human-readable names. `stracectl` automatically falls back to matching the
+> container name against the process name (`comm`) and full command-line
+> (`cmdline`), so `--container <name>` works in both classic and cgroupv2
+> environments as long as the target process's name or cmdline contains the
+> provided string.
 
 ```bash
 stracectl attach --serve :8080 --container myapp
@@ -173,7 +181,8 @@ You can also use the `discover` subcommand to script around the PID:
 
 ```bash
 stracectl discover myapp
-# prints the lowest PID whose cgroup path matches "myapp"
+# prints the lowest PID whose cgroup path, process name (comm), or
+# cmdline contains "myapp"
 ```
 
 > **Permissions:** `strace` requires `CAP_SYS_PTRACE`.

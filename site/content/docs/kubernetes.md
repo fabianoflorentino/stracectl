@@ -8,7 +8,7 @@ weight: 10
 
 `stracectl` ships with:
 
-- A minimal **Dockerfile** based on `debian:bookworm-slim`
+- A minimal **Dockerfile** with a `production` target based on `gcr.io/distroless/cc:nonroot`
 - **Raw Kubernetes manifests** under `deploy/k8s/`
 - A **Helm chart** under `deploy/helm/stracectl/`
 
@@ -55,7 +55,16 @@ with your real image.
 **1. Apply the manifest or Helm chart** (see below).
 
 **2. Attach and serve** — the manifest already passes `--serve :8080 --container app` so the
-sidecar starts the HTTP API automatically and attaches to the container named `app`. To run it manually:
+sidecar starts the HTTP API automatically and attaches to the container named `app`.
+
+> **cgroupv2 / containerd / kind:** some CRI implementations store hex container IDs in
+> `/proc/<pid>/cgroup` instead of human-readable names. `stracectl` automatically
+> falls back to matching the given name against the process name (`comm`) and
+> full command-line (`cmdline`), so `--container app` works in both classic and
+> cgroupv2 environments as long as the target process's name or cmdline contains
+> the provided string.
+
+To run it manually:
 
 ```bash
 kubectl exec <pod-name> -c stracectl -- \
@@ -112,7 +121,7 @@ open http://localhost:8080
     image: myapp:latest          # replace with your workload
 
   - name: stracectl
-    image: fabianoflorentino/stracectl:v1.0.38
+    image: fabianoflorentino/stracectl:latest
     args:
       - attach
       - --debug                # optional: enable verbose tracer diagnostics
