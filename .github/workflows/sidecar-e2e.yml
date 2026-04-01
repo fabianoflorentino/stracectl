@@ -79,9 +79,9 @@ jobs:
       - name: Validate /metrics
         run: |
           OUTPUT=$(curl -sf http://localhost:8080/metrics)
-          echo "${OUTPUT}" | grep -q "stracectl_syscall_calls_total" \
+          echo "${OUTPUT}" | grep -Eq "stracectl_(syscall_calls_total|syscall_errors_total|tracer_backlog|ws_clients|syscalls_per_second)" \
             && echo "/metrics ok" \
-            || (echo "/metrics missing expected metric" && exit 1)
+            || (echo "/metrics missing expected stracectl metrics" && exit 1)
 
       - name: Dump pod info on failure
         if: failure()

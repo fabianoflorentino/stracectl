@@ -36,7 +36,6 @@ on:
 permissions:
   contents: write
   packages: write
-  workflows: write
 
 jobs:
   # Reusable build job (produces artifacts used by later jobs)
@@ -61,14 +60,14 @@ jobs:
 
       - name: Ensure GITHUB_TOKEN env
         run: |
-          # Prefer an explicitly-provided secret 'GIT_HUB_TOKEN' if present
-          if [ -n "${{ secrets.GIT_HUB_TOKEN }}" ]; then
-            echo "Using secrets.GIT_HUB_TOKEN as GITHUB_TOKEN"
-            echo "GITHUB_TOKEN=${{ secrets.GIT_HUB_TOKEN }}" >> $GITHUB_ENV
-          else
-            echo "Using runner-provided GITHUB_TOKEN (secrets.GITHUB_TOKEN)"
-            echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          # Tag pushes that reference commits touching .github/workflows/*
+          # require a PAT with workflow scope. Fail fast if missing.
+          if [ -z "${{ secrets.GIT_HUB_TOKEN }}" ]; then
+            echo "GIT_HUB_TOKEN is required (contents:write + workflow scope)."
+            exit 1
           fi
+          echo "Using secrets.GIT_HUB_TOKEN as GITHUB_TOKEN"
+          echo "GITHUB_TOKEN=${{ secrets.GIT_HUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Set up Go
         uses: actions/setup-go@v6
