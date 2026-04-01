@@ -107,3 +107,64 @@ func TestLowestPIDInContainer_LiveProc_Nonexistent(t *testing.T) {
 		t.Fatal("expected error for nonexistent container")
 	}
 }
+
+// buildFakeProcWithComm creates a fake /proc tree with cgroup, comm, and
+// cmdline files so we can test the comm/cmdline fallback path.
+func buildFakeProcWithComm(t *testing.T, procs map[int]struct{ cgroup, comm, cmdline string }) string {
+	t.Helper()
+	root := t.TempDir()
+	for pid, p := range procs {
+		dir := filepath.Join(root, strconv.Itoa(pid))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "cgroup"), []byte(p.cgroup), 0o644); err != nil {
+			t.Fatalf("write cgroup: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "comm"), []byte(p.comm), 0o644); err != nil {
+			t.Fatalf("write comm: %v", err)
+		}
+		// cmdline uses NUL separators between argv components.
+		if err := os.WriteFile(filepath.Join(dir, "cmdline"), []byte(p.cmdline), 0o644); err != nil {
+			t.Fatalf("write cmdline: %v", err)
+		}
+	}
+	return root
+}
+
+// TestScanProcLowest_FallbackComm verifies that when the cgroup path contains
+// only a hex container ID (as emitted by containerd/kind with cgroupv2), the
+// fallback still resolves the PID by matching the cmdline fragment.
+func TestScanProcLowest_FallbackComm(t *testing.T) {
+	procs := map[int]struct{ cgroup, comm, cmdline string }{
+		// hex cgroup IDs — container name not in path; simulates kind/containerd cgroupv2
+		7:  {"0::/../cri-containerd-aabbccdd.scope\n", "sh\n", "/bin/sh\x00-c\x00while true; do sleep 5; done\x00"},
+		18: {"0::/\n", "stracectl\n", "/usr/local/bin/stracectl\x00attach\x00"},
+	}
+	root := buildFakeProcWithComm(t, procs)
+
+	pid, err := discover.ScanProcLowest(root, "sleep 5")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pid != 7 {
+		t.Fatalf("expected PID 7, got %d", pid)
+	}
+}
+
+// TestScanProcLowest_FallbackCommName verifies matching via the short comm name.
+func TestScanProcLowest_FallbackCommName(t *testing.T) {
+	procs := map[int]struct{ cgroup, comm, cmdline string }{
+		42: {"0::/../cri-containerd-deadbeef.scope\n", "nginx\n", "nginx\x00-g\x00daemon off;\x00"},
+		99: {"0::/../cri-containerd-cafebabe.scope\n", "stracectl\n", "/usr/local/bin/stracectl\x00"},
+	}
+	root := buildFakeProcWithComm(t, procs)
+
+	pid, err := discover.ScanProcLowest(root, "nginx")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pid != 42 {
+		t.Fatalf("expected PID 42, got %d", pid)
+	}
+}
