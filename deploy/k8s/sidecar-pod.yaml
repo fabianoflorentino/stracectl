@@ -1,5 +1,4 @@
 # Example: inject stracectl as a sidecar into any Pod.
-# Example: inject stracectl as a sidecar into any Pod.
 #
 # Requirements:
 #   - shareProcessNamespace: true        so the sidecar sees the app's PIDs
