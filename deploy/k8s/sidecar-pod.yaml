@@ -41,7 +41,6 @@ spec:
     # ── stracectl sidecar ─────────────────────────────────────────────────────
     - name: stracectl
       image: fabianoflorentino/stracectl:latest
-        image: fabianoflorentino/stracectl:latest
       args:
         - attach
         - --serve
