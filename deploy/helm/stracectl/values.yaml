@@ -10,7 +10,10 @@ image:
 port: 8080
 
 # Target container name — the sidecar will scan /proc cgroups and attach to
-# the lowest PID whose cgroup path contains this name.
+# Target container name — stracectl first tries to find the lowest PID whose
+# cgroup path contains this name. If nothing matches (e.g. containerd/kind
+# with cgroupv2 uses hex container IDs instead of names), it automatically
+# falls back to matching against the process name (comm) and full cmdline.
 # Requires shareProcessNamespace: true on the Pod spec.
 targetContainer: "app"
 

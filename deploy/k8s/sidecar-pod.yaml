@@ -1,17 +1,26 @@
 # Example: inject stracectl as a sidecar into any Pod.
+# Example: inject stracectl as a sidecar into any Pod.
 #
 # Requirements:
 #   - shareProcessNamespace: true        so the sidecar sees the app's PIDs
 #   - CAP_SYS_PTRACE on the sidecar      so strace can attach
 #
 # Usage:
-#   kubectl apply -f sidecar-patch.yaml
-#   kubectl port-forward pod/<pod-name> 8080
+#   kubectl apply -f sidecar-pod.yaml
+#   kubectl -n <ns> port-forward pod/myapp-stracectl 8080:8080
+#   curl http://localhost:8080/healthz
 #   curl http://localhost:8080/api/stats | jq .
 #   curl http://localhost:8080/metrics
 #
 # To stream live events:
 #   wscat -c ws://localhost:8080/stream
+#
+# Note on --container discovery in containerd/kind environments:
+#   Some CRI implementations (e.g. containerd with cgroupv2, used by kind)
+#   store hex container IDs in /proc/<pid>/cgroup instead of human-readable
+#   names. stracectl falls back automatically to matching by process name
+#   (comm) and cmdline, so --container <name> still works as long as the
+#   target container's process name or cmdline contains the given string.
 ---
 apiVersion: v1
 kind: Pod
@@ -27,12 +36,12 @@ spec:
   containers:
     # ── Target application ────────────────────────────────────────────────────
     - name: app
-      image: myapp:latest
-      # Replace with your actual image and command.
+      image: myapp:latest   # Replace with your actual workload image.
 
     # ── stracectl sidecar ─────────────────────────────────────────────────────
     - name: stracectl
-      image: fabianoflorentino/stracectl:v1.0.38
+      image: fabianoflorentino/stracectl:latest
+        image: fabianoflorentino/stracectl:latest
       args:
         - attach
         - --serve

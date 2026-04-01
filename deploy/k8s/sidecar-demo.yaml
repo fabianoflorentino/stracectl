@@ -1,0 +1,83 @@
+---
+# Demo: nginx app + stracectl sidecar
+# Requer: shareProcessNamespace: true + CAP_SYS_PTRACE + seccomp Unconfined no sidecar
+#
+# Deploy:
+#   kubectl apply -f deploy/k8s/sidecar-demo.yaml
+#   kubectl -n stracectl-sidecar-test port-forward pod/nginx-stracectl 8080:8080
+#
+# Testar:
+#   curl http://localhost:8080/healthz
+#   curl http://localhost:8080/api/stats | jq .
+#   curl http://localhost:8080/metrics
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stracectl-sidecar-test
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-stracectl
+  namespace: stracectl-sidecar-test
+  labels:
+    app: nginx-stracectl
+spec:
+  # Exige: namespace de PID compartilhado para que o sidecar enxergue o processo da app
+  shareProcessNamespace: true
+
+  containers:
+    # ── Aplicação-alvo ──────────────────────────────────────────────────────
+    - name: app
+      image: registry.k8s.io/e2e-test-images/busybox:1.29-4
+      command: ["/bin/sh", "-c", "while true; do sleep 5; done"]
+
+    # ── stracectl sidecar ───────────────────────────────────────────────────
+    - name: stracectl
+      image: fabianoflorentino/stracectl:sidecar-local
+      # Usar cópia local buildada no cluster; não puxar do registry
+      imagePullPolicy: Never
+      # No kind/cgroupv2 o path do cgroup usa o container-ID (hex), não o nome.
+      # Portanto descobrimos o menor PID do container app via /proc/<pid>/cgroup
+      # excluindo PID 1 (pause container) e passamos como argumento posicional.
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          while true; do
+            pid=$(grep -l cri-containerd /proc/[0-9]*/cgroup 2>/dev/null \
+                  | sed 's|.*/proc/||;s|/cgroup.*||' \
+                  | sort -n \
+                  | awk '$1+0 > 1 {print $1; exit}')
+            if [ -n "$pid" ]; then
+              echo "[stracectl-sidecar] attaching to app PID=$pid"
+              /usr/local/bin/stracectl attach --serve :8080 "$pid"
+              echo "[stracectl-sidecar] stracectl exited ($?), restarting..."
+            else
+              echo "[stracectl-sidecar] waiting for app container..."
+            fi
+            sleep 1
+          done
+      ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        # distroless não tem sistema de arquivos gravável em geral; tmp mapeado via emptyDir
+        readOnlyRootFilesystem: true
+        runAsNonRoot: false  # strace/ptrace requer uid 0
+        runAsUser: 0
+        # Perfil seccomp padrão do k8s bloqueia ptrace(2) — deve ser Unconfined no sidecar
+        seccompProfile:
+          type: Unconfined
+        capabilities:
+          drop: ["ALL"]
+          add: ["SYS_PTRACE"]  # necessário para strace anexar a processos externos
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "32Mi"
+        limits:
+          cpu: "200m"
+          memory: "128Mi"
