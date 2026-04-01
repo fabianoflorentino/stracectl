@@ -1,0 +1,89 @@
+name: Sidecar E2E (kind)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sidecar-e2e.yml'
+      - 'Dockerfile'
+      - 'internal/discover/**'
+      - 'deploy/k8s/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'internal/discover/**'
+      - 'deploy/k8s/**'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Sidecar kind E2E
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build sidecar image
+        run: |
+          docker build --target production \
+            -t fabianoflorentino/stracectl:e2e-test \
+            -f ./Dockerfile .
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: e2e
+
+      - name: Load image into kind
+        run: kind load docker-image fabianoflorentino/stracectl:e2e-test --name e2e
+
+      - name: Apply sidecar e2e pod manifest
+        run: kubectl apply -f .github/e2e/sidecar-e2e-pod.yaml
+
+      - name: Wait for pod ready
+        run: |
+          kubectl -n default wait \
+            --for=condition=Ready pod/stracectl-e2e \
+            --timeout=120s
+
+      - name: Validate /healthz
+        run: |
+          kubectl -n default port-forward pod/stracectl-e2e 8080:8080 &
+          sleep 4
+          RESULT=$(curl -sf http://localhost:8080/healthz)
+          echo "healthz: ${RESULT}"
+          [ "${RESULT}" = "ok" ] || (echo "healthz check failed" && exit 1)
+          echo "healthz ok"
+
+      - name: Validate /api/stats
+        run: |
+          curl -sf http://localhost:8080/api/stats | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          assert isinstance(data, list), 'expected list'
+          print(f'/api/stats returned {len(data)} entries')
+          "
+
+      - name: Validate /metrics
+        run: |
+          OUTPUT=$(curl -sf http://localhost:8080/metrics)
+          echo "${OUTPUT}" | grep -q "stracectl_syscall_calls_total" \
+            && echo "/metrics ok" \
+            || (echo "/metrics missing expected metric" && exit 1)
+
+      - name: Dump pod info on failure
+        if: failure()
+        run: |
+          kubectl -n default describe pod stracectl-e2e || true
+          kubectl -n default logs stracectl-e2e -c stracectl --tail=100 || true
+          kubectl -n default logs stracectl-e2e -c app --tail=50 || true
