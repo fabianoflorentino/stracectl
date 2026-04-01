@@ -134,7 +134,7 @@ func buildFakeProcWithComm(t *testing.T, procs map[int]struct{ cgroup, comm, cmd
 
 // TestScanProcLowest_FallbackComm verifies that when the cgroup path contains
 // only a hex container ID (as emitted by containerd/kind with cgroupv2), the
-// fallback still resolves the PID by matching the cmdline fragment.
+// fallback resolves the PID by exact comm name match.
 func TestScanProcLowest_FallbackComm(t *testing.T) {
 	procs := map[int]struct{ cgroup, comm, cmdline string }{
 		// hex cgroup IDs — container name not in path; simulates kind/containerd cgroupv2
@@ -143,7 +143,8 @@ func TestScanProcLowest_FallbackComm(t *testing.T) {
 	}
 	root := buildFakeProcWithComm(t, procs)
 
-	pid, err := discover.ScanProcLowest(root, "sleep 5")
+	// "sh" matches comm "sh" exactly (after TrimSpace).
+	pid, err := discover.ScanProcLowest(root, "sh")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -166,5 +167,57 @@ func TestScanProcLowest_FallbackCommName(t *testing.T) {
 	}
 	if pid != 42 {
 		t.Fatalf("expected PID 42, got %d", pid)
+	}
+}
+
+// TestScanProcLowest_FallbackTruncatedComm verifies that when containerName is
+// longer than 15 characters, the fallback still matches because the kernel
+// truncates comm to 15 characters (TASK_COMM_LEN – 1).
+func TestScanProcLowest_FallbackTruncatedComm(t *testing.T) {
+	// "my-long-processX" is 16 chars; kernel stores only first 15 in comm.
+	procs := map[int]struct{ cgroup, comm, cmdline string }{
+		55: {"0::/../cri-containerd-11223344.scope\n", "my-long-process\n", "/usr/bin/my-long-processX\x00"},
+	}
+	root := buildFakeProcWithComm(t, procs)
+
+	pid, err := discover.ScanProcLowest(root, "my-long-processX")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pid != 55 {
+		t.Fatalf("expected PID 55, got %d", pid)
+	}
+}
+
+// TestScanProcLowest_FallbackCmdlineBasename verifies that when comm does not
+// match, the fallback resolves the PID by matching the basename of argv[0].
+func TestScanProcLowest_FallbackCmdlineBasename(t *testing.T) {
+	procs := map[int]struct{ cgroup, comm, cmdline string }{
+		// comm is "node" but the container is called "my-app" — basename of argv[0] matches.
+		30: {"0::/../cri-containerd-aabb1122.scope\n", "node\n", "/usr/local/bin/my-app\x00--port\x008080\x00"},
+		50: {"0::/../cri-containerd-ccdd3344.scope\n", "nginx\n", "/usr/sbin/nginx\x00-g\x00daemon off;\x00"},
+	}
+	root := buildFakeProcWithComm(t, procs)
+
+	pid, err := discover.ScanProcLowest(root, "my-app")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pid != 30 {
+		t.Fatalf("expected PID 30, got %d", pid)
+	}
+}
+
+// TestScanProcLowest_FallbackNoMatch verifies that an error is returned when
+// neither comm nor cmdline matches the container name.
+func TestScanProcLowest_FallbackNoMatch(t *testing.T) {
+	procs := map[int]struct{ cgroup, comm, cmdline string }{
+		10: {"0::/\n", "nginx\n", "/usr/sbin/nginx\x00"},
+	}
+	root := buildFakeProcWithComm(t, procs)
+
+	_, err := discover.ScanProcLowest(root, "nonexistent")
+	if err == nil {
+		t.Fatal("expected error when nothing matches")
 	}
 }

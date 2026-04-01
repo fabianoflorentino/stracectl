@@ -62,8 +62,15 @@ func scanCgroup(procRoot, containerName string, yield func(pid int) bool) error 
 	return nil
 }
 
+// commMaxLen matches Linux's TASK_COMM_LEN – 1: the kernel silently truncates
+// a process name to this many characters when storing it in /proc/<pid>/comm.
+const commMaxLen = 15
+
 // scanComm iterates procRoot and calls yield for each PID whose comm (short
-// process name, ≤15 chars) or whose full cmdline contains containerName.
+// process name, ≤ commMaxLen chars) exactly matches containerName — or, when
+// containerName is longer than commMaxLen, its first commMaxLen bytes — or
+// whose argv[0] basename or any exact argv token matches containerName.
+//
 // This is the fallback path used when cgroup paths carry hex container IDs
 // instead of human-readable names (e.g. containerd on kind with cgroupv2).
 // It skips PID 1 and the calling process's own PID.
@@ -75,31 +82,41 @@ func scanComm(procRoot, containerName string, yield func(pid int) bool) error {
 
 	self := os.Getpid()
 
+	// commMatch is what the kernel stores in /proc/<pid>/comm.
+	// Linux truncates the value at commMaxLen characters.
+	commMatch := containerName
+	if len(commMatch) > commMaxLen {
+		commMatch = commMatch[:commMaxLen]
+	}
+
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil || pid == 1 || pid == self {
 			continue
 		}
 
-		// /proc/<pid>/comm — short name (truncated at 15 chars)
-		comm, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "comm")) //nolint:gosec
-		if err == nil && strings.Contains(strings.TrimSpace(string(comm)), containerName) {
+		// /proc/<pid>/comm — exact match after trimming the trailing newline.
+		comm, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "comm")) //nolint:gosec // G304: path is constructed from /proc + numeric PID dir
+		if err == nil && strings.TrimSpace(string(comm)) == commMatch {
 			if !yield(pid) {
 				return nil
 			}
 			continue
 		}
 
-		// /proc/<pid>/cmdline — full argv, NUL-separated
-		cmdline, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "cmdline")) //nolint:gosec
-		if err != nil {
+		// /proc/<pid>/cmdline — NUL-separated argv.
+		// Match containerName against argv[0] basename or any exact token.
+		cmdline, err := os.ReadFile(filepath.Join(procRoot, e.Name(), "cmdline")) //nolint:gosec // G304: path is constructed from /proc + numeric PID dir
+		if err != nil || len(cmdline) == 0 {
 			continue
 		}
-		// Replace NUL bytes with spaces for simpler matching.
-		normalized := strings.ReplaceAll(string(cmdline), "\x00", " ")
-		if strings.Contains(normalized, containerName) {
-			if !yield(pid) {
-				return nil
+		tokens := strings.Split(strings.TrimRight(string(cmdline), "\x00"), "\x00")
+		for _, tok := range tokens {
+			if tok == containerName || filepath.Base(tok) == containerName {
+				if !yield(pid) {
+					return nil
+				}
+				break
 			}
 		}
 	}
