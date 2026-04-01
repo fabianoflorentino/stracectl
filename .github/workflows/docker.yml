@@ -85,14 +85,27 @@ jobs:
       - name: Build Docker image
         run: |
           # Build single production image that contains both backends
+          IMAGE_REF="${{ github.repository }}:v1.0.${{ github.run_number }}"
+          echo "IMAGE_REF=${IMAGE_REF}" >> $GITHUB_ENV
           docker build --no-cache --rm --target production \
-            -t ${{ github.repository }}:v1.0.${{ github.run_number }} \
+            -t "${IMAGE_REF}" \
             -f ./Dockerfile .
+
+      - name: Smoke test — verify binary entrypoint
+        run: |
+          echo "Running smoke test on ${IMAGE_REF}"
+          OUTPUT=$(docker run --rm "${IMAGE_REF}" --help 2>&1 || true)
+          echo "${OUTPUT}"
+          if ! echo "${OUTPUT}" | grep -qE "attach|Usage:|stracectl"; then
+            echo "Smoke test FAILED: binary did not produce expected help output"
+            exit 1
+          fi
+          echo "Smoke test passed"
 
       - name: Push Docker image to Docker Hub
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
-          docker push ${{ github.repository }}:v1.0.${{ github.run_number }}
+          docker push "${IMAGE_REF}"
 
       - name: Download standard binary artifact
         uses: actions/download-artifact@v4
