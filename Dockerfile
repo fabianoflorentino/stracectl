@@ -189,7 +189,11 @@ RUN apt-get update \
 # -----------------------------------------------------------------------------
 # Stage 6: production — single image containing both non-eBPF and eBPF binaries
 # -----------------------------------------------------------------------------
-FROM gcr.io/distroless/static:nonroot AS production
+# Use distroless/cc (not distroless/static) because the eBPF binary is built
+# with CGO_ENABLED=1 and requires glibc's dynamic linker
+# (/lib64/ld-linux-x86-64.so.2). distroless/static ships without it and causes
+# "exec: no such file or directory" at runtime.
+FROM gcr.io/distroless/cc:nonroot AS production
 
 # Copy a glibc-linked `strace` (as before) and both built binaries so a single
 # image contains both backends. The non-eBPF binary will be the default
