@@ -20,7 +20,9 @@ spec:
         - --serve
         - ":8080"
         - --container
-        - app
+        # In this fixture, the app container runs /bin/sh and sleep,
+        # so discovery should target a real process name from cmdline/comm.
+        - sh
       ports:
         - name: http
           containerPort: 8080

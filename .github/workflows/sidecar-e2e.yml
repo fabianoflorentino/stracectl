@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/sidecar-e2e.yml'
+      - '.github/e2e/**'
       - 'Dockerfile'
       - 'internal/discover/**'
       - 'deploy/k8s/**'
   pull_request:
     branches: [main]
     paths:
+      - '.github/e2e/**'
       - 'Dockerfile'
       - 'internal/discover/**'
       - 'deploy/k8s/**'
