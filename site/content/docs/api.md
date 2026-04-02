@@ -137,6 +137,48 @@ gauges such as `stracectl_syscall_calls_total`, `stracectl_syscall_errors_total`
 `stracectl_syscall_latency_seconds` (histogram), `stracectl_syscalls_per_second`,
 and runtime gauges like `stracectl_ws_clients` and `stracectl_tracer_backlog`.
 
+### `GET /api/files`
+
+Returns a JSON array of the most-opened file paths observed during the trace,
+sorted by descending count. Supports an optional `limit` query parameter:
+
+```bash
+curl -s 'http://localhost:8080/api/files?limit=20' | jq .
+```
+
+Response schema (array of objects):
+
+```json
+[
+  { "path": "/etc/ld.so.cache", "count": 74 },
+  { "path": "/usr/lib/libssl.so.3", "count": 22 }
+]
+```
+
+### `GET /healthz`
+
+Liveness probe — always returns `ok` with HTTP 200. Use this for Kubernetes
+readiness/liveness probes or health check scripts.
+
+### `GET /debug/goroutines`
+
+Returns a JSON object with the current goroutine count and memory stats. Useful
+for diagnosing memory growth or goroutine leaks in long-running sidecar sessions.
+
+### `GET /debug/pprof/`
+
+Go pprof index. Additional sub-paths (`cmdline`, `profile`, `symbol`, `trace`,
+`goroutine`, `heap`, `threadcreate`, `block`) are also served. Use these
+handlers for remote CPU/memory profiling when diagnosing performance issues.
+
+```bash
+# capture a 30-second CPU profile
+go tool pprof http://localhost:8080/debug/pprof/profile?seconds=30
+```
+
+> These endpoints are always available when using `--serve`. Bind the server to
+> `127.0.0.1` or use `kubectl port-forward` to prevent public exposure.
+
 ## Web detail page
 
 Navigate to `/syscall/<name>` (or click any row in the dashboard) for:
