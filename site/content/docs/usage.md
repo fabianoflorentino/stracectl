@@ -128,6 +128,26 @@ stracectl run --privacy-log trace-full.json --full --force my-command
 
 See also: [Privacy page](/docs/privacy/) and `docs/privacy-usage-examples.md` for more guidance.
 
+## Explain current privacy settings
+
+Use the `explain` subcommand to preview what will be captured under the current
+privacy settings without running a trace. This is useful to verify redaction
+behavior before committing to a full session:
+
+```bash
+stracectl explain
+stracectl explain --no-args --redact-patterns="token,secret"
+stracectl explain --privacy-level low
+```
+
+The command prints:
+- All active privacy option values
+- Compiled redaction patterns
+- An example of a redacted event showing what the output will look like
+
+Run `stracectl explain` before any sensitive trace session to confirm that no
+unintended data will be captured or logged.
+
 ## Keyboard shortcuts
 
 | Key | Action |
