@@ -13,6 +13,22 @@ These flags are available to all commands (place before the subcommand):
 - `--debug` — enable verbose tracer diagnostics. When set, `stracectl` will emit
   raw strace lines useful for diagnosing parser edge cases (use only for troubleshooting).
 
+**Privacy flags** (added in v1.0.112, default: `--privacy-level=high`):
+
+- `--privacy-log <path|stdout>` — write newline-delimited redacted JSON events to a file or `stdout`.
+  When writing to a file, an audit file `<path>.audit` is created alongside it with `trace_start`/`trace_end`
+  metadata and a SHA256 hash of the trace file.
+- `--privacy-ttl <duration>` — automatically expire ephemeral privacy logs (e.g. `24h`, `15m`).
+  Best-effort overwrite before deletion; prefer encrypted volumes or tmpfs for stronger guarantees.
+- `--no-args` — suppress capture of all syscall argument content (maximal privacy).
+- `--max-arg-size N` — truncate each argument to at most `N` bytes when captured (default: 64).
+- `--redact-patterns=<pat1,pat2>` — add comma-separated custom regex patterns to the redaction set.
+- `--syscalls <list>` — comma-separated list of syscall names to include.
+- `--exclude <list>` — comma-separated list of syscall names to exclude.
+- `--privacy-level low|medium|high` — pre-baked privacy preset (default: `high`).
+- `--full` — enable full payload capture (dangerous; may expose sensitive data).
+- `--force` — bypass confirmation prompts required by `--full` in non-interactive flows.
+
 ### Trace a command from the start
 
 ```bash
@@ -187,6 +203,21 @@ stracectl discover myapp
 
 > **Permissions:** `strace` requires `CAP_SYS_PTRACE`.
 > Run with `sudo`, or set `/proc/sys/kernel/yama/ptrace_scope` to `0` for your user.
+
+### Explain current privacy settings
+
+Use the `explain` subcommand to preview what will be captured under the current
+privacy settings without actually running a trace:
+
+```bash
+stracectl explain
+stracectl explain --no-args --redact-patterns="token,secret"
+stracectl explain --privacy-level low
+```
+
+The command prints the active privacy options, compiled redaction patterns, and
+an example of a redacted event, which helps confirm that no sensitive data leaks
+before committing to a full trace session.
 
 ---
 
