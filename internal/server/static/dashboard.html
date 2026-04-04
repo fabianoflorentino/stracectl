@@ -51,10 +51,10 @@
   #log-panel{display:none;padding:0 12px 60px;overflow-x:auto}
   #log-wrap{max-height:calc(100vh - 180px);overflow-y:auto;margin-top:12px}
   #log-table{width:100%;border-collapse:collapse;font-size:.78rem;font-family:monospace;table-layout:fixed}
-  #log-table td{padding:2px 8px;white-space:nowrap;color:#8b949e;overflow:hidden;text-overflow:ellipsis}
+  #log-table td{padding:1px 6px;white-space:nowrap;color:#8b949e;overflow:hidden;text-overflow:ellipsis}
   #log-table tr.error td{color:#f85149}
-  #log-table td.l-name{color:#79c0ff;width:200px}
-  #log-table td.l-ts{text-align:left;width:150px;color:#6e7681;padding-left:4px}
+  #log-table td.l-name{color:#79c0ff;width:160px}
+  #log-table td.l-ts{text-align:left;width:100px;color:#6e7681;padding-left:4px}
   #log-table td.l-args{color:#8b949e}
   /* process exited banner */
   #done-banner{display:none;padding:8px 24px;background:#3d2f00;border-bottom:2px solid #e3b341;
@@ -148,6 +148,10 @@
   </table>
 </div>
 <div id="log-panel">
+  <div id="log-controls" style="padding:10px 12px 0;display:flex;align-items:center;gap:10px">
+    <button id="log-pause-btn" class="tab-btn active" onclick="toggleLogPause()">PAUSE</button>
+    <span id="log-pause-hint" style="font-size:.75rem;color:#8b949e">atualiza a cada 1s</span>
+  </div>
   <div id="log-wrap">
     <table id="log-table">
       <colgroup>
