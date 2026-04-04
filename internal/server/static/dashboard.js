@@ -1,4 +1,25 @@
 let currentTab = 'stats';
+let logPaused = false;
+
+function toggleLogPause() {
+  logPaused = !logPaused;
+  const btn = document.getElementById('log-pause-btn');
+  const hint = document.getElementById('log-pause-hint');
+  if (logPaused) {
+    btn.textContent = 'RESUME';
+    btn.classList.remove('active');
+    btn.style.background = '#3d2f00';
+    btn.style.color = '#e3b341';
+    hint.textContent = 'pausado';
+  } else {
+    btn.textContent = 'PAUSE';
+    btn.classList.add('active');
+    btn.style.background = '';
+    btn.style.color = '';
+    hint.textContent = 'atualiza a cada 1s';
+    fetchLog();
+  }
+}
 
 function switchTab(name) {
   currentTab = name;
@@ -27,7 +48,7 @@ function fetchLog() {
   fetch('/api/log').then(r => r.json()).then(entries => {
     if (!entries) return;
     const tbody = document.getElementById('log-tbody');
-    tbody.innerHTML = entries.slice(-500).map(e => {
+    tbody.innerHTML = entries.slice(-500).reverse().map(e => {
       let ts = '';
       if (e.Time) {
         const d = new Date(e.Time);
@@ -42,13 +63,11 @@ function fetchLog() {
         '<td class="l-args">' + esc(args) + (e.Error ? ' \u2192 <b>' + esc(e.Error) + '</b>' : '') + '</td>' +
         '</tr>';
     }).join('');
-    const wrap = document.getElementById('log-wrap');
-    wrap.scrollTop = wrap.scrollHeight;
   }).catch(() => { });
 }
 
 setInterval(() => {
-  if (currentTab === 'log') fetchLog();
+  if (currentTab === 'log' && !logPaused) fetchLog();
 }, 1000);
 
 setInterval(() => {
