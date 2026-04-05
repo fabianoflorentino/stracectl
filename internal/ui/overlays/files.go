@@ -25,46 +25,40 @@ func RenderFiles(w, h int, agg umodel.AggregatorView, filesOffset *int) string {
 	title := styles.DetailTitleStyle.Width(w).Render(fmt.Sprintf(" stracectl  top files  (%d entries) ", n))
 	footer := styles.FooterStyle.Render(" any key:return  ↑↓/jk:scroll  q:quit ")
 
-	bodyH := h - 3
-	if bodyH < 1 {
-		bodyH = 1
-	}
+	bodyH := max(h-3, 1)
 
 	if *filesOffset < 0 || *filesOffset > n-bodyH {
 		*filesOffset = 0
 	}
-	if *filesOffset < 0 {
-		*filesOffset = 0
-	}
 
-	end := *filesOffset + bodyH
-	if end > n {
-		end = n
-	}
+	end := min(*filesOffset+bodyH, n)
 	visible := files[*filesOffset:end]
 
 	var sb strings.Builder
+
 	sb.WriteString(title + "\n")
 	sb.WriteString(div + "\n")
 
-	availPathW := w - 12
-	if availPathW < 10 {
-		availPathW = 10
-	}
+	availPathW := max(w-12, 10)
 
 	for _, f := range visible {
 		p := f.Path
 		disp := p
+
 		if len(disp) > availPathW {
 			disp = disp[:availPathW]
 		}
+
 		line := fmt.Sprintf("  %-*s %6s", availPathW, disp, helpersFormatCount(f.Count))
 		sb.WriteString(styles.DetailDimStyle.Render(line) + "\n")
 	}
+
 	for i := len(visible); i < bodyH; i++ {
 		sb.WriteString("\n")
 	}
+
 	sb.WriteString(footer)
+
 	return sb.String()
 }
 
