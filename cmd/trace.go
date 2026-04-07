@@ -131,8 +131,8 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 		if pEnabled {
 			if privacyLogPath == "stdout" {
 				pOutput = pout.NewStdout()
-			} else {
-				of, err := pout.NewFile(privacyLogPath, ttl)
+				} else {
+					of, err := pout.NewFile(privacyLogPath, ttl, ctx)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "warning: cannot open privacy log %s: %v; disabling privacy logging\n", privacyLogPath, err)
 					pEnabled = false
@@ -413,7 +413,7 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 			if privacyLogPath == "stdout" {
 				pOutput = pout.NewStdout()
 			} else {
-				of, err := pout.NewFile(privacyLogPath, ttl)
+				of, err := pout.NewFile(privacyLogPath, ttl, ctx)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "warning: cannot open privacy log %s: %v; disabling privacy logging\n", privacyLogPath, err)
 					pEnabled = false
