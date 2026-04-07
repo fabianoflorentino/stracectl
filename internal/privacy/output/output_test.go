@@ -1,6 +1,7 @@
 package output
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -37,7 +38,7 @@ func TestNewStdoutWrite(t *testing.T) {
 func TestNewFileAndWriteClose(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "out.log")
-	out, err := NewFile(p, 0)
+	out, err := NewFile(p, 0, context.Background())
 	if err != nil {
 		t.Fatalf("newfile: %v", err)
 	}
@@ -67,7 +68,7 @@ func TestNewFileRejectsSymlink(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("symlink not supported: %v", err)
 	}
-	if _, err := NewFile(link, 0); err == nil {
+	if _, err := NewFile(link, 0, context.Background()); err == nil {
 		t.Fatalf("expected error when creating output on symlink")
 	}
 }
@@ -85,7 +86,7 @@ func TestWriteCloseNil(t *testing.T) {
 func TestNewFileAutoExpire(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "priv.log")
-	out, err := NewFile(p, 100*time.Millisecond)
+	out, err := NewFile(p, 100*time.Millisecond, context.Background())
 	if err != nil {
 		t.Fatalf("NewFile failed: %v", err)
 	}
@@ -96,9 +97,13 @@ func TestNewFileAutoExpire(t *testing.T) {
 		t.Fatalf("close failed: %v", err)
 	}
 
-	// Wait longer than TTL and verify file removed.
-	time.Sleep(250 * time.Millisecond)
-	if _, err := os.Stat(p); !os.IsNotExist(err) {
-		t.Fatalf("expected file to be removed after TTL, stat err=%v", err)
+	// Poll until removed; do not rely on a single fixed sleep.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
+	t.Fatalf("expected file to be removed after TTL")
 }
