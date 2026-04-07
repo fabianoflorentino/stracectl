@@ -1,6 +1,7 @@
 package output
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -22,7 +23,7 @@ func NewStdout() *Output {
 
 // NewFile creates an Output that writes to the specified file path with mode 0600.
 // If autoExpire > 0 the file will be removed after the duration.
-func NewFile(path string, autoExpire time.Duration) (*Output, error) {
+func NewFile(path string, autoExpire time.Duration, ctx context.Context) (*Output, error) {
 	clean := filepath.Clean(path)
 	if strings.Contains(clean, "..") {
 		return nil, errors.New("invalid output path")
@@ -44,8 +45,14 @@ func NewFile(path string, autoExpire time.Duration) (*Output, error) {
 
 	if autoExpire > 0 {
 		// Launch background goroutine to securely remove file after expiry; ignore errors.
-		go func(p string, d time.Duration) {
-			time.Sleep(d)
+		go func(p string, d time.Duration, ctx context.Context) {
+			select {
+			case <-time.After(d):
+				// proceed with overwrite + removal
+			case <-ctx.Done():
+				// context cancelled (process exiting); do not remove file
+				return
+			}
 			// Attempt to overwrite the file with zeros before removal to reduce
 			// chance of data recovery on disk. This is best-effort and not
 			// guaranteed to be secure on modern filesystems.
@@ -76,7 +83,7 @@ func NewFile(path string, autoExpire time.Duration) (*Output, error) {
 				}
 			}
 			_ = os.Remove(p)
-		}(clean, autoExpire)
+		}(clean, autoExpire, ctx)
 	}
 
 	return out, nil
