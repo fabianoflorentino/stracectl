@@ -60,7 +60,7 @@ Capture a trace file with strace:
 				return err
 			}
 		} else {
-			if err := ui.Run(agg, args[0], nil); err != nil {
+			if err := ui.Run(agg, args[0], nil, nil); err != nil {
 				return err
 			}
 		}
