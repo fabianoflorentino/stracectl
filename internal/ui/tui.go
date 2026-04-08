@@ -18,9 +18,7 @@ import (
 )
 
 const (
-	refreshInterval  = 200 * time.Millisecond
-	slowAvgThreshold = 5 * time.Millisecond // avg latency considered slow
-	hotErrPct        = 50.0                 // % errors considered critical
+	refreshInterval = 200 * time.Millisecond
 )
 
 // ── Styles ────────────────────────────────────────────────────────────────────
