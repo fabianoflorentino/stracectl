@@ -26,6 +26,7 @@ type Aggregator struct {
 	logBuf   []LogEntry
 	fileAttr FileAttributor
 	done     bool
+	nowFunc  func() time.Time
 }
 
 // rateSnapshot is a helper struct to track previous total and timestamp for rate calculations.
@@ -44,7 +45,18 @@ func New() *Aggregator {
 		fileAttr: NewDefaultFileAttributor(),
 		started:  now,
 		prevRate: rateSnapshot{total: 0, at: now},
+		nowFunc:  time.Now,
 	}
+}
+
+// newWithClock returns an Aggregator configured to use the provided clock function.
+// This helper is intended for tests where control over time progression is required.
+func newWithClock(fn func() time.Time) *Aggregator {
+	a := New()
+	if fn != nil {
+		a.nowFunc = fn
+	}
+	return a
 }
 
 // Add incorporates a new SyscallEvent into the aggregator, updating all relevant statistics,
@@ -63,7 +75,7 @@ func (a *Aggregator) Add(e models.SyscallEvent) {
 	a.handleErrorLocked(e)
 
 	// update rate (use a single now)
-	now := time.Now()
+	now := a.nowFunc()
 	a.updateRateLocked(now)
 
 	// append to live log
@@ -141,7 +153,7 @@ func (a *Aggregator) Get(name string) (SyscallStat, bool) {
 	cp := *s
 	cp.P95 = latPercentile(&s.latHist, 95)
 	cp.P99 = latPercentile(&s.latHist, 99)
-	cp.ErrRate60s = s.errWin.sum(time.Now().Unix())
+	cp.ErrRate60s = s.errWin.sum(a.nowFunc().Unix())
 
 	return cp, true
 }
@@ -314,7 +326,7 @@ func (a *Aggregator) handleErrorLocked(e models.SyscallEvent) {
 	// sliding window: record error in the 1-second bucket
 	sec := e.Time.Unix()
 	if sec == 0 {
-		sec = time.Now().Unix()
+		sec = a.nowFunc().Unix()
 	}
 
 	s.errWin.record(sec)
