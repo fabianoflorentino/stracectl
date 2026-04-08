@@ -217,14 +217,17 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 		// runTrace can manage the tracer lifecycle; we wait for the UI to
 		// return and then cancel the tracer.
 		uiErrCh := make(chan error, 1)
+		readyCh := make(chan struct{})
 		wg.Go(func() {
-			uiErrCh <- ui.Run(agg, label, done)
+			uiErrCh <- ui.Run(agg, label, done, readyCh)
 		})
 
 		// Allow the UI a short time to initialize and produce a window-size
-		// event. We also poll the UI debug event log (if present) for a
-		// WindowSizeMsg signal to avoid races on various terminals.
-		waitForUIReady(500 * time.Millisecond)
+		// event. Fall back after timeout if the event never arrives.
+		select {
+		case <-readyCh:
+		case <-time.After(500 * time.Millisecond):
+		}
 
 		// Start tracer and drain events into the aggregator.
 		events, err := tr.Run(tracerCtx, program, args)
@@ -308,22 +311,6 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 	}
 
 	return runErr
-}
-
-// waitForUIReady polls the UI events debug log for a window-size event until
-// the timeout expires. This is a best-effort diagnostic helper used to avoid
-// race conditions when the UI and tracer initialize concurrently.
-func waitForUIReady(maxWait time.Duration) {
-	deadline := time.Now().Add(maxWait)
-	for time.Now().Before(deadline) {
-		data, err := os.ReadFile("/tmp/stracectl_ui_events.log")
-		if err == nil {
-			if strings.Contains(string(data), "ev=window-size") {
-				return
-			}
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
 }
 
 // writeHTMLReport writes a self-contained HTML report to path.
@@ -484,7 +471,7 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 		// terminal and block the test process. Instead, wait for the
 		// events consumer to finish draining `done` and continue.
 		if term.IsTerminal(syscall.Stdin) {
-			runErr = ui.Run(agg, label, done)
+			runErr = ui.Run(agg, label, done, nil)
 		} else {
 			<-done
 			runErr = nil
