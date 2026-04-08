@@ -8,7 +8,7 @@ import (
 
 func Test_LogFilesOffsetPtrs(t *testing.T) {
 	agg := aggregator.New()
-	m := ModelFromAggregator(agg, "proc")
+	m := ModelFromAggregator(agg, "proc", nil)
 	pm := &m
 
 	lp := pm.LogOffsetPtr()

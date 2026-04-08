@@ -64,7 +64,8 @@ func pressKey(m model, key string) model {
 		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 	}
 	next, _ := m.Update(msg)
-	return next.(model)
+	nm := next.(*model)
+	return *nm
 }
 
 // ── wordWrap ──────────────────────────────────────────────────────────────────
@@ -507,7 +508,7 @@ func TestView_Initialising(t *testing.T) {
 func TestUpdate_WindowSize(t *testing.T) {
 	m := newTestModel()
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 50})
-	got := next.(model)
+	got := *(next.(*model))
 	if got.width != 160 || got.height != 50 {
 		t.Errorf("width=%d height=%d, want 160 50", got.width, got.height)
 	}
@@ -1000,7 +1001,7 @@ func TestRenderDetail_CursorClampedToLastRow(t *testing.T) {
 func TestProcessDeadMsg_SetsProcessDoneFlag(t *testing.T) {
 	m := newTestModel()
 	next, cmd := m.Update(processDeadMsg{})
-	got := next.(model)
+	got := *(next.(*model))
 	if !got.processDone {
 		t.Error("Update(processDeadMsg{}) did not set processDone=true")
 	}
@@ -1042,7 +1043,7 @@ func TestProcessDeadMsg_SetsProcessDoneFlagRegardlessOfState(t *testing.T) {
 		m := newTestModel()
 		tc.setup(&m)
 		next, _ := m.Update(processDeadMsg{})
-		got := next.(model)
+		got := *(next.(*model))
 		if !got.processDone {
 			t.Errorf("[%s] Update(processDeadMsg{}) did not set processDone=true", tc.name)
 		}
@@ -1064,7 +1065,7 @@ func TestRun_StaysOpenWhenDoneIsClosed(t *testing.T) {
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)
-		runWithOpts(agg, "ping -c 1 8.8.8.8", done, //nolint:errcheck
+		runWithOpts(agg, "ping -c 1 8.8.8.8", done, nil, //nolint:errcheck
 			tea.WithInput(pr),
 			tea.WithOutput(io.Discard),
 		)
@@ -1107,7 +1108,7 @@ func TestRun_NilDoneDoesNotAutoQuit(t *testing.T) {
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)
-		runWithOpts(agg, "trace.log", nil, //nolint:errcheck
+		runWithOpts(agg, "trace.log", nil, nil, //nolint:errcheck
 			tea.WithInput(pr),
 			tea.WithOutput(io.Discard),
 		)
@@ -1127,7 +1128,7 @@ func TestRun_NilDoneDoesNotAutoQuit(t *testing.T) {
 
 func Test_ModelFromAggregator_DefaultsAndView(t *testing.T) {
 	agg := aggregator.New()
-	m := ModelFromAggregator(agg, "proc")
+	m := ModelFromAggregator(agg, "proc", nil)
 	if m.SortBy() != aggregator.SortByCount {
 		t.Fatalf("expected default sort by count, got %v", m.SortBy())
 	}
@@ -1140,20 +1141,20 @@ func Test_ModelFromAggregator_DefaultsAndView(t *testing.T) {
 
 func Test_Update_ProcessDeadAndTickFallback(t *testing.T) {
 	agg := aggregator.New()
-	m := ModelFromAggregator(agg, "proc")
+	m := ModelFromAggregator(agg, "proc", nil)
 
 	// processDeadMsg should mark processDone
 	mi, _ := m.Update(processDeadMsg{})
-	m2 := mi.(model)
+	m2 := *(mi.(*model))
 	if !m2.ProcessDone() {
 		t.Fatalf("expected ProcessDone after processDeadMsg")
 	}
 
 	// tickMsg repeated should eventually set a fallback width/height
-	m3 := ModelFromAggregator(agg, "proc")
+	m3 := ModelFromAggregator(agg, "proc", nil)
 	for i := 0; i < 6; i++ {
 		mi, _ = m3.Update(tickMsg(time.Now()))
-		m3 = mi.(model)
+		m3 = *(mi.(*model))
 	}
 	if m3.Width() == 0 || m3.Height() == 0 {
 		t.Fatalf("expected fallback size to be set after ticks, got w=%d h=%d", m3.Width(), m3.Height())

@@ -13,22 +13,7 @@ import (
 )
 
 func Test_waitForUIReady_detectsLogFile(t *testing.T) {
-	const p = "/tmp/stracectl_ui_events.log"
-	// ensure clean state
-	_ = os.Remove(p)
-	defer func() { _ = os.Remove(p) }()
-
-	// write a marker that waitForUIReady looks for
-	if err := os.WriteFile(p, []byte("ev=window-size\n"), 0644); err != nil {
-		t.Fatalf("failed to write ui events log: %v", err)
-	}
-
-	// should return quickly
-	start := time.Now()
-	waitForUIReady(500 * time.Millisecond)
-	if time.Since(start) > 500*time.Millisecond {
-		t.Fatalf("waitForUIReady took too long")
-	}
+	t.Skip("removed: readiness now signalled via ui.Run ready channel; keep if reworked")
 }
 
 func Test_writeHTMLReport_createsFile(t *testing.T) {
