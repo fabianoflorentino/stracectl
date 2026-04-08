@@ -53,9 +53,10 @@ type model struct {
 	height        int
 	sizeMisses    int // number of consecutive ticks without a WindowSizeMsg
 	started       time.Time
+	readyCh       chan<- struct{}
 }
 
-func (m model) Init() tea.Cmd { return tick() }
+func (m *model) Init() tea.Cmd { return tick() }
 
 // processDeadMsg is sent to the program when the traced process exits.
 // The TUI marks itself as done and shows a banner, but does NOT quit
@@ -66,7 +67,7 @@ type processDeadMsg struct{}
 // Provide constructors/wrappers in the ui package for the app layer.
 type ProcessDeadMsg = processDeadMsg
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case processDeadMsg:
 		m.processDone = true
@@ -76,6 +77,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		// record reception of a WindowSizeMsg for later diagnosis
 		terminal.RecordUIEvent("window-size", m.width, m.height)
+		if m.readyCh != nil {
+			// signal readiness exactly once
+			close(m.readyCh)
+			m.readyCh = nil
+		}
 	case tickMsg:
 		// If we never received a WindowSizeMsg, the TUI would stay stuck
 		// showing "Initialising stracectl…". After a few ticks, attempt a
@@ -106,16 +112,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // ModelFromAggregator builds a model prepopulated from the provided aggregator.
 // Exposed so the app runner can instantiate the TUI model without duplicating
 // construction logic.
-func ModelFromAggregator(agg *aggregator.Aggregator, target string) model {
+func ModelFromAggregator(agg *aggregator.Aggregator, target string, ready chan<- struct{}) model {
 	return model{
 		agg:     agg,
 		target:  target,
 		sortBy:  aggregator.SortByCount,
 		started: time.Now(),
+		readyCh: ready,
 	}
 }
 
-func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// any key closes the help overlay
 	if m.helpOverlay {
 		m.helpOverlay = false
@@ -214,7 +221,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEscape, tea.KeyEnter:
 		m.editing = false
@@ -230,7 +237,7 @@ func (m model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // ── View ──────────────────────────────────────────────────────────────────────
 
-func (m model) View() string {
+func (m *model) View() string {
 	// delegate rendering to the specialized render/overlays packages
 	if m.width == 0 {
 		return "Initialising stracectl…"
@@ -249,7 +256,7 @@ func (m model) View() string {
 	}
 
 	// otherwise render the main table via RenderView using the controller adapter
-	return render.RenderView(&m)
+	return render.RenderView(m)
 }
 
 // Controller adapter methods — implement controller.UIController for render.RenderView
@@ -269,14 +276,14 @@ func (m *model) Target() string               { return m.target }
 // Run starts the full-screen TUI backed by agg.
 // done, if non-nil, should be closed when the traced process exits; the TUI
 // will quit automatically so the terminal is not left in a frozen state.
-func Run(agg *aggregator.Aggregator, target string, done <-chan struct{}) error {
-	return runWithOpts(agg, target, done, tea.WithAltScreen())
+func Run(agg *aggregator.Aggregator, target string, done <-chan struct{}, ready chan<- struct{}) error {
+	return runWithOpts(agg, target, done, ready, tea.WithAltScreen())
 }
 
 // runWithOpts is the internal entry point used by Run and by tests.
 // opts are forwarded to tea.NewProgram, allowing tests to inject headless
 // input/output without a real TTY.
-func runWithOpts(agg *aggregator.Aggregator, target string, done <-chan struct{}, opts ...tea.ProgramOption) error {
+func runWithOpts(agg *aggregator.Aggregator, target string, done <-chan struct{}, ready chan<- struct{}, opts ...tea.ProgramOption) error {
 	// Prevent tracer log.Printf messages from bleeding into the alt-screen buffer.
 	// All log output is discarded while the TUI owns the terminal; it is restored
 	// unconditionally when the TUI exits.
@@ -288,9 +295,10 @@ func runWithOpts(agg *aggregator.Aggregator, target string, done <-chan struct{}
 		target:  target,
 		sortBy:  aggregator.SortByCount,
 		started: time.Now(),
+		readyCh: ready,
 	}
 	terminal.RecordUIEvent("tea-newprogram", 0, 0)
-	p := tea.NewProgram(m, opts...)
+	p := tea.NewProgram(&m, opts...)
 	terminal.RecordUIEvent("tea-newprogram-created", 0, 0)
 
 	if done != nil {
