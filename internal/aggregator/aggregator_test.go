@@ -51,13 +51,28 @@ func TestRate_InitiallyZero(t *testing.T) {
 
 // TestRate_UpdatesAfterBurst verifies that the rate updates correctly after a burst of events.
 func TestRate_UpdatesAfterBurst(t *testing.T) {
-	a := New()
+	var fakeNow time.Time
+	fakeNow = time.Now()
+	mu := sync.Mutex{}
+	clockFn := func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		return fakeNow
+	}
+	advanceClock := func(d time.Duration) {
+		mu.Lock()
+		defer mu.Unlock()
+		fakeNow = fakeNow.Add(d)
+	}
+
+	a := newWithClock(clockFn)
 
 	for range 100 {
 		a.Add(ok("read", 1*time.Microsecond))
 	}
 
-	time.Sleep(600 * time.Millisecond)
+	// Advance fake clock past the 500ms rate-update threshold.
+	advanceClock(600 * time.Millisecond)
 	a.Add(ok("read", 1*time.Microsecond))
 
 	if r := a.Rate(); r <= 0 {
@@ -236,13 +251,27 @@ func TestAggregator_ProcInfoAndRecentLog(t *testing.T) {
 // TestAggregator_RateAfterBurst verifies that the Rate method returns a positive
 // value after a burst of events, indicating that the rate calculation is working.
 func TestAggregator_RateAfterBurst(t *testing.T) {
-	a := New()
+	var fakeNow time.Time
+	fakeNow = time.Now()
+	mu := sync.Mutex{}
+	clockFn := func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		return fakeNow
+	}
+	advanceClock := func(d time.Duration) {
+		mu.Lock()
+		defer mu.Unlock()
+		fakeNow = fakeNow.Add(d)
+	}
+
+	a := newWithClock(clockFn)
 
 	for range 200 {
 		a.Add(ok("read", 1*time.Microsecond))
 	}
 
-	time.Sleep(600 * time.Millisecond)
+	advanceClock(600 * time.Millisecond)
 	a.Add(ok("read", 1*time.Microsecond))
 	if a.Rate() <= 0 {
 		t.Fatalf("Rate should be >0 after burst, got %f", a.Rate())
