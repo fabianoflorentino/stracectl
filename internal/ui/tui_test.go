@@ -1063,16 +1063,21 @@ func TestRun_StaysOpenWhenDoneIsClosed(t *testing.T) {
 	t.Cleanup(func() { pw.Close(); pr.Close() })
 
 	stopped := make(chan struct{})
+	ready := make(chan struct{})
 	go func() {
 		defer close(stopped)
-		runWithOpts(agg, "ping -c 1 8.8.8.8", done, nil, //nolint:errcheck
+		runWithOpts(agg, "ping -c 1 8.8.8.8", done, ready, //nolint:errcheck
 			tea.WithInput(pr),
 			tea.WithOutput(io.Discard),
 		)
 	}()
 
-	// Give the BubbleTea program time to initialise its message loop.
-	time.Sleep(50 * time.Millisecond)
+	// Wait for the TUI to signal readiness (or timeout).
+	select {
+	case <-ready:
+	case <-time.After(500 * time.Millisecond):
+		// fallback: no WindowSizeMsg in headless environment; proceed
+	}
 
 	// Simulate the traced process exiting (events channel drained).
 	close(done)
@@ -1106,18 +1111,21 @@ func TestRun_NilDoneDoesNotAutoQuit(t *testing.T) {
 	t.Cleanup(func() { pw.Close(); pr.Close() })
 
 	stopped := make(chan struct{})
+	ready := make(chan struct{})
 	go func() {
 		defer close(stopped)
-		runWithOpts(agg, "trace.log", nil, nil, //nolint:errcheck
+		runWithOpts(agg, "trace.log", nil, ready, //nolint:errcheck
 			tea.WithInput(pr),
 			tea.WithOutput(io.Discard),
 		)
 	}()
 
-	// After 100 ms the TUI must still be running — nil done means no auto-quit.
-	// t.Cleanup will close the pipe so BubbleTea's stdin reader unblocks when
-	// the test binary exits; we do not need to wait for the goroutine here.
-	time.Sleep(100 * time.Millisecond)
+	// Wait for readiness; after that, the TUI should still be running.
+	select {
+	case <-ready:
+	case <-time.After(500 * time.Millisecond):
+		// fallback: no WindowSizeMsg in headless environment; proceed
+	}
 	select {
 	case <-stopped:
 		t.Fatal("Run with nil done quit unexpectedly — stats-file mode would exit immediately after loading")
