@@ -1,6 +1,6 @@
 module github.com/fabianoflorentino/stracectl
 
-go 1.26.2
+go 1.26
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
