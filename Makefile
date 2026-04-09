@@ -261,13 +261,18 @@ prune: ## Remove dangling images and stopped containers (safe cleanup)
 
 ##@ Utilities
 
-update-tools: ## Install/update Go development tools (gopls, dlv, gotests, impl, goplay)
+update-tools: ## Install/update Go development tools (gopls, dlv, gotests, impl, goplay, govulncheck)
 	@echo -e "$(BLUE)🔧 Updating Go development tools...$(NC)"
-	@GOTOOLCHAIN=auto go install github.com/cweill/gotests/gotests@latest
-	@GOTOOLCHAIN=auto go install github.com/josharian/impl@latest
-	@GOTOOLCHAIN=auto go install github.com/haya14busa/goplay/cmd/goplay@latest
-	@GOTOOLCHAIN=auto go install github.com/go-delve/delve/cmd/dlv@latest
-	@GOTOOLCHAIN=auto go install golang.org/x/tools/gopls@latest
+	$(eval ASDF_GOBIN := $(shell asdf where golang 2>/dev/null | xargs -I{} echo {}/bin))
+	$(eval INSTALL_BIN := $(if $(ASDF_GOBIN),$(ASDF_GOBIN),$(shell go env GOPATH)/bin))
+	@echo -e "$(YELLOW)Installing to: $(INSTALL_BIN)$(NC)"
+	@GOBIN=$(INSTALL_BIN) go install github.com/cweill/gotests/gotests@latest
+	@GOBIN=$(INSTALL_BIN) go install github.com/josharian/impl@latest
+	@GOBIN=$(INSTALL_BIN) go install github.com/haya14busa/goplay/cmd/goplay@latest
+	@GOBIN=$(INSTALL_BIN) go install github.com/go-delve/delve/cmd/dlv@latest
+	@GOBIN=$(INSTALL_BIN) go install golang.org/x/tools/gopls@latest
+	@GOBIN=$(INSTALL_BIN) go install golang.org/x/vuln/cmd/govulncheck@latest
+	@command -v asdf >/dev/null 2>&1 && asdf reshim golang || true
 	@echo -e "$(GREEN)✓ Go tools updated!$(NC)"
 
 check-deps: ## Check that all required dependencies are installed
