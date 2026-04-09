@@ -112,7 +112,7 @@ test-short: ## Run tests without the race detector (faster)
 
 coverage: ## Run tests and generate an HTML coverage report
 	@echo -e "$(BLUE)📊 Generating coverage report...$(NC)"
-	@go test -coverprofile=coverage.out ./...
+	@go test -race -coverprofile=coverage.out ./...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo -e "$(GREEN)✓ Report generated: coverage.html$(NC)"
 
