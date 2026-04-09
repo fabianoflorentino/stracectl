@@ -25,10 +25,6 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/procinfo"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
-
 // Server wraps an HTTP server and exposes aggregator data.
 type Server struct {
 	agg       *aggregator.Aggregator
@@ -37,6 +33,7 @@ type Server struct {
 	registry  *prometheus.Registry
 	wsToken   string
 	wsClients prometheus.Gauge
+	upgrader  websocket.Upgrader
 	// routes keeps a list of registered HTTP paths for discovery.
 	routes []routeInfo
 }
@@ -50,7 +47,22 @@ type routeInfo struct {
 // New creates a Server listening on addr (e.g. ":8080").
 func New(addr string, agg *aggregator.Aggregator, wsToken string) *Server {
 	reg := prometheus.NewRegistry()
-	s := &Server{agg: agg, registry: reg, mux: http.NewServeMux(), wsToken: wsToken, routes: []routeInfo{}}
+	s := &Server{
+		agg:      agg,
+		registry: reg,
+		mux:      http.NewServeMux(),
+		wsToken:  wsToken,
+		routes:   []routeInfo{},
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				origin := r.Header.Get("Origin")
+				if origin == "" {
+					return true // non-browser clients
+				}
+				return origin == "http://"+r.Host || origin == "https://"+r.Host
+			},
+		},
+	}
 
 	s.registerMetrics(reg)
 	s.registerRoute("/", s.handleDashboard, "Web dashboard")
@@ -321,7 +333,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
