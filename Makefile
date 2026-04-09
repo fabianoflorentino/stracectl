@@ -5,7 +5,7 @@
 # ============================================================================
 
 .PHONY: help \
-	build run test test-short coverage fmt vet lint tidy clean clean-images all \
+	build run test test-short coverage fmt vet lint tidy clean clean-cache clean-images all \
 	generate-bpf build-ebpf clean-bpf \
 	site-dev site-build site-clean \
 	docker-build docker-build-dev docker-build-site docker-push \
@@ -142,6 +142,11 @@ clean: ## Remove build artifacts
 	@$(MAKE) clean-images || true
 	@rm -rf bin/ coverage.out coverage.html
 	@echo -e "$(GREEN)✓ Clean done!$(NC)"
+
+clean-cache: ## Clear the Go build cache (fixes version mismatch errors)
+	@echo -e "$(YELLOW)🧹 Clearing Go build cache...$(NC)"
+	@go clean -cache
+	@echo -e "$(GREEN)✓ Go build cache cleared!$(NC)"
 
 ##@ Site (Hugo)
 
