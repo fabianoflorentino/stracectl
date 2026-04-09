@@ -10,7 +10,7 @@
 	site-dev site-build site-clean \
 	docker-build docker-build-dev docker-build-site docker-push \
 	up up-site up-detach down logs logs-tail ps restart prune \
-	check-deps info
+	check-deps update-tools info
 
 # ============================================================================
 # Variables
@@ -260,6 +260,15 @@ prune: ## Remove dangling images and stopped containers (safe cleanup)
 	@echo -e "$(GREEN)✓ Cleanup done!$(NC)"
 
 ##@ Utilities
+
+update-tools: ## Install/update Go development tools (gopls, dlv, gotests, impl, goplay)
+	@echo -e "$(BLUE)🔧 Updating Go development tools...$(NC)"
+	@GOTOOLCHAIN=auto go install github.com/cweill/gotests/gotests@latest
+	@GOTOOLCHAIN=auto go install github.com/josharian/impl@latest
+	@GOTOOLCHAIN=auto go install github.com/haya14busa/goplay/cmd/goplay@latest
+	@GOTOOLCHAIN=auto go install github.com/go-delve/delve/cmd/dlv@latest
+	@GOTOOLCHAIN=auto go install golang.org/x/tools/gopls@latest
+	@echo -e "$(GREEN)✓ Go tools updated!$(NC)"
 
 check-deps: ## Check that all required dependencies are installed
 	@echo -e "$(BLUE)🔍 Checking dependencies...$(NC)"
