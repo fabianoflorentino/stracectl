@@ -109,7 +109,7 @@ func (a *Aggregator) Sorted(by SortField) []SyscallStat {
 	statsCopy, fileMapSnap := a.snapshotLocked()
 	a.mu.RUnlock()
 
-	out := a.finalizeSnapshot(statsCopy, fileMapSnap, time.Now().Unix())
+	out := a.finalizeSnapshot(statsCopy, fileMapSnap, a.nowFunc().Unix())
 
 	sort.Slice(out, func(i, j int) bool {
 		switch by {
