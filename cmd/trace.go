@@ -153,7 +153,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 				} else {
 					auditLogger = al
 					// Log initial entry
-					_ = auditLogger.Log(paudit.Entry{
+					if err := auditLogger.Log(paudit.Entry{
 						"action": "trace_start",
 						"label":  label,
 						"privacy_opts": map[string]interface{}{
@@ -167,7 +167,9 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 						},
 						"program": program,
 						"args":    strings.Join(args, " "),
-					})
+					}); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: audit log write failed: %v\n", err)
+					}
 				}
 			}
 		}
@@ -200,7 +202,9 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 						fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
 					} else {
 						// separate JSON objects with newline
-						_ = pOutput.Write([]byte("\n"))
+						if err := pOutput.Write([]byte("\n")); err != nil {
+							fmt.Fprintf(os.Stderr, "warning: privacy log separator write failed: %v\n", err)
+						}
 						eventCount++
 					}
 				}
@@ -262,7 +266,9 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 					if err := ppipeline.Process(&te, pFilter, pRedactor, pFormatter, pOutput); err != nil {
 						fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
 					} else {
-						_ = pOutput.Write([]byte("\n"))
+						if err := pOutput.Write([]byte("\n")); err != nil {
+							fmt.Fprintf(os.Stderr, "warning: privacy log separator write failed: %v\n", err)
+						}
 						eventCount++
 					}
 				}
@@ -283,7 +289,9 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 	// entry with event count and SHA256 of the final file (if applicable).
 	if pEnabled && pOutput != nil {
 		// close to flush writes before hashing
-		_ = pOutput.Close()
+		if err := pOutput.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close privacy log: %v\n", err)
+		}
 		if auditLogger != nil && privacyLogPath != "stdout" {
 			// compute SHA256 of the privacy log file
 			f, err := os.Open(privacyLogPath)
@@ -291,15 +299,19 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 				hasher := sha256.New()
 				if _, err := io.Copy(hasher, f); err == nil {
 					sum := hasher.Sum(nil)
-					_ = auditLogger.Log(paudit.Entry{
+					if err := auditLogger.Log(paudit.Entry{
 						"action":      "trace_end",
 						"label":       label,
 						"event_count": eventCount,
 						"file_hash":   hex.EncodeToString(sum),
 						"duration":    time.Since(startTime).String(),
-					})
+					}); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: audit log write failed: %v\n", err)
+					}
 				}
-				_ = f.Close()
+				if err := f.Close(); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to close privacy log after hashing: %v\n", err)
+				}
 			}
 		}
 	}
@@ -421,7 +433,7 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 				} else {
 					auditLogger = al
 					// Log initial entry
-					_ = auditLogger.Log(paudit.Entry{
+					if err := auditLogger.Log(paudit.Entry{
 						"action": "trace_start",
 						"label":  label,
 						"privacy_opts": map[string]any{
@@ -435,7 +447,9 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 						},
 						"program": "",
 						"args":    "",
-					})
+					}); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: audit log write failed: %v\n", err)
+					}
 				}
 			}
 		}
@@ -482,21 +496,27 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 	wg.Wait()
 
 	if pEnabled && pOutput != nil {
-		_ = pOutput.Close()
+		if err := pOutput.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close privacy log: %v\n", err)
+		}
 		if auditLogger != nil && privacyLogPath != "stdout" {
 			f, err := os.Open(privacyLogPath)
 			if err == nil {
 				hasher := sha256.New()
 				if _, err := io.Copy(hasher, f); err == nil {
-					_ = auditLogger.Log(paudit.Entry{
+					if err := auditLogger.Log(paudit.Entry{
 						"action":      "trace_end",
 						"label":       label,
 						"event_count": eventCount,
 						"file_hash":   hex.EncodeToString(hasher.Sum(nil)),
 						"duration":    time.Since(startTime).String(),
-					})
+					}); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: audit log write failed: %v\n", err)
+					}
 				}
-				_ = f.Close()
+				if err := f.Close(); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to close privacy log after hashing: %v\n", err)
+				}
 			}
 		}
 	}
