@@ -3,6 +3,7 @@ package terminal
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -42,7 +43,7 @@ func SafeIntFromUintptr(u uintptr) (int, bool) {
 }
 
 func RecordFallbackEvent(w, h int) {
-	f, _ := os.OpenFile("/tmp/stracectl_ui_fallback.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	f, _ := os.OpenFile(filepath.Join(os.TempDir(), fmt.Sprintf("stracectl_ui_fallback.%d.log", os.Getpid())), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if f == nil {
 		return
 	}
@@ -51,7 +52,7 @@ func RecordFallbackEvent(w, h int) {
 }
 
 func RecordUIEvent(ev string, w, h int) {
-	f, _ := os.OpenFile("/tmp/stracectl_ui_events.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	f, _ := os.OpenFile(filepath.Join(os.TempDir(), fmt.Sprintf("stracectl_ui_events.%d.log", os.Getpid())), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if f == nil {
 		return
 	}
