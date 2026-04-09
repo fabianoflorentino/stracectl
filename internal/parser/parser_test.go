@@ -10,7 +10,6 @@ import (
 // ── table-driven tests ────────────────────────────────────────────────────────
 
 func TestParse(t *testing.T) {
-	t.Parallel()
 
 	cases := []struct {
 		name       string
@@ -107,7 +106,6 @@ func TestParse(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 
 			p := parser.New()
 			got, err := p.Parse(tc.line, tc.defaultPID)
@@ -149,7 +147,6 @@ func TestParse(t *testing.T) {
 }
 
 func TestParse_Unfinished(t *testing.T) {
-	t.Parallel()
 
 	p := parser.New()
 
