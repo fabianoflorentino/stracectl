@@ -466,7 +466,9 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 				if err := ppipeline.Process(&te, pFilter, pRedactor, pFormatter, pOutput); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: privacy pipeline error: %v\n", err)
 				} else {
-					_ = pOutput.Write([]byte("\n"))
+					if err := pOutput.Write([]byte("\n")); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: privacy log separator write failed: %v\n", err)
+					}
 					eventCount++
 				}
 			}
