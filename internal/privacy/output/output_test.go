@@ -107,3 +107,32 @@ func TestNewFileAutoExpire(t *testing.T) {
 	}
 	t.Fatalf("expected file to be removed after TTL")
 }
+
+func TestNewFileAutoExpire_CancelledByContext(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "priv.log")
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	out, err := NewFile(p, 10*time.Second, ctx) // very long TTL
+	if err != nil {
+		t.Fatalf("NewFile: %v", err)
+	}
+	if err := out.Write([]byte("data\n")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	cancel() // cancel context; TTL goroutine must exit without removing the file
+
+	// short grace period for goroutine to exit
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			t.Fatal("file was removed even though context was cancelled before TTL")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}

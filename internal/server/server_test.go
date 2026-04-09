@@ -615,3 +615,39 @@ func TestDebugGoroutines(t *testing.T) {
 		t.Fatalf("expected goroutines field in response")
 	}
 }
+
+func TestStream_RejectsDisallowedOrigin(t *testing.T) {
+	agg := aggregator.New()
+	ts := httptest.NewServer(server.New(":0", agg, ""))
+	t.Cleanup(ts.Close)
+
+	url := "ws" + strings.TrimPrefix(ts.URL, "http") + "/stream"
+	header := http.Header{"Origin": []string{"http://evil.example.com"}}
+	_, resp, err := websocket.DefaultDialer.Dial(url, header)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("expected connection to be rejected for mismatched origin")
+	}
+	if resp != nil && resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestStream_AllowsMatchingOrigin(t *testing.T) {
+	agg := aggregator.New()
+	ts := httptest.NewServer(server.New(":0", agg, ""))
+	t.Cleanup(ts.Close)
+
+	url := "ws" + strings.TrimPrefix(ts.URL, "http") + "/stream"
+	header := http.Header{"Origin": []string{ts.URL}}
+	conn, resp, err := websocket.DefaultDialer.Dial(url, header)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if err != nil {
+		t.Fatalf("expected connection to succeed for matching origin: %v", err)
+	}
+	t.Cleanup(func() { conn.Close() })
+}
