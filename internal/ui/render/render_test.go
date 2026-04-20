@@ -36,6 +36,7 @@ func (f fakeCtrl) LogOffsetPtr() *int           { return &f.logOffset }
 func (f fakeCtrl) FilesOffsetPtr() *int         { return &f.filesOffset }
 func (f fakeCtrl) Started() time.Time           { return f.started }
 func (f fakeCtrl) Target() string               { return f.target }
+func (f fakeCtrl) PerPID() bool                 { return false }
 
 func Test_RenderDetailContainsSections(t *testing.T) {
 	agg := aggregator.New()

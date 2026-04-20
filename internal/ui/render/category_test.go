@@ -27,6 +27,7 @@ func (f fakeAgg) CategoryBreakdown() map[aggregator.Category]aggregator.Category
 	return f.breakdown
 }
 func (f fakeAgg) GetProcInfo() procinfo.ProcInfo { return procinfo.ProcInfo{} }
+func (f fakeAgg) IsPerPID() bool                 { return false }
 
 // ensure fakeAgg satisfies the interface at compile time.
 var _ umodel.AggregatorView = fakeAgg{}

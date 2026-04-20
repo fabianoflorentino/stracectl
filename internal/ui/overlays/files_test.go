@@ -22,6 +22,7 @@ func (e *emptyFilesAgg) CategoryBreakdown() map[aggregator.Category]aggregator.C
 	return nil
 }
 func (e *emptyFilesAgg) GetProcInfo() procinfo.ProcInfo       { return procinfo.ProcInfo{} }
+func (e *emptyFilesAgg) IsPerPID() bool                       { return false }
 func (e *emptyFilesAgg) TopFiles(_ int) []aggregator.FileStat { return nil }
 
 type singleFileAgg struct {
@@ -39,6 +40,7 @@ func (s *singleFileAgg) CategoryBreakdown() map[aggregator.Category]aggregator.C
 	return nil
 }
 func (s *singleFileAgg) GetProcInfo() procinfo.ProcInfo { return procinfo.ProcInfo{} }
+func (s *singleFileAgg) IsPerPID() bool                 { return false }
 func (s *singleFileAgg) TopFiles(_ int) []aggregator.FileStat {
 	return []aggregator.FileStat{{Path: s.path, Count: s.count}}
 }

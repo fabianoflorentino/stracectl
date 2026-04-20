@@ -18,7 +18,7 @@ func newTestServer(addr string, agg *aggregator.Aggregator) *server.Server {
 }
 
 func TestLoadAggFromFile_NotFound(t *testing.T) {
-	_, err := loadAggFromFile("/non/existent/stracectl_stats_test.log")
+	_, err := loadAggFromFile("/non/existent/stracectl_stats_test.log", false)
 	if err == nil {
 		t.Fatal("expected error for non-existent file, got nil")
 	}
@@ -31,7 +31,7 @@ func TestLoadAggFromFile_Empty(t *testing.T) {
 	}
 	_ = f.Close()
 
-	_, err = loadAggFromFile(f.Name())
+	_, err = loadAggFromFile(f.Name(), false)
 	if err == nil {
 		t.Fatal("expected error for file with no syscall events, got nil")
 	}
@@ -50,7 +50,7 @@ func TestLoadAggFromFile_ValidTrace(t *testing.T) {
 	}
 	_ = f.Close()
 
-	agg, err := loadAggFromFile(f.Name())
+	agg, err := loadAggFromFile(f.Name(), false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestLoadAggFromFile_LongLine(t *testing.T) {
 	}
 	_ = f.Close()
 
-	agg, err := loadAggFromFile(f.Name())
+	agg, err := loadAggFromFile(f.Name(), false)
 	if err != nil {
 		t.Fatalf("long-line: unexpected error: %v (scanner buffer may be too small)", err)
 	}
@@ -103,7 +103,7 @@ func TestLoadAggFromFile_MalformedLinesSkipped(t *testing.T) {
 	}
 	_ = f.Close()
 
-	agg, err := loadAggFromFile(f.Name())
+	agg, err := loadAggFromFile(f.Name(), false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestStatsServeAlsoWritesReport(t *testing.T) {
 	_ = traceFile.Close()
 
 	// Load the aggregator just as the command would.
-	agg, err := loadAggFromFile(traceFile.Name())
+	agg, err := loadAggFromFile(traceFile.Name(), false)
 	if err != nil {
 		t.Fatalf("loadAggFromFile: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestStatsServeExitWritesReport(t *testing.T) {
 	}
 	_ = traceFile.Close()
 
-	agg, err := loadAggFromFile(traceFile.Name())
+	agg, err := loadAggFromFile(traceFile.Name(), false)
 	if err != nil {
 		t.Fatalf("loadAggFromFile: %v", err)
 	}

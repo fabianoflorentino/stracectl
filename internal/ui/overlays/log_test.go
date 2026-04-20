@@ -23,6 +23,7 @@ func (m mockAgg) RecentLog() []aggregator.LogEntry                              
 func (m mockAgg) TopFiles(n int) []aggregator.FileStat                                { return nil }
 func (m mockAgg) CategoryBreakdown() map[aggregator.Category]aggregator.CategoryStats { return nil }
 func (m mockAgg) GetProcInfo() procinfo.ProcInfo                                      { return procinfo.ProcInfo{} }
+func (m mockAgg) IsPerPID() bool                                                      { return false }
 
 // TestStringsRepeat verifies the behavior of the stringsRepeat helper function.
 // This is a simple utility function, but we want to ensure it handles edge cases

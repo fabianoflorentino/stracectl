@@ -17,6 +17,7 @@ func (f *fakeAgg) UniqueCount() int                                             
 func (f *fakeAgg) Sorted(_ aggregator.SortField) []aggregator.SyscallStat              { return nil }
 func (f *fakeAgg) CategoryBreakdown() map[aggregator.Category]aggregator.CategoryStats { return nil }
 func (f *fakeAgg) GetProcInfo() procinfo.ProcInfo                                      { return procinfo.ProcInfo{} }
+func (f *fakeAgg) IsPerPID() bool                                                      { return false }
 
 func (f *fakeAgg) RecentLog() []aggregator.LogEntry {
 	now := time.Now()
