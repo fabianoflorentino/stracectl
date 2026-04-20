@@ -398,13 +398,6 @@ func (a *Aggregator) appendLogLocked(entry LogEntry) {
 	}
 }
 
-// getOrCreateStatLocked retrieves the SyscallStat for the given syscall name, creating it if it does not exist.
-// In per-PID mode the key is "<pid>/<name>" and the stat carries the PID.
-// This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
-func (a *Aggregator) getOrCreateStatLocked(name string) *SyscallStat {
-	return a.getOrCreateStatForPIDLocked(0, name)
-}
-
 // getOrCreateStatForPIDLocked is the core implementation used by addStatsLocked
 // in per-PID mode. It keys stats by "<pid>/<name>" when pid != 0.
 func (a *Aggregator) getOrCreateStatForPIDLocked(pid int, name string) *SyscallStat {
