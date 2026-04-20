@@ -78,7 +78,7 @@ strace -T -o trace.log curl https://example.com
 # TUI
 stracectl stats trace.log
 
-# HTTP API  
+# HTTP API
 stracectl stats --serve :8080 trace.log
 
 # HTML report
