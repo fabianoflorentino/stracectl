@@ -2,6 +2,7 @@
 package aggregator
 
 import (
+	"fmt"
 	"maps"
 	"sort"
 	"sync"
@@ -27,6 +28,7 @@ type Aggregator struct {
 	fileAttr FileAttributor
 	done     bool
 	nowFunc  func() time.Time
+	perPID   bool // when true, stats are keyed by "<pid>/<syscall>"
 }
 
 // rateSnapshot is a helper struct to track previous total and timestamp for rate calculations.
@@ -250,6 +252,22 @@ func (a *Aggregator) RecentLog() []LogEntry {
 	return out
 }
 
+// SetPerPID enables or disables per-PID aggregation mode. When enabled,
+// statistics are tracked per (pid, syscall) pair instead of just per syscall.
+// This must be called before the first Add() call.
+func (a *Aggregator) SetPerPID(v bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.perPID = v
+}
+
+// IsPerPID reports whether the aggregator is operating in per-PID mode.
+func (a *Aggregator) IsPerPID() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.perPID
+}
+
 // SetDone marks the traced process as having exited.
 // This method is safe for concurrent use and handles all necessary locking internally.
 func (a *Aggregator) SetDone() {
@@ -289,9 +307,14 @@ func (a *Aggregator) TopFilesForSyscall(name string, n int) []FileStat {
 // -- private helper functions (assume lock is held) -----------------------
 
 // addStatsLocked updates the syscall stat for the event's syscall name, incrementing counts and updating latency histograms.
+// In per-PID mode it uses a (pid, name) key so statistics are tracked per process.
 // This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
 func (a *Aggregator) addStatsLocked(e models.SyscallEvent) {
-	s := a.getOrCreateStatLocked(e.Name)
+	pid := 0
+	if a.perPID {
+		pid = e.PID
+	}
+	s := a.getOrCreateStatForPIDLocked(pid, e.Name)
 	s.Count++
 	s.TotalTime += e.Latency
 
@@ -307,13 +330,19 @@ func (a *Aggregator) addStatsLocked(e models.SyscallEvent) {
 }
 
 // handleErrorLocked updates the error stats for the event's syscall name.
+// In per-PID mode it uses the per-pid stat to keep error counts consistent
+// with the counts tracked in addStatsLocked.
 // This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
 func (a *Aggregator) handleErrorLocked(e models.SyscallEvent) {
 	if !e.IsError() {
 		return
 	}
 
-	s := a.getOrCreateStatLocked(e.Name)
+	pid := 0
+	if a.perPID {
+		pid = e.PID
+	}
+	s := a.getOrCreateStatForPIDLocked(pid, e.Name)
 	s.Errors++
 	a.errors++
 	if e.Error != "" {
@@ -370,15 +399,24 @@ func (a *Aggregator) appendLogLocked(entry LogEntry) {
 }
 
 // getOrCreateStatLocked retrieves the SyscallStat for the given syscall name, creating it if it does not exist.
+// In per-PID mode the key is "<pid>/<name>" and the stat carries the PID.
 // This method assumes the caller holds `a.mu` (Lock). It does not perform any locking itself.
 func (a *Aggregator) getOrCreateStatLocked(name string) *SyscallStat {
-	s := a.stats[name]
+	return a.getOrCreateStatForPIDLocked(0, name)
+}
 
-	if s == nil {
-		s = &SyscallStat{Name: name, Category: classify(name)}
-		a.stats[name] = s
+// getOrCreateStatForPIDLocked is the core implementation used by addStatsLocked
+// in per-PID mode. It keys stats by "<pid>/<name>" when pid != 0.
+func (a *Aggregator) getOrCreateStatForPIDLocked(pid int, name string) *SyscallStat {
+	key := name
+	if pid != 0 {
+		key = fmt.Sprintf("%d/%s", pid, name)
 	}
-
+	s := a.stats[key]
+	if s == nil {
+		s = &SyscallStat{Name: name, PID: pid, Category: classify(name)}
+		a.stats[key] = s
+	}
 	return s
 }
 

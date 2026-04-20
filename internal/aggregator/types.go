@@ -78,8 +78,11 @@ type CategoryStats struct {
 
 // SyscallStat holds aggregated statistics for a specific syscall
 // name, including counts, latencies, error breakdowns and file attribution.
+// When the aggregator is running in per-PID mode, PID is set to the traced
+// process ID so callers can distinguish per-process rows.
 type SyscallStat struct {
 	Name           string
+	PID            int // non-zero only in per-PID mode
 	Category       Category
 	Count          int64
 	Errors         int64

@@ -270,6 +270,7 @@ func (m *model) LogOffsetPtr() *int           { return &m.logOffset }
 func (m *model) FilesOffsetPtr() *int         { return &m.filesOffset }
 func (m *model) Started() time.Time           { return m.started }
 func (m *model) Target() string               { return m.target }
+func (m *model) PerPID() bool                 { return m.agg.IsPerPID() }
 
 // Run starts the full-screen TUI backed by agg.
 // done, if non-nil, should be closed when the traced process exits; the TUI

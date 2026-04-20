@@ -22,4 +22,5 @@ type UIController interface {
 	FilesOffsetPtr() *int
 	Started() time.Time
 	Target() string
+	PerPID() bool
 }

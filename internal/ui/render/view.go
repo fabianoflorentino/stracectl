@@ -63,7 +63,7 @@ func RenderView(ctrl controller.UIController) string {
 	catLine := RenderCategoryBar(agg, w)
 
 	div := divStyle.Render(strings.Repeat("─", w))
-	hdr := RenderHeader(cw, ctrl.SortBy())
+	hdr := RenderHeader(cw, ctrl.SortBy(), ctrl.PerPID())
 
 	shortcuts := " q:quit  c:calls▼  t:total  a:avg  m:min  x:max  e:errors  n:name  g:category  /:filter  ↑↓/jk:move  enter/d:details  l:log  f:files  ?:help  esc:clear"
 	if ctrl.Filter() != "" {
@@ -144,8 +144,12 @@ func RenderView(ctrl controller.UIController) string {
 
 		nameVal := widgets.TruncateToWidth(widgets.SanitizeForTUI(s.Name), cw.Name-2)
 
-		fileVal := ""
-		if len(s.Files) > 0 {
+		var fileVal string
+		if ctrl.PerPID() {
+			if s.PID != 0 {
+				fileVal = widgets.TruncateToWidth(fmt.Sprintf("%d", s.PID), cw.File)
+			}
+		} else if len(s.Files) > 0 {
 			fileVal = widgets.TruncateToWidth(widgets.SanitizeForTUI(s.Files[0].Path), cw.File)
 		}
 

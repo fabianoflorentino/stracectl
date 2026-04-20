@@ -18,4 +18,5 @@ type AggregatorView interface {
 	TopFiles(n int) []aggregator.FileStat
 	CategoryBreakdown() map[aggregator.Category]aggregator.CategoryStats
 	GetProcInfo() procinfo.ProcInfo
+	IsPerPID() bool
 }

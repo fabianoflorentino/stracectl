@@ -22,13 +22,14 @@ var runBackend string
 var runTryElevate bool
 var runForceEbpf bool
 var runUnfiltered bool
+var runPerPID bool
 
 // selectTracer allows tests to substitute tracer selection logic.
 // Defaults to the real tracer.Select function.
 var selectTracer = tracer.Select
 
 var runCmd = &cobra.Command{
-	Use:   "run [--serve :8080] [--report <path>] [--ws-token <token>] [--backend auto|ebpf|strace] <command> [args...]",
+	Use:   "run [--serve :8080] [--report <path>] [--ws-token <token>] [--backend auto|ebpf|strace] [--per-pid] <command> [args...]",
 	Short: "Run a command and trace it",
 	Long: `Run a command under a tracing backend and display live syscall
 statistics in the TUI.
@@ -41,6 +42,9 @@ to force a specific backend.
 
 Press q or Ctrl+C to stop. On exit, an optional self-contained HTML report can
 be written to a file for sharing or archiving.
+
+Use --per-pid to group syscall rows by PID instead of aggregating all
+processes into a single row per syscall.
 
 When --serve is enabled, stracectl exposes a Web dashboard with live syscall
 log search/filter, anomaly alerts, process metadata, process-exit notification,
@@ -55,7 +59,9 @@ Examples:
 	# Force eBPF backend (requires eBPF-enabled build and kernel support)
 	sudo stracectl run --backend ebpf --report trace-ebpf.html curl https://example.com
 	# Force classic strace subprocess tracer
-	sudo stracectl run --backend strace curl https://example.com`,
+	sudo stracectl run --backend strace curl https://example.com
+	# Group rows by PID (useful when tracing workloads that spawn children)
+	sudo stracectl run --per-pid -- bash -lc 'for i in 1 2; do (sleep 0.1) & done; wait'`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -67,6 +73,9 @@ Examples:
 		defer cancelTracer()
 
 		agg := aggregator.New()
+		if runPerPID {
+			agg.SetPerPID(true)
+		}
 
 		tr, err := selectTracer(runBackend)
 		if err != nil {
@@ -89,6 +98,7 @@ func init() {
 	runCmd.Flags().BoolVar(&runTryElevate, "try-elevate", false, "attempt to re-run the process with sudo/prlimit to raise RLIMIT_MEMLOCK when eBPF load fails")
 	runCmd.Flags().BoolVar(&runForceEbpf, "force-ebpf", false, "fail when eBPF probe fails instead of falling back to strace")
 	runCmd.Flags().BoolVar(&runUnfiltered, "unfiltered", false, "disable PGID filter and capture system-wide events (useful on WSL)")
+	runCmd.Flags().BoolVar(&runPerPID, "per-pid", false, "group syscall statistics by PID instead of aggregating across all processes")
 	rootCmd.AddCommand(runCmd)
 }
 

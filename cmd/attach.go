@@ -24,9 +24,10 @@ var backend string
 var attachTryElevate bool
 var attachForceEbpf bool
 var attachUnfiltered bool
+var attachPerPID bool
 
 var attachCmd = &cobra.Command{
-	Use:   "attach [--serve :8080] [--report <path>] [--ws-token <token>] [--backend auto|ebpf|strace] [--container <name> | <pid>]",
+	Use:   "attach [--serve :8080] [--report <path>] [--ws-token <token>] [--backend auto|ebpf|strace] [--per-pid] [--container <name> | <pid>]",
 	Short: "Attach to a running process and trace it",
 	Long: `Attach a tracer to an already-running process by PID and display live
 syscall statistics in the TUI.
@@ -43,6 +44,9 @@ The tracing backend may be selected with ` + "--backend" + `:
 Press q or Ctrl+C to stop. On exit, an optional self-contained HTML report can
 be written to a file for sharing or archiving.
 
+Use --per-pid to keep statistics grouped by process ID (PID), which is useful
+when the target process creates worker or child processes.
+
 When --serve is enabled, stracectl exposes a Web dashboard with live syscall
 log search/filter, anomaly alerts, process metadata, process-exit notification,
 per-errno breakdown, and P95/P99 + rolling error-rate metrics.
@@ -54,7 +58,8 @@ Examples:
 	sudo stracectl attach --report nginx.html 1234
 	sudo stracectl attach --container myapp
 	sudo stracectl attach --backend ebpf 1234
-	sudo stracectl attach --backend strace 1234`,
+	sudo stracectl attach --backend strace 1234
+	sudo stracectl attach --per-pid 1234`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		var pid int
@@ -86,6 +91,9 @@ Examples:
 		defer cancelTracer()
 
 		agg := aggregator.New()
+		if attachPerPID {
+			agg.SetPerPID(true)
+		}
 		agg.SetProcInfo(procinfo.Read(pid))
 
 		t, err := selectTracer(backend)
@@ -136,5 +144,6 @@ func init() {
 	attachCmd.Flags().BoolVar(&attachTryElevate, "try-elevate", false, "attempt to re-run the process with sudo/prlimit to raise RLIMIT_MEMLOCK when eBPF load fails")
 	attachCmd.Flags().BoolVar(&attachForceEbpf, "force-ebpf", false, "fail when eBPF probe fails instead of falling back to strace")
 	attachCmd.Flags().BoolVar(&attachUnfiltered, "unfiltered", false, "disable PGID filter and capture system-wide events (useful on WSL)")
+	attachCmd.Flags().BoolVar(&attachPerPID, "per-pid", false, "group syscall statistics by PID instead of aggregating across all processes")
 	rootCmd.AddCommand(attachCmd)
 }
