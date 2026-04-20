@@ -30,9 +30,8 @@ New cross-backend features (roadmap highlights)
   so users get the same behavior regardless of backend. Where kernel-side
   filtering isn't available for eBPF, a best-effort userspace filter will
   be applied and a short diagnostic will be printed.
-- Follow forks and per-PID grouping (`-f`, `--per-pid`): ensure child
-  processes are included when requested and add a `--per-pid` mode to view
-  statistics grouped by PID.
+- Follow forks (`-f`): ensure child processes are included consistently across
+  backends.
 - Timestamp normalization (`--timestamps=relative|absolute|ns`):
   standardize event timestamps across backends (use `EnterNs` from eBPF
   events or parsed strace prefixes when present).
@@ -59,5 +58,11 @@ Longer-term items (design & risk review)
 
 For the full implementation plan and detailed items, see the canonical
 roadmap in the repository:
+
+Recently delivered
+------------------
+
+- Per-PID grouping (`--per-pid`) is now available in `run`, `attach`, and
+  `stats`, allowing syscall rows to be split by process ID.
 
 [Full Roadmap (docs/ROADMAP.md)](https://github.com/fabianoflorentino/stracectl/blob/main/docs/ROADMAP.md)

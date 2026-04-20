@@ -63,7 +63,8 @@ Notes:
 
 - Add `--save-events <file>` (NDJSON) to `run`, `attach`, and `stats` so both backends can dump parsed events for offline analysis.
 - Expose a small set of unified CLI flags: `--filter-syscalls`, `--trace-path`, `--string-limit`, `--status` and wire them to `strace` (pass-through) and eBPF (userspace/BPF-map where practical).
-- Ensure `-f` (follow forks) works consistently; add `--per-pid` to switch between aggregated and per-pid stats.
+- Ensure `-f` (follow forks) works consistently across backends.
+- ✅ Added `--per-pid` to `run`, `attach`, and `stats` to switch between aggregated and per-pid stats.
 - Add a `--timestamps=relative|absolute|ns` option that controls how timestamps are computed and displayed for both backends.
 
 ### Mid-term (1–3 months)

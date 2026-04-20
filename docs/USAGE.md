@@ -96,6 +96,24 @@ Save a report on exit:
 sudo stracectl attach --report nginx-report.html 1234
 ```
 
+### Per-PID aggregation
+
+Use `--per-pid` to split syscall rows by process ID instead of combining all
+events into a single row per syscall name.
+
+```bash
+# live trace
+sudo stracectl run --per-pid -- python3 app.py
+
+# attach mode
+sudo stracectl attach --per-pid 1234
+
+# offline analysis
+stracectl stats --per-pid trace.log
+```
+
+In the TUI table, the `FILE` column changes to `PID` when this mode is active.
+
 ### Analyse a saved strace file (post-mortem)
 
 If you already have a strace log captured with `-T`, you can analyse it offline:

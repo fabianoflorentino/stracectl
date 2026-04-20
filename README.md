@@ -65,6 +65,12 @@ Trace and write a self-contained HTML report:
 stracectl run --report out.html curl https://example.com
 ```
 
+Trace and group rows by PID (useful for multi-process workloads):
+
+```sh
+stracectl run --per-pid -- python3 app.py
+```
+
 Attach to a running PID:
 
 ```sh
@@ -82,6 +88,7 @@ Analyse a saved strace file:
 ```sh
 stracectl stats trace.log
 stracectl stats --report report.html trace.log
+stracectl stats --per-pid trace.log
 ```
 
 Auto-discover a container PID in a Pod or provide a container name:
