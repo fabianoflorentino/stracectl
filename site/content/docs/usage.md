@@ -159,6 +159,7 @@ stracectl explain --privacy-level low
 ```
 
 The command prints:
+
 - All active privacy option values
 - Compiled redaction patterns
 - An example of a redacted event showing what the output will look like
