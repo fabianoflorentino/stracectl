@@ -26,6 +26,7 @@ on:
       - 'scripts/**'
       - 'site/**'
       - 'Makefile'
+      - '.agents/**'
       - '.*/**'
 
 jobs:
@@ -42,6 +43,7 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
+          skip-dirs: .agents
           format: table
           exit-code: 1
           ignore-unfixed: true

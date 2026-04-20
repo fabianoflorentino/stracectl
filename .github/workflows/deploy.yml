@@ -19,6 +19,7 @@ on:
       - 'scripts/**'
       - 'site/**'
       - 'Makefile'
+      - '.agents/**'
       - '.*/**'
   pull_request:
     branches: [main]
@@ -28,6 +29,7 @@ on:
       - 'scripts/**'
       - 'site/**'
       - 'Makefile'
+      - '.agents/**'
       - '.*/**'
 
 permissions:
