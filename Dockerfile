@@ -57,7 +57,7 @@ RUN clang -O2 -g -target bpf \
 # -----------------------------------------------------------------------------
 # Stage 1: base — lightweight non-eBPF Go build (alpine)
 # -----------------------------------------------------------------------------
-FROM golang:alpine3.23 AS base
+FROM golang:alpine3.24.1 AS base
 
 WORKDIR /app
 
@@ -157,7 +157,7 @@ CMD ["-c", "/app/.air.toml"]
 # -----------------------------------------------------------------------------
 # Stage 4: site — Hugo development server for site previews
 # -----------------------------------------------------------------------------
-FROM alpine:3.23 AS site
+FROM alpine:3.24.1 AS site
 
 ARG HUGO_VERSION=0.157.0
 ARG HUGO_URL="https://github.com/gohugoio/hugo/releases"
