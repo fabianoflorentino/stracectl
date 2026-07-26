@@ -30,21 +30,15 @@ New cross-backend features (roadmap highlights)
   so users get the same behavior regardless of backend. Where kernel-side
   filtering isn't available for eBPF, a best-effort userspace filter will
   be applied and a short diagnostic will be printed.
-- Follow forks (`-f`): ensure child processes are included consistently across
-  backends.
 - Timestamp normalization (`--timestamps=relative|absolute|ns`):
   standardize event timestamps across backends (use `EnterNs` from eBPF
   events or parsed strace prefixes when present).
 - FD decoding and path resolution (`--decode-fds`): resolve file-descriptor
   targets via `/proc/<pid>/fd` when the tracer does not provide a `Path`.
   This is opt-in and uses a small cache to limit overhead.
-- TopFiles / TopSockets / Timeline: server endpoints and TUI overlays to
-  surface most-accessed files, active sockets, and a flamegraph-style
-  syscall timeline (keys: `f` for files, `s` for sockets, timeline in
-  the footer).
-- Summary/stats compatibility (`-c`): reuse the existing `aggregator`
-  to present `strace -c`-style summaries (calls, time, errors) for both
-  backends.
+- TopSockets / Timeline: server endpoints and TUI overlays to
+  surface active sockets and a flamegraph-style
+  syscall timeline (`s` for sockets, timeline in the footer).
 
 Longer-term items (design & risk review)
 ----------------------------------------
@@ -64,5 +58,11 @@ Recently delivered
 
 - Per-PID grouping (`--per-pid`) is now available in `run`, `attach`, and
   `stats`, allowing syscall rows to be split by process ID.
+- Follow forks (`-f`): strace backend passes `-f` to the subprocess; eBPF
+  backend uses PGID-based filtering with `--per-pid` mode.
+- Summary (`-c` style): the `stats` command and aggregator produce
+  calls/time/errors summaries for both backends.
+- TopFiles: TUI overlay (`f` key), API endpoint (`/api/files`), and HTML
+  report integration via `--report-top-files N`.
 
 [Full Roadmap (docs/ROADMAP.md)](https://github.com/fabianoflorentino/stracectl/blob/main/docs/ROADMAP.md)
