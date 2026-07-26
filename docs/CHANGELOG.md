@@ -14,6 +14,7 @@ and provide a concise summary of user-facing changes).
 
 ## Releases
 
+* [v1.0.131](https://github.com/fabianoflorentino/stracectl/blob/main/.changes/v1.0.131_release_notes.md)
 * [v1.0.112](.changes/v1.0.112_release_notes.md)
 * [v1.0.99](.changes/v1.0.99_release_notes.md)
 * [v1.0.93](.changes/v1.0.93_release_notes.md)
