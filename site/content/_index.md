@@ -30,7 +30,7 @@ stracectl --help
 - Real-time aggregation: counts, latencies, error rates
 - Interactive TUI: htop-style syscall dashboard
 - HTTP sidecar & API: metrics and event export
-- Multiple backends: `strace` parser, `ptrace` option, eBPF (low overhead)
+- Multiple backends: `strace` subprocess tracer, eBPF (low overhead)
 - Kubernetes-ready: Helm chart and ServiceMonitor
 
 {{< features >}}
