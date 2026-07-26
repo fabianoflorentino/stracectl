@@ -83,7 +83,15 @@
    - Sidecar resource usage should be bounded and configurable (memory/CPU limits, collector scrape intervals, channel buffer sizes).
 
 9. Privacy
-   - Avoid logging sensitive data by default. Provide documentation and flags to control any data retention or export features.
+    - Default to privacy-first behaviour: suppress argument capture unless explicitly requested.
+    - Provide `--privacy-log` for newline-delimited redacted JSON output with optional TTL expiration.
+    - Support `--no-args` for maximal privacy (no argument content captured).
+    - Support `--max-arg-size N` to truncate arguments to N bytes.
+    - Support `--redact-patterns` for custom regex-based redaction (JWT, email, tokens).
+    - Support `--privacy-level low|medium|high` presets (default: `high`).
+    - Support `--full` + `--force` for explicit full payload capture with guardrails.
+    - Write audit files (`<path>.audit`) with trace metadata and SHA256 hash alongside privacy logs.
+    - Provide `explain` subcommand to preview redaction behavior before running a trace.
 
 
 ## Acceptance Criteria
