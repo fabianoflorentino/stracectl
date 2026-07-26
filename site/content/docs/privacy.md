@@ -43,4 +43,4 @@ When `--privacy-log` writes to a file path, stracectl appends an audit entry at 
 
 - Secure deletion: stracectl performs a best-effort overwrite before removal when `--privacy-ttl` expires. This is not a cryptographically secure wipe on all filesystems (e.g., copy-on-write, journaling). Prefer encrypted volumes or tmpfs for stronger guarantees.
 
-For usage examples and operational guidance see the repo docs: `docs/privacy-usage-examples.md` and the implementation plan `docs/privacy-implementation-plan.md`.
+For usage examples and operational guidance see the repo docs: `docs/privacy-usage-examples.md`.

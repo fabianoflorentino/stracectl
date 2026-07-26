@@ -58,10 +58,8 @@ This file contains the repository tree previously embedded in the README.
 │   ├── KUBERNETES.md
 │   ├── LOCAL_USAGE.md
 │   ├── per_file_view.md
-│   ├── privacy-implementation-plan.md
-│   ├── privacy-improvements.md
-│   ├── privacy-usage-examples.md
-│   ├── PROJECT_STRUCTURE.md
+│   ├── privacy-usage-examples.md
+│   ├── PROJECT_STRUCTURE.md
 │   ├── PROMETHEUS.md
 │   ├── REQUIREMENTS.md
 │   ├── ROADMAP.md
@@ -69,9 +67,8 @@ This file contains the repository tree previously embedded in the README.
 │   ├── SELF_HOSTED_RUNNER_LOCAL_VM.md
 │   ├── SELF_HOSTED_RUNNER.md
 │   ├── SELF_HOSTED_RUNNER_PROXY.md
-│   ├── SYSTEM_DESIGN.md
-│   ├── TESTING_CONSIDERATIONS.md
-│   └── USAGE.md
+│   ├── SYSTEM_DESIGN.md
+│   └── USAGE.md
 ├── go.mod
 ├── go.sum
 ├── internal
