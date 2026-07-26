@@ -128,6 +128,8 @@ Use the following flags to control privacy-sensitive behaviour. These flags are 
 - `--no-args` — suppress capture of syscall argument content entirely (maximal privacy).
 - `--max-arg-size N` — when arguments are captured, truncate each to at most `N` bytes (default: 64).
 - `--redact-patterns=pat1,pat2` — add custom regex patterns to the redaction set.
+- `--syscalls <list>` — comma-separated list of syscall names to include.
+- `--exclude <list>` — comma-separated list of syscall names to exclude.
 - `--privacy-level low|medium|high` — pre-baked privacy preset (default: `high`). `low` enables more verbose captures; `high` limits to metadata and aggressive redaction.
 - `--full` — enable full payload capture (dangerous). `--force` is required in non-interactive contexts to proceed with `--full`.
 
@@ -182,6 +184,7 @@ unintended data will be captured or logged.
 | `n` | Sort alphabetically |
 | `g` | Sort by category |
 | `/` | Open filter prompt |
+| `f` | Open Top Files overlay |
 | `Esc` | Clear filter / reset cursor |
 | `?` | Open help overlay |
 | `q` / `Ctrl+C` | Quit |
