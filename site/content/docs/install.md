@@ -6,9 +6,20 @@ weight: 1
 
 ## Requirements
 
-- **Linux** — uses `ptrace` via the `strace` binary
+- **Linux** — uses `ptrace` via the `strace` binary, or the optional eBPF backend
 - **Go 1.26+** — for building from source or `go install`
-- **strace** — must be installed on the host
+- **strace** — must be installed on the host (required for the `strace` backend)
+
+### eBPF backend (optional)
+
+`stracectl` also supports an eBPF tracing backend that avoids spawning a `strace`
+subprocess and has lower overhead. Requirements for eBPF:
+
+- Linux kernel >= 5.8 (BPF ringbuf support)
+- `clang`, `llvm`, and kernel headers installed
+- `bpf2go` tool: `go install github.com/cilium/ebpf/cmd/bpf2go@latest`
+
+See the [eBPF backend](/docs/ebpf/) page for build instructions and details.
 
 Install `strace` first:
 
@@ -42,6 +53,13 @@ go build -o stracectl .
 sudo mv stracectl /usr/local/bin/
 ```
 
+Build with eBPF support (requires `clang` and `bpf2go`):
+
+```bash
+go generate ./internal/tracer/...
+CGO_ENABLED=1 go build -tags=ebpf -o stracectl .
+```
+
 ## Container image
 
 Pre-built images are published to Docker Hub on every release:
@@ -50,7 +68,7 @@ Pre-built images are published to Docker Hub on every release:
 docker pull fabianoflorentino/stracectl:latest
 
 # Pin to a specific version
-docker pull fabianoflorentino/stracectl:v1.0.124
+docker pull fabianoflorentino/stracectl:v1.0.131
 ```
 
 Run inside a privileged container (required for `ptrace`):
