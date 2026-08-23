@@ -79,7 +79,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # -----------------------------------------------------------------------------
 # Stage 2: base-ebpf — full Go build with eBPF tag (requires clang/headers)
 # -----------------------------------------------------------------------------
-FROM golang:1.26-bookworm AS base-ebpf
+FROM golang:1.27-bookworm AS base-ebpf
 
 WORKDIR /app
 
@@ -130,7 +130,7 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
 # -----------------------------------------------------------------------------
 # Stage 3: development — SDK image with live-reload, strace and eBPF tooling
 # -----------------------------------------------------------------------------
-FROM golang:1.26-bookworm AS development
+FROM golang:1.27-bookworm AS development
 
 WORKDIR /app
 
