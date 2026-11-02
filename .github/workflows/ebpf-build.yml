@@ -55,7 +55,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version: '1.26.10'
 
       - name: Ensure bpf2go available (best-effort)
         run: |
@@ -90,7 +90,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version: '1.26.10'
 
       - name: Install system dependencies (if available)
         run: |
