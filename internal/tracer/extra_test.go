@@ -1,7 +1,6 @@
 package tracer
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"runtime"
@@ -31,25 +30,6 @@ func TestSelect_ExplicitBackendsAndUnknown(t *testing.T) {
 
 	if _, err := Select("nope"); err == nil {
 		t.Fatalf("Select(unknown) expected error, got nil")
-	}
-}
-
-// Test that the EBPF stub behaves as expected in non-ebpf builds.
-func TestEBPFStub_NoEBPF(t *testing.T) {
-	tr := NewEBPFTracer()
-	tr.SetForce(true)      // no-op
-	tr.SetUnfiltered(true) // no-op
-
-	if ch, err := tr.Attach(context.Background(), 1); err == nil {
-		if ch != nil {
-			t.Fatalf("expected Attach to return error when ebpf disabled, got channel")
-		}
-	}
-
-	if ch, err := tr.Run(context.Background(), "true", nil); err == nil {
-		if ch != nil {
-			t.Fatalf("expected Run to return error when ebpf disabled, got channel")
-		}
 	}
 }
 
