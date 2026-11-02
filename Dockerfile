@@ -17,7 +17,7 @@
 # -----------------------------------------------------------------------------
 # Stage 0: bpf-build — compile BPF C into an object with clang (optional)
 # -----------------------------------------------------------------------------
-FROM debian:bookworm-slim AS bpf-build
+FROM debian:trixie-slim AS bpf-build
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -57,7 +57,7 @@ RUN clang -O2 -g -target bpf \
 # -----------------------------------------------------------------------------
 # Stage 1: base — lightweight non-eBPF Go build (alpine)
 # -----------------------------------------------------------------------------
-FROM golang:alpine3.24.1 AS base
+FROM golang:1.27-alpine AS base
 
 WORKDIR /app
 
@@ -79,7 +79,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # -----------------------------------------------------------------------------
 # Stage 2: base-ebpf — full Go build with eBPF tag (requires clang/headers)
 # -----------------------------------------------------------------------------
-FROM golang:1.27-bookworm AS base-ebpf
+FROM golang:1.27-trixie AS base-ebpf
 
 WORKDIR /app
 
@@ -130,7 +130,7 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
 # -----------------------------------------------------------------------------
 # Stage 3: development — SDK image with live-reload, strace and eBPF tooling
 # -----------------------------------------------------------------------------
-FROM golang:1.27-bookworm AS development
+FROM golang:1.27-trixie AS development
 
 WORKDIR /app
 
@@ -180,7 +180,7 @@ CMD ["server", "--bind", "0.0.0.0", "--disableFastRender", "--buildDrafts"]
 # -----------------------------------------------------------------------------
 # Stage 5: strace-src — provides a glibc-linked strace binary used by production
 # -----------------------------------------------------------------------------
-FROM debian:bookworm-slim AS strace-src
+FROM debian:trixie-slim AS strace-src
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends strace \
@@ -189,23 +189,26 @@ RUN apt-get update \
 # -----------------------------------------------------------------------------
 # Stage 6: production — single image containing both non-eBPF and eBPF binaries
 # -----------------------------------------------------------------------------
-# Use distroless/cc (not distroless/static) because the eBPF binary is built
-# with CGO_ENABLED=1 and requires glibc's dynamic linker
-# (/lib64/ld-linux-x86-64.so.2). distroless/static ships without it and causes
-# "exec: no such file or directory" at runtime.
-FROM gcr.io/distroless/cc:nonroot AS production
+# Use distroless/static plus an explicit glibc runtime. The cc variants ship
+# zlib and OpenSSL, which this image does not use and which currently carry
+# CVEs with no fixed package in Debian 13. Copy only the loader and libraries
+# required by the CGO-enabled eBPF binary and by strace.
+FROM gcr.io/distroless/static-debian13:nonroot AS production
 
 # Copy a glibc-linked `strace` (as before) and both built binaries so a single
 # image contains both backends. The non-eBPF binary will be the default
 # `/usr/local/bin/stracectl`; the eBPF binary will also be present as
 # `/usr/local/bin/stracectl-ebpf` for direct execution when needed.
 COPY --from=strace-src /usr/bin/strace /usr/bin/strace
-# Copy runtime shared libraries required by /usr/bin/strace.
-# distroless/cc provides glibc but not libunwind-ptrace and related deps.
+# Copy runtime shared libraries required by /usr/bin/strace and by the
+# dynamically linked eBPF binary. Keep these in sync with the build base.
 COPY --from=strace-src /usr/lib/x86_64-linux-gnu/libunwind.so* /usr/lib/x86_64-linux-gnu/
 COPY --from=strace-src /usr/lib/x86_64-linux-gnu/libunwind-*.so* /usr/lib/x86_64-linux-gnu/
 COPY --from=strace-src /usr/lib/x86_64-linux-gnu/liblzma.so* /usr/lib/x86_64-linux-gnu/
 COPY --from=strace-src /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
+COPY --from=strace-src /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
+COPY --from=strace-src /lib/x86_64-linux-gnu/libresolv.so.2 /lib/x86_64-linux-gnu/
+COPY --from=strace-src /lib64/ld-linux-x86-64.so.2 /lib64/
 # Install a single `stracectl` binary in the image. Prefer the eBPF
 # build (from `base-ebpf`) so the runtime image contains the fully-capable
 # binary at `/usr/local/bin/stracectl`. The non-eBPF build is no longer
