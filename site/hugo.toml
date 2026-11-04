@@ -1,4 +1,4 @@
-baseURL = "https://fabianoflorentino.github.io/stracectl/"
+baseURL = "https://stracectl.fabianoflorentino.dev/"
 languageCode = "en-us"
 title = "stracectl"
 theme = "stracectl"

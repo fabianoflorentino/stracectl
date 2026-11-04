@@ -52,7 +52,7 @@ jobs:
           HUGO_ENVIRONMENT: production
         run: |
           hugo \
-            --baseURL "https://fabianoflorentino.github.io/stracectl/" \
+            --baseURL "https://stracectl.fabianoflorentino.dev/" \
             --minify
 
       - name: Upload artifact
