@@ -159,6 +159,12 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 		}
 	}
 
+	saveSink, sinkErr := openSaveEventsSink()
+	if sinkErr != nil {
+		return sinkErr
+	}
+	defer closeSaveEventsSink(saveSink)
+
 	if serveAddr != "" {
 		// Server mode: start tracer first (so the dashboard has data immediately),
 		// then start HTTP server in the foreground.
@@ -177,6 +183,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 			defer close(done)
 			for event := range events {
 				agg.Add(event)
+				saveSink = writeSavedEvent(saveSink, event)
 				if pEnabled && pOutput != nil {
 					te := p.NewTraceEventFromModel(event)
 					if derivedAllowFull {
@@ -242,6 +249,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 			defer close(done)
 			for event := range events {
 				agg.Add(event)
+				saveSink = writeSavedEvent(saveSink, event)
 				if pEnabled && pOutput != nil {
 					te := p.NewTraceEventFromModel(event)
 					if derivedAllowFull {
@@ -424,10 +432,17 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 			}
 		}
 	}
+	saveSink, sinkErr := openSaveEventsSink()
+	if sinkErr != nil {
+		return sinkErr
+	}
+	defer closeSaveEventsSink(saveSink)
+
 	wg.Go(func() {
 		defer close(done)
 		for event := range events {
 			agg.Add(event)
+			saveSink = writeSavedEvent(saveSink, event)
 			if pEnabled && pOutput != nil {
 				te := p.NewTraceEventFromModel(event)
 				if derivedAllowFull {

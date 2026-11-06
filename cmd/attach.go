@@ -145,5 +145,6 @@ func init() {
 	attachCmd.Flags().BoolVar(&attachForceEbpf, "force-ebpf", false, "fail when eBPF probe fails instead of falling back to strace")
 	attachCmd.Flags().BoolVar(&attachUnfiltered, "unfiltered", false, "disable PGID filter and capture system-wide events (useful on WSL)")
 	attachCmd.Flags().BoolVar(&attachPerPID, "per-pid", false, "group syscall statistics by PID instead of aggregating across all processes")
+	addSaveEventsFlag(attachCmd)
 	rootCmd.AddCommand(attachCmd)
 }
