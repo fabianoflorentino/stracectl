@@ -689,7 +689,7 @@
         <div class="install-tab-content active" id="tab-go">
           <div class="code-block">
             <pre><code id="install-go-cmd">go install github.com/fabianoflorentino/stracectl@latest</code></pre>
-            <button class="copy-btn" id="install-go-copy" data-copy="go install github.com/fabianoflorentino/stracectl@latest">
+            <button class="copy-btn" id="install-go-copy" aria-label="Copy command" data-copy="go install github.com/fabianoflorentino/stracectl@latest">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
           </div>
@@ -700,7 +700,7 @@
 cd stracectl
 go build -o stracectl .
 sudo mv stracectl /usr/local/bin/</code></pre>
-            <button class="copy-btn" data-copy="git clone https://github.com/fabianoflorentino/stracectl && cd stracectl && go build -o stracectl . && sudo mv stracectl /usr/local/bin/">
+            <button class="copy-btn" aria-label="Copy command" data-copy="git clone https://github.com/fabianoflorentino/stracectl && cd stracectl && go build -o stracectl . && sudo mv stracectl /usr/local/bin/">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
           </div>
@@ -708,7 +708,7 @@ sudo mv stracectl /usr/local/bin/</code></pre>
         <div class="install-tab-content" id="tab-docker">
           <div class="code-block">
             <pre><code id="install-docker-cmd">docker pull fabianoflorentino/stracectl:{{ .Site.Params.version }}</code></pre>
-            <button class="copy-btn" id="install-docker-copy" data-copy="docker pull fabianoflorentino/stracectl:{{ .Site.Params.version }}">
+            <button class="copy-btn" id="install-docker-copy" aria-label="Copy command" data-copy="docker pull fabianoflorentino/stracectl:{{ .Site.Params.version }}">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
           </div>
