@@ -1,7 +1,8 @@
 <footer class="site-footer">
   <div class="container footer-inner">
     <div class="footer-brand">
-      <span class="logo-bracket">&gt;_</span><span class="logo-text">stracectl</span>
+      <img src="{{ "img/brand.svg" | absURL }}" class="brand-mark" width="24" height="24" alt="" aria-hidden="true" loading="lazy">
+      <span class="logo-text">stracectl</span>
       <p>A modern strace with real-time TUI and Kubernetes sidecar mode.</p>
       <p class="footer-license">
         {{ if .Site.Params.license_url }}
