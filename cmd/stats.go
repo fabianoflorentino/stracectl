@@ -58,12 +58,14 @@ Capture a trace file with strace:
 		}
 		defer closeSaveEventsSink(saveSink)
 
-		agg, err := loadAggFromFileWithSink(args[0], statsPerPID, func(event models.SyscallEvent) error {
-			if saveSink == nil {
-				return nil
-			}
-			return saveSink.Write(event)
-		})
+		var agg *aggregator.Aggregator
+		if saveSink == nil {
+			agg, err = loadAggFromFile(args[0], statsPerPID)
+		} else {
+			agg, err = loadAggFromFileWithSink(args[0], statsPerPID, func(event models.SyscallEvent) error {
+				return saveSink.Write(event)
+			})
+		}
 		if err != nil {
 			return err
 		}
