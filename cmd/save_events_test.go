@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fabianoflorentino/stracectl/internal/aggregator"
 	"github.com/fabianoflorentino/stracectl/internal/models"
 	"github.com/fabianoflorentino/stracectl/internal/ndjson"
 )
@@ -217,5 +219,91 @@ func TestLoadAggFromFileWithSinkPropagatesError(t *testing.T) {
 		return wantErr
 	}); !errors.Is(err, wantErr) {
 		t.Fatalf("error = %v; want %v", err, wantErr)
+	}
+}
+
+func TestRunTraceWithEventsWritesSaveEvents(t *testing.T) {
+	setPrivacyForSaveEvents(t, "low", false, 0, "", "", "")
+
+	prevPath := saveEventsPath
+	t.Cleanup(func() { saveEventsPath = prevPath })
+
+	path := filepath.Join(t.TempDir(), "events.ndjson")
+	saveEventsPath = path
+
+	events := make(chan models.SyscallEvent, 1)
+	events <- models.SyscallEvent{
+		PID:     11,
+		Name:    "openat",
+		Args:    `AT_FDCWD, "/tmp/x", O_RDONLY`,
+		RetVal:  "3",
+		Latency: 12 * time.Microsecond,
+		Time:    time.Now(),
+	}
+	close(events)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	if err := runTraceWithEvents(ctx, func() {}, events, aggregator.New(), ":0", "", "", 0, "test"); err != nil {
+		t.Fatalf("runTraceWithEvents: %v", err)
+	}
+
+	got := readNDJSON(t, path)
+	if len(got) != 1 {
+		t.Fatalf("got %d events; want 1", len(got))
+	}
+	if got[0].Name != "openat" || got[0].PID != 11 {
+		t.Errorf("unexpected event: %+v", got[0])
+	}
+}
+
+func TestRunTraceWritesSaveEvents(t *testing.T) {
+	setPrivacyForSaveEvents(t, "low", false, 0, "", "", "")
+
+	prevPath := saveEventsPath
+	t.Cleanup(func() { saveEventsPath = prevPath })
+
+	path := filepath.Join(t.TempDir(), "events.ndjson")
+	saveEventsPath = path
+
+	events := make(chan models.SyscallEvent, 1)
+	events <- models.SyscallEvent{
+		PID:     22,
+		Name:    "read",
+		Args:    `3, "data", 4`,
+		RetVal:  "4",
+		Latency: 5 * time.Microsecond,
+		Time:    time.Now(),
+	}
+	close(events)
+
+	tr := &eventsTracer{events: events}
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	if err := runTrace(ctx, context.Background(), func() {}, tr, "prog", nil, aggregator.New(), ":0", "", "", 0, "test"); err != nil {
+		t.Fatalf("runTrace: %v", err)
+	}
+
+	got := readNDJSON(t, path)
+	if len(got) != 1 {
+		t.Fatalf("got %d events; want 1", len(got))
+	}
+	if got[0].Name != "read" || got[0].PID != 22 {
+		t.Errorf("unexpected event: %+v", got[0])
+	}
+}
+
+func TestSaveEventsFlagIsRegisteredOnCommands(t *testing.T) {
+	commands := map[string]bool{
+		"run":    runCmd.Flags().Lookup("save-events") != nil,
+		"attach": attachCmd.Flags().Lookup("save-events") != nil,
+		"stats":  statsCmd.Flags().Lookup("save-events") != nil,
+	}
+	for name, found := range commands {
+		if !found {
+			t.Errorf("%s is missing --save-events", name)
+		}
 	}
 }
