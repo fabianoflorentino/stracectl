@@ -1,0 +1,3 @@
+{{- $name := .name -}}
+{{- $size := .size | default 22 -}}
+<span class="feature-icon" aria-hidden="true">{{ partial "icon.html" (dict "name" $name "size" $size) }}</span>
