@@ -2,7 +2,7 @@
 
 This document describes the project roadmap, prioritized work items, and concrete implementation notes. It highlights features that should be supported consistently across both tracing backends (the classic `strace` subprocess and the eBPF tracer) and lists short-, mid-, and long-term priorities.
 
-> **Last updated:** 2026-11-02
+> **Last updated:** 2026-11-06
 >
 > **Tracking issue:** https://github.com/fabianoflorentino/stracectl/issues/61
 
@@ -59,6 +59,7 @@ The following features are complete and shipped. They are listed here for refere
 - **Debian 13 distroless static runtime** — production image uses `gcr.io/distroless/static-debian13` with only the required glibc libraries. Removes `zlib` and OpenSSL from the runtime, reduces the image to about 9 MB and unblocks Docker Scout/releases (#49, #62).
 - **Dependency and toolchain alignment** — Go 1.26.10 across `go.mod` and CI, `x/text` CVE fix, Dependabot updates and reproducible eBPF toolchain pinning (#43, #48).
 - **eBPF test isolation** — stub-only tests are gated behind `!ebpf` so privileged integration runs are not mixed with non-eBPF assertions (#46).
+- **Structured event export** — `--save-events` writes versioned NDJSON from `run`, `attach` and `stats`, with privacy filtering and redaction. The OpenTelemetry exporter remains tracked in #54.
 
 ---
 
@@ -75,7 +76,7 @@ Every roadmap item should have a GitHub issue for tracking. The links below are 
 | Security | Self-hosted runner hardening | #52 |
 | Security | Sidecar RBAC, mTLS and audit | #70 |
 | Testing | Benchmarks, fuzzing and coverage | #53 |
-| Export | NDJSON and OpenTelemetry integration | #54 |
+| Export | NDJSON export (delivered) and OpenTelemetry integration | #54 |
 | CLI | Filters, capture bounds and timestamps | #55 |
 | CLI | `--decode-fds` | #56 |
 | Network/UI | TopSockets, DNS, network and timeline views | #57 |
@@ -96,7 +97,7 @@ Every roadmap item should have a GitHub issue for tracking. The links below are 
 
 Goal: provide a unified CLI and consistent operator experience regardless of backend. When a feature cannot be implemented identically on both backends we will provide a best-effort behavior and document the difference.
 
-- **Save parsed events (`--save-events` → NDJSON/JSON)** — write parsed events to disk in a structured format for offline analysis. See #54.
+- **Save parsed events (`--save-events` → NDJSON/JSON)** — write parsed events to disk in a structured format for offline analysis. NDJSON is delivered; OpenTelemetry remains in #54.
   - Supported by both backends: format events as NDJSON and include fields `time`, `pid`, `name`, `args`, `retval`, `error`, `latency`, plus optional `decoded_fds`, `path`, `stack` and context metadata when available.
   - Complexity: low.
 
@@ -154,7 +155,7 @@ Notes:
 - **Guided triage** — `stracectl triage` runs a bounded capture and prints prioritized findings with next steps. See #64.
 - **Syscall/errno explanations** — `stracectl explain syscall|errno` with causes and remediation hints. See #64.
 - **Bounded investigations** — `--duration`, `--until`, `--max-events` and `--snapshot`. See #55.
-- **Structured export** — `--save-events <file>` (NDJSON) for `run`, `attach` and `stats`, with a versioned schema. See #54.
+- **OpenTelemetry export** — OTel spans and metrics for syscall events and aggregated latency; the NDJSON `--save-events` export is already delivered. See #54.
 - **Unified CLI flags** — `--filter-syscalls`, `--trace-path`, `--string-limit`, `--status` and `--timestamps`, wired to both backends. See #55.
 - **`--decode-fds`** — expose the existing FD mapper as an opt-in flag with caching. See #56.
 
@@ -217,7 +218,7 @@ Notes:
 2. Add `stracectl triage` and syscall/errno explanations (#64).
 3. Add network/DNS, TopSockets and timeline views (#57).
 4. Add bounded captures (`--duration`, `--until`, `--max-events`, `--snapshot`) (#55).
-5. Implement `--save-events` (NDJSON) and the OpenTelemetry exporter (#54).
+5. Implement the OpenTelemetry exporter (#54); the NDJSON `--save-events` export is delivered.
 6. Add capture-on-exit and restart investigation (#65).
 7. Implement session save/load/diff, baseline comparison and configurable alerts (#58).
 8. Add process/container topology and `--unit`/`--cgroup` selectors (#67).
@@ -231,6 +232,6 @@ Notes:
 
 | Tier | Scope | Estimate |
 |---|---|---|
-| Short-term | K8s context, triage/explain, bounded captures, NDJSON, unified flags | A few days to 1 sprint |
+| Short-term | K8s context, triage/explain, bounded captures, OTel export, unified flags | A few days to 1 sprint |
 | Mid-term | Network/DNS/timeline, crash investigation, sessions/baseline/alerts, topology, K8s-native UX, sidecar security | 2–4 sprints |
 | Long-term | Agent/collector, plugins, OTel/Grafana correlation, stack traces, kernel-side decodes, GoReleaser/SBOM | Larger projects requiring design and security review |
