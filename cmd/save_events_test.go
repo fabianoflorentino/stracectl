@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -175,5 +176,46 @@ func TestOpenSaveEventsSinkWithoutPath(t *testing.T) {
 	}
 	if sink != nil {
 		t.Fatal("expected nil sink when --save-events is unset")
+	}
+}
+
+func TestLoadAggFromFileWithSink(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "trace.log")
+	content := "read(3, \"hello\", 5) = 5 <0.000042>\n" +
+		"write(1, \"hello\", 5) = 5 <0.000012>\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	var got []models.SyscallEvent
+	agg, err := loadAggFromFileWithSink(path, false, func(event models.SyscallEvent) error {
+		got = append(got, event)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("loadAggFromFileWithSink: %v", err)
+	}
+	if agg.Total() != 2 {
+		t.Errorf("aggregator total = %d; want 2", agg.Total())
+	}
+	if len(got) != 2 {
+		t.Fatalf("sink received %d events; want 2", len(got))
+	}
+	if got[0].Name != "read" || got[1].Name != "write" {
+		t.Errorf("unexpected sink events: %+v", got)
+	}
+}
+
+func TestLoadAggFromFileWithSinkPropagatesError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "trace.log")
+	if err := os.WriteFile(path, []byte("read(3, \"hi\", 2) = 2 <0.000005>\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	wantErr := errors.New("sink failed")
+	if _, err := loadAggFromFileWithSink(path, false, func(models.SyscallEvent) error {
+		return wantErr
+	}); !errors.Is(err, wantErr) {
+		t.Fatalf("error = %v; want %v", err, wantErr)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fabianoflorentino/stracectl/internal/aggregator"
+	"github.com/fabianoflorentino/stracectl/internal/models"
 	"github.com/fabianoflorentino/stracectl/internal/parser"
 	"github.com/fabianoflorentino/stracectl/internal/server"
 	"github.com/fabianoflorentino/stracectl/internal/tracer"
@@ -24,7 +25,7 @@ var statsReportTopFiles int
 var statsPerPID bool
 
 var statsCmd = &cobra.Command{
-	Use:   "stats [--serve :8080] [--report <path>] [--ws-token <token>] [--per-pid] <file>",
+	Use:   "stats [--serve :8080] [--report <path>] [--save-events <file>] [--ws-token <token>] [--per-pid] <file>",
 	Short: "Analyse a saved strace output file (post-mortem)",
 	Long: `Parse a raw strace output file and display the same aggregated stats
 as the live trace session — without needing the traced process.
@@ -51,7 +52,18 @@ Capture a trace file with strace:
   strace -T -o trace.log curl https://example.com`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
-		agg, err := loadAggFromFile(args[0], statsPerPID)
+		saveSink, err := openSaveEventsSink()
+		if err != nil {
+			return err
+		}
+		defer closeSaveEventsSink(saveSink)
+
+		agg, err := loadAggFromFileWithSink(args[0], statsPerPID, func(event models.SyscallEvent) error {
+			if saveSink == nil {
+				return nil
+			}
+			return saveSink.Write(event)
+		})
 		if err != nil {
 			return err
 		}
@@ -84,6 +96,12 @@ Capture a trace file with strace:
 // tracer — so that lines containing large read/write argument dumps are not
 // silently truncated (the default bufio limit is only 64 KiB).
 func loadAggFromFile(path string, perPID bool) (*aggregator.Aggregator, error) {
+	return loadAggFromFileWithSink(path, perPID, nil)
+}
+
+// loadAggFromFileWithSink is loadAggFromFile with an optional per-event sink.
+// The sink is called after each event is parsed and before it is aggregated.
+func loadAggFromFileWithSink(path string, perPID bool, sink func(models.SyscallEvent) error) (*aggregator.Aggregator, error) {
 	f, err := os.Open(path) // #nosec G304 — path comes from a CLI argument supplied by the operator
 	if err != nil {
 		return nil, fmt.Errorf("opening %s: %w", path, err)
@@ -115,6 +133,11 @@ func loadAggFromFile(path string, perPID bool) (*aggregator.Aggregator, error) {
 				}
 			}
 			agg.Add(*event)
+			if sink != nil {
+				if err := sink(*event); err != nil {
+					return nil, fmt.Errorf("writing event from %s: %w", path, err)
+				}
+			}
 		}
 	}
 
@@ -133,5 +156,6 @@ func init() {
 	statsCmd.Flags().StringVar(&statsReportPath, "report", "", "write a self-contained HTML report to this file after analysis")
 	statsCmd.Flags().IntVar(&statsReportTopFiles, "report-top-files", 50, "number of top files to include in HTML report")
 	statsCmd.Flags().BoolVar(&statsPerPID, "per-pid", false, "group syscall statistics by PID instead of aggregating across all processes")
+	addSaveEventsFlag(statsCmd)
 	rootCmd.AddCommand(statsCmd)
 }
