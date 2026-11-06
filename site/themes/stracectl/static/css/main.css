@@ -1571,9 +1571,15 @@ code, pre, kbd {
 
 .footer-inner {
   display: grid;
-  grid-template-columns: 1.5fr repeat(3, 1fr);
+  grid-template-columns: 1.5fr 2.5fr;
   gap: 2rem;
   align-items: start;
+}
+
+.footer-links {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
 }
 
 .footer-brand .nav-logo {
@@ -1743,8 +1749,8 @@ code, pre, kbd {
   .hero-inner    { grid-template-columns: 1fr; gap: 3rem; }
   .hero-terminal { max-width: 560px; margin: 0 auto; }
   .install-inner { grid-template-columns: 1fr; }
-  .footer-inner  { grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .footer-brand  { grid-column: 1 / -1; }
+  .footer-inner  { grid-template-columns: 1fr; gap: 2rem; }
+  .footer-links  { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 768px) {
@@ -1786,8 +1792,7 @@ code, pre, kbd {
   .inner-layout   { grid-template-columns: 1fr; }
   .docs-sidebar   { display: none; }
   .inner-layout .prose { padding-right: 0; }
-  .footer-inner   { grid-template-columns: 1fr 1fr; }
-  .footer-brand   { grid-column: 1 / -1; }
+  .footer-links   { grid-template-columns: repeat(2, 1fr); }
   .list-cards     { grid-template-columns: 1fr; }
   .cta-actions    { flex-direction: column; align-items: center; }
 
@@ -1800,6 +1805,7 @@ code, pre, kbd {
   .container { padding: 0 1rem; }
   .hero-actions { flex-direction: column; align-items: flex-start; }
   .footer-inner { grid-template-columns: 1fr; }
+  .footer-links { grid-template-columns: 1fr; }
   .modes-grid   { grid-template-columns: 1fr; }
   .caption-desc { font-size: 0.78rem; }
   .carousel-captions { min-height: 4rem; }
