@@ -26,7 +26,6 @@ import (
 	pformat "github.com/fabianoflorentino/stracectl/internal/privacy/formatter"
 	pout "github.com/fabianoflorentino/stracectl/internal/privacy/output"
 	ppipeline "github.com/fabianoflorentino/stracectl/internal/privacy/pipeline"
-	predact "github.com/fabianoflorentino/stracectl/internal/privacy/redactor"
 	"golang.org/x/term"
 )
 
@@ -98,27 +97,12 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 	}
 
 	// Derive privacy semantics from privacy-level and flags.
-	derivedNoArgs := privacyNoArgs
-	if privacyPrivacyLevel == "high" {
-		derivedNoArgs = true
-	}
 	derivedAllowFull := privacyFull || privacyPrivacyLevel == "low"
 
 	if pEnabled {
 		pFilter = pfilters.New(privacySyscalls, privacyExclude, nil, nil)
 
-		// Build redactor config
-		patterns := []string{}
-		if privacyRedactPatterns != "" {
-			for _, s := range strings.Split(privacyRedactPatterns, ",") {
-				s = strings.TrimSpace(s)
-				if s != "" {
-					patterns = append(patterns, s)
-				}
-			}
-		}
-		rcfg := predact.Config{NoArgs: derivedNoArgs, MaxArgSize: privacyMaxArgSize, Patterns: patterns}
-		r, err := predact.New(rcfg)
+		r, err := newPrivacyRedactor()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to initialize redactor: %v; disabling privacy logging\n", err)
 			pEnabled = false
@@ -175,6 +159,12 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 		}
 	}
 
+	saveSink, sinkErr := openSaveEventsSink()
+	if sinkErr != nil {
+		return sinkErr
+	}
+	defer closeSaveEventsSink(saveSink)
+
 	if serveAddr != "" {
 		// Server mode: start tracer first (so the dashboard has data immediately),
 		// then start HTTP server in the foreground.
@@ -193,6 +183,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 			defer close(done)
 			for event := range events {
 				agg.Add(event)
+				saveSink = writeSavedEvent(saveSink, event)
 				if pEnabled && pOutput != nil {
 					te := p.NewTraceEventFromModel(event)
 					if derivedAllowFull {
@@ -258,6 +249,7 @@ func runTrace(ctx context.Context, tracerCtx context.Context, cancelTracer conte
 			defer close(done)
 			for event := range events {
 				agg.Add(event)
+				saveSink = writeSavedEvent(saveSink, event)
 				if pEnabled && pOutput != nil {
 					te := p.NewTraceEventFromModel(event)
 					if derivedAllowFull {
@@ -379,26 +371,12 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 		}
 	}
 
-	derivedNoArgs := privacyNoArgs
-	if privacyPrivacyLevel == "high" {
-		derivedNoArgs = true
-	}
 	derivedAllowFull := privacyFull || privacyPrivacyLevel == "low"
 
 	if pEnabled {
 		pFilter = pfilters.New(privacySyscalls, privacyExclude, nil, nil)
 
-		patterns := []string{}
-		if privacyRedactPatterns != "" {
-			for _, s := range strings.Split(privacyRedactPatterns, ",") {
-				s = strings.TrimSpace(s)
-				if s != "" {
-					patterns = append(patterns, s)
-				}
-			}
-		}
-		rcfg := predact.Config{NoArgs: derivedNoArgs, MaxArgSize: privacyMaxArgSize, Patterns: patterns}
-		r, err := predact.New(rcfg)
+		r, err := newPrivacyRedactor()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to initialize redactor: %v; disabling privacy logging\n", err)
 			pEnabled = false
@@ -454,10 +432,17 @@ func runTraceWithEvents(ctx context.Context, cancelTracer context.CancelFunc, ev
 			}
 		}
 	}
+	saveSink, sinkErr := openSaveEventsSink()
+	if sinkErr != nil {
+		return sinkErr
+	}
+	defer closeSaveEventsSink(saveSink)
+
 	wg.Go(func() {
 		defer close(done)
 		for event := range events {
 			agg.Add(event)
+			saveSink = writeSavedEvent(saveSink, event)
 			if pEnabled && pOutput != nil {
 				te := p.NewTraceEventFromModel(event)
 				if derivedAllowFull {

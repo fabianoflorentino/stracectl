@@ -140,6 +140,35 @@ stracectl stats --report report.html trace.log
 installation needed. It includes a summary bar, category breakdown, and a fully sortable
 syscall table suitable for sharing, archiving, or attaching to an incident report.
 
+### Structured event export (NDJSON)
+
+`--save-events <path>` writes parsed syscall events as newline-delimited JSON
+for offline analysis with `jq`, incident archives, or ingestion pipelines. It
+works with `run`, `attach` and `stats`:
+
+```bash
+sudo stracectl run --save-events events.ndjson curl https://example.com
+sudo stracectl attach --save-events events.ndjson 1234
+stracectl stats --save-events events.ndjson trace.log
+```
+
+Each line uses the versioned schema below. `latency` is expressed in
+nanoseconds:
+
+```json
+{"schema_version":1,"time":"2026-11-04T12:30:00.123456789Z","pid":123,"name":"openat","args":"...","retval":"3","latency":42000}
+```
+
+The export respects the privacy flags: `--privacy-level`, `--no-args`,
+`--max-arg-size`, `--redact-patterns`, `--syscalls` and `--exclude`. The default
+`--privacy-level high` suppresses arguments; use `--privacy-level medium` or
+`--privacy-level low` (optionally with `--max-arg-size 0`) when you need
+argument content for analysis.
+
+Files are created with mode `0600`; symlink paths are rejected. The `time`
+field is the event time for live traces and the parse time for saved strace
+files.
+
 ### Per-file view (Top files)
 
 `stracectl` can now surface the most-opened file paths observed during a trace.

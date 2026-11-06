@@ -58,6 +58,8 @@ Recently delivered
   image, smaller image and successful Docker Scout/release pipeline (#49, #62).
 - Go 1.26.10 toolchain alignment and `x/text` CVE fix (#43, #48).
 - eBPF stub test isolation behind the `!ebpf` build tag (#46).
+- Structured event export: `--save-events` writes versioned NDJSON from `run`,
+  `attach` and `stats`, with privacy filtering and redaction (#54).
 - Basic shell completion for bash, zsh, fish and PowerShell.
 
 For the full implementation plan, code pointers and estimated effort, see the
