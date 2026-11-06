@@ -107,19 +107,33 @@
   });
 
   /* ──────────────────────────────────────────────────────────
-   * 6. Particle canvas (hero background)
+   * 6. Particle canvas (site-wide background)
    * ──────────────────────────────────────────────────────────*/
   const canvas = document.getElementById('particle-canvas');
   if (canvas) {
     const ctx = canvas.getContext('2d');
     const particleColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#31c9ff';
     const CHARS = '01アイウエオカキクケコサシスセソタチツテト<>{}[]()/*+-=;:,.';
-    let W, H, particles;
-    const PARTICLE_COUNT = 60;
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reduceMotion = motionQuery.matches;
+    let W = 0;
+    let H = 0;
+    let particles = [];
+    let rafId = 0;
 
     function resize() {
-      W = canvas.width  = canvas.offsetWidth;
-      H = canvas.height = canvas.offsetHeight;
+      const dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width = `${W}px`;
+      canvas.style.height = `${H}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function particleCount() {
+      return window.innerWidth < 768 ? 28 : 60;
     }
 
     function makeParticle() {
@@ -137,10 +151,10 @@
 
     function init() {
       resize();
-      particles = Array.from({ length: PARTICLE_COUNT }, makeParticle);
+      particles = Array.from({ length: particleCount() }, makeParticle);
     }
 
-    function animate() {
+    function draw() {
       ctx.clearRect(0, 0, W, H);
       particles.forEach(p => {
         p.y += p.speed;
@@ -159,12 +173,29 @@
         ctx.fillText(p.char, p.x, p.y);
       });
       ctx.globalAlpha = 1;
-      requestAnimationFrame(animate);
     }
 
-    window.addEventListener('resize', () => { resize(); });
-    init();
-    animate();
+    function animate() {
+      draw();
+      rafId = requestAnimationFrame(animate);
+    }
+
+    function restart() {
+      cancelAnimationFrame(rafId);
+      init();
+      if (reduceMotion) {
+        draw();
+      } else {
+        animate();
+      }
+    }
+
+    motionQuery.addEventListener('change', (event) => {
+      reduceMotion = event.matches;
+      restart();
+    });
+    window.addEventListener('resize', restart);
+    restart();
   }
 
   /* ──────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 <html lang="{{ .Site.LanguageCode | default "en" }}">
   {{ partial "head.html" . }}
   <body class="{{ if .IsHome }}page-home{{ else }}page-inner{{ end }}">
+    <canvas id="particle-canvas" aria-hidden="true"></canvas>
     <a class="skip-link" href="#main-content">Skip to main content</a>
     {{ partial "header.html" . }}
     <main id="main-content" tabindex="-1">

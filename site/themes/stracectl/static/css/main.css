@@ -424,10 +424,23 @@ code, pre, kbd {
 }
 
 #particle-canvas {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   z-index: 0;
+  opacity: 0.55;
+}
+
+body.page-inner #particle-canvas {
+  opacity: 0.28;
+}
+
+main,
+.site-footer {
+  position: relative;
+  z-index: 1;
 }
 
 /* Subtle scanline overlay */
@@ -825,7 +838,7 @@ code, pre, kbd {
 .modes-section {
   /* slightly reduced to keep sections visually closer */
   padding: 2.5rem 0;
-  background: var(--surface);
+  background: rgba(14, 21, 34, 0.78);
   position: relative;
 }
 
@@ -1566,7 +1579,7 @@ code, pre, kbd {
 .site-footer {
   border-top: 1px solid var(--border-2);
   padding: 3rem 0;
-  background: var(--surface);
+  background: rgba(14, 21, 34, 0.82);
 }
 
 .footer-inner {
