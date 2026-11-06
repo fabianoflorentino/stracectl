@@ -112,6 +112,7 @@
   const canvas = document.getElementById('particle-canvas');
   if (canvas) {
     const ctx = canvas.getContext('2d');
+    const particleColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#31c9ff';
     const CHARS = '01アイウエオカキクケコサシスセソタチツテト<>{}[]()/*+-=;:,.';
     let W, H, particles;
     const PARTICLE_COUNT = 60;
@@ -153,7 +154,7 @@
           p.x = Math.random() * W;
         }
         ctx.globalAlpha = p.opacity;
-        ctx.fillStyle = '#00d4aa';
+        ctx.fillStyle = particleColor;
         ctx.font = `${p.size}px 'JetBrains Mono', monospace`;
         ctx.fillText(p.char, p.x, p.y);
       });
