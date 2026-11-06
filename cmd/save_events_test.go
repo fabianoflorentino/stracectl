@@ -16,7 +16,7 @@ import (
 	"github.com/fabianoflorentino/stracectl/internal/ndjson"
 )
 
-func setPrivacyForSaveEvents(t *testing.T, level string, noArgs bool, maxArgSize int, patterns, syscalls, exclude string) {
+func setPrivacyForSaveEvents(t *testing.T, level string, maxArgSize int, exclude string) {
 	t.Helper()
 
 	prevLevel := privacyPrivacyLevel
@@ -36,10 +36,10 @@ func setPrivacyForSaveEvents(t *testing.T, level string, noArgs bool, maxArgSize
 	})
 
 	privacyPrivacyLevel = level
-	privacyNoArgs = noArgs
+	privacyNoArgs = false
 	privacyMaxArgSize = maxArgSize
-	privacyRedactPatterns = patterns
-	privacySyscalls = syscalls
+	privacyRedactPatterns = ""
+	privacySyscalls = ""
 	privacyExclude = exclude
 }
 
@@ -67,7 +67,7 @@ func readNDJSON(t *testing.T, path string) []ndjson.Event {
 }
 
 func TestSaveEventsSinkWritesRedactedEvent(t *testing.T) {
-	setPrivacyForSaveEvents(t, "medium", false, 0, "", "", "")
+	setPrivacyForSaveEvents(t, "medium", 0, "")
 
 	path := filepath.Join(t.TempDir(), "events.ndjson")
 	sink, err := newSaveEventsSink(path)
@@ -114,7 +114,7 @@ func TestSaveEventsSinkWritesRedactedEvent(t *testing.T) {
 }
 
 func TestSaveEventsSinkHighPrivacySuppressesArgs(t *testing.T) {
-	setPrivacyForSaveEvents(t, "high", false, 64, "", "", "")
+	setPrivacyForSaveEvents(t, "high", 64, "")
 
 	path := filepath.Join(t.TempDir(), "events.ndjson")
 	sink, err := newSaveEventsSink(path)
@@ -140,7 +140,7 @@ func TestSaveEventsSinkHighPrivacySuppressesArgs(t *testing.T) {
 }
 
 func TestSaveEventsSinkAppliesSyscallFilter(t *testing.T) {
-	setPrivacyForSaveEvents(t, "medium", false, 0, "", "", "openat")
+	setPrivacyForSaveEvents(t, "medium", 0, "openat")
 
 	path := filepath.Join(t.TempDir(), "events.ndjson")
 	sink, err := newSaveEventsSink(path)
@@ -223,7 +223,7 @@ func TestLoadAggFromFileWithSinkPropagatesError(t *testing.T) {
 }
 
 func TestRunTraceWithEventsWritesSaveEvents(t *testing.T) {
-	setPrivacyForSaveEvents(t, "low", false, 0, "", "", "")
+	setPrivacyForSaveEvents(t, "low", 0, "")
 
 	prevPath := saveEventsPath
 	t.Cleanup(func() { saveEventsPath = prevPath })
@@ -259,7 +259,7 @@ func TestRunTraceWithEventsWritesSaveEvents(t *testing.T) {
 }
 
 func TestRunTraceWritesSaveEvents(t *testing.T) {
-	setPrivacyForSaveEvents(t, "low", false, 0, "", "", "")
+	setPrivacyForSaveEvents(t, "low", 0, "")
 
 	prevPath := saveEventsPath
 	t.Cleanup(func() { saveEventsPath = prevPath })
